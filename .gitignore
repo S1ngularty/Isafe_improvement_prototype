@@ -1,1 +1,30 @@
-/backend/.venv
+# Backend (Python + Node.js)
+backend/node_modules/
+backend/__pycache__/
+backend/.venv/
+backend/.env
+backend/*.pyc
+backend/*.pyo
+backend/.Python
+backend/venv/
+backend/env/
+
+# Mobile (Node.js)
+mobile/node_modules/
+mobile/.env
+mobile/.expo/
+mobile/dist/
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/*.tsbuildinfo
+
+# Website (Node.js)
+website/node_modules/
+website/.env
+website/.next/
+website/out/
+website/dist/
+website/build/
+website/*.tsbuildinfo
