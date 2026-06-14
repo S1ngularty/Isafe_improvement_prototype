@@ -2,35 +2,27 @@
 
 Disaster response and community safety platform connecting barangay officials and residents.
 
-<<<<<<< Updated upstream
-## Tech Stack
 
-
-## 6/12/2026 - 8:46PM
-
-=======
 **Last updated:** 06/14/2026 11:45 AM
 
 ## Tech Stack
 
->>>>>>> Stashed changes
+
 | Layer | Technology |
 |---|---|
 | Framework | React 18 |
 | Routing | React Router DOM v6 |
 | Build tool | Vite 6 |
 | Styling | Tailwind CSS 3 |
-<<<<<<< Updated upstream
-=======
+
 | Map | Leaflet + react-leaflet v4 (OpenStreetMap tiles) |
 | Geocoding | Nominatim (free, no API key, Philippines-only) |
->>>>>>> Stashed changes
+
 | Auth | Supabase Auth (email/password + email confirmation) |
 | Notifications | Custom Toast context |
 | RBAC | Supabase RLS + `profiles` table (`admin` / `user`) |
 | Media | Supabase Storage (public bucket: `Assets`) + external CDN images |
-<<<<<<< Updated upstream
-=======
+
 | Weather | Open-Meteo API (free, no API key) |
 
 ## Color Scheme
@@ -61,7 +53,7 @@ Custom palette (`shield-*`):
 | 700 | `#7f1d1d` | Wine |
 | 800 | `#5c1010` | Maroon |
 | 900 | `#3b0808` | Darkest maroon |
->>>>>>> Stashed changes
+
 
 ## Architecture
 
@@ -74,10 +66,7 @@ website/
     ├── main.jsx                # BrowserRouter > AuthProvider > ToastProvider > App
     ├── App.jsx                 # Routes: /, /confirm, /dashboard, /admin
     ├── css/input.css           # Tailwind + custom components + animations
-<<<<<<< Updated upstream
-    ├── js/
-    │   └── auth.js             # 12 exported functions (auth + admin)
-=======
+
     ├── services/
     │   ├── supabase.js         # Supabase client init
     │   ├── auth.js             # 15 exported functions
@@ -89,22 +78,12 @@ website/
     ├── hooks/
     │   ├── useGeolocation.js   # watchPosition hook
     │   └── useWeather.js       # Fetch weather with 10-min coordinate-keyed cache
->>>>>>> Stashed changes
+
     ├── context/
     │   ├── AuthContext.jsx     # session, role, loading, login, signup, logout
     │   └── ToastContext.jsx    # showToast, dismissToast (fixed bottom-right)
     ├── components/
-<<<<<<< Updated upstream
-    │   ├── Modal.jsx           # Overlay: Escape/click-to-close + fade+scale animation
-    │   ├── AuthModal.jsx       # Tabbed login/signup + role-based redirect
-    │   ├── AdminSidebar.jsx    # Collapsible sidebar with 5 navigation items
-    │   └── ProtectedRoute.jsx  # Session gate + allowedRoles + admin redirect
-    └── pages/
-        ├── Home.jsx            # Landing page + hero carousel + auth-aware header
-        ├── Dashboard.jsx       # User dashboard with admin panel link
-        ├── AdminDashboard.jsx  # Admin: sidebar + overview charts + user management
-        └── ConfirmEmail.jsx    # /confirm handler
-=======
+
     │   ├── Modal.jsx, AuthModal.jsx, ProtectedRoute.jsx
     │   ├── AdminSidebar.jsx    # White collapsible, 6 items (announcements added)
     │   ├── UserSidebar.jsx     # White collapsible, 5 items
@@ -116,7 +95,7 @@ website/
     │   └── AnnouncementBanner.jsx  # Auto-rotating banner with DB fallback
     └── pages/
         ├── Home.jsx, Dashboard.jsx, AdminDashboard.jsx, ConfirmEmail.jsx
->>>>>>> Stashed changes
+
 ```
 
 ## Routes & Access
@@ -150,21 +129,7 @@ ProtectedRoute features:
 | 4 | Image | Mongabay disaster photo (CDN) |
 | 5 | Image | IFRC Philippines response (CDN) |
 
-<<<<<<< Updated upstream
-Features:
-- Left/right arrow navigation buttons (translucent circles)
-- Dot indicators at bottom — active dot expands, click to jump
-- Manual navigation resets auto-advance timer
-- Dark gradient overlay keeps text readable across all slides
-- Video autoplays when active, pauses when hidden
-- Image slides use `loading="lazy"`
 
-### Auth-Aware Header
-
-**Logged out:** "Log In" + "Sign Up" buttons + hero "Get Started" / bottom CTA
-
-**Logged in:** email display + "Admin" badge (if admin) + "Dashboard" link + "Log Out" button + hero/bottom CTA changes to "Go to Dashboard"
-=======
 Features: left/right arrows, dot indicators, manual nav resets timer, dark gradient overlay, video autoplays only when active, images lazy-load.
 
 ### Auth-Aware Header
@@ -368,7 +333,7 @@ RLS: authenticated users can read active announcements. Admins can CRUD all (via
 | `createAnnouncement(data)` | Admin creates new announcement |
 | `updateAnnouncement(id, updates)` | Admin edits (including toggle active) |
 | `deleteAnnouncement(id)` | Admin deletes |
->>>>>>> Stashed changes
+
 
 ---
 
@@ -376,17 +341,11 @@ RLS: authenticated users can read active announcements. Admins can CRUD all (via
 
 ### Layout
 
-<<<<<<< Updated upstream
-- Dark header (`bg-shield-800`) with "Prototype" logo (links to `/`), admin badge, Home link, email, Log Out
-- Collapsible sidebar (expand/collapse via chevron button, smooth 200ms transition)
-  - Collapsed: 64px, icons only, tooltips on hover
-  - Expanded: 224px, icons + labels + "Soon" badges
-- Content area fills remaining width (no max-w cap)
-=======
+
 - Maroon header (`bg-shield-800`) with white text, logo links to `/`, Home link, email, admin badge, Log Out
 - White collapsible sidebar (64px / 224px, smooth transition)
 - Content fills remaining width (no max-w cap)
->>>>>>> Stashed changes
+
 
 ### Sidebar Navigation
 
@@ -398,27 +357,15 @@ RLS: authenticated users can read active announcements. Admins can CRUD all (via
 | Reports | Placeholder (Soon badge) | Chart SVG |
 | Settings | Placeholder (Soon badge) | Cog SVG |
 
-<<<<<<< Updated upstream
-Disabled items: `cursor-not-allowed`, grayed out, non-clickable
-=======
+
 Disabled items: `cursor-not-allowed`, grayed out, non-clickable. Active items: `bg-shield-50 text-shield-700`.
->>>>>>> Stashed changes
+
 
 ### Dashboard Overview (Placeholder Charts)
 
 All charts are pure Tailwind + inline SVG — zero charting libraries.
 
-<<<<<<< Updated upstream
-| Row | Left | Right |
-|---|---|---|
-| 1 | 4 stat cards (Total Users, Active, Deactivated, Admins) | — |
-| 2 | Activity Overview (7-day bar chart) | Distribution (4-segment ring) + Heatmap (7×5 grid) |
-| 3 | Monthly Incident Trend (SVG area chart, 12 months) | — |
-| 4 | Incident Type Breakdown (5-category stacked bars) | Response Time (12-month lollipop chart) |
-| 5 | Recent Activity (5-item timeline feed) | Barangay Breakdown (5-barangay progress bars) |
 
-Heatmap: 35-cell grid, 5-color scale (gray → green → blue), "Less ↔ More" legend.
-=======
 | Row | Layout |
 |---|---|
 | 1 | 4 stat cards (Total Users, Active, Deactivated, Admins) — full width |
@@ -426,75 +373,31 @@ Heatmap: 35-cell grid, 5-color scale (gray → green → blue), "Less ↔ More" 
 | 3 | Monthly Incident Trend — SVG area chart, 12 months (full width) |
 | 4 | Incident Type Breakdown stacked bars (1/2) + Response Time lollipop chart (1/2) |
 | 5 | Recent Activity timeline (1/2) + Barangay Breakdown progress bars (1/2) |
->>>>>>> Stashed changes
+
 
 ### User Management
 
 - Full-width table: Name/email, Barangay, Role badge, Status badge
-<<<<<<< Updated upstream
-- **Role badge** — click to toggle admin ↔ user (disabled for self)
-- **Status badge** — click to toggle Active ↔ Inactive (disabled for self)
-- Current admin row highlighted with light blue background + "You" badge
-=======
+
 - Role badge: click to toggle admin ↔ user (disabled for self)
 - Status badge: click to toggle Active ↔ Inactive (disabled for self)
 - Current admin row: light red highlight + "You" badge
->>>>>>> Stashed changes
+
 - Self-lockout protection: handlers check `user.id === session.user.id` before API call
 
 ### Deactivation Flow
 
 ```
 Admin toggles user inactive → is_active = false
-<<<<<<< Updated upstream
-User tries to log in → AuthContext.login() detects false
-=======
+
 User tries to log in → AuthContext.login() detects is_active === false
->>>>>>> Stashed changes
+
   → signOut() immediately → error: "Your account has been deactivated."
 ```
 
 ---
 
-<<<<<<< Updated upstream
-## Session Persistence
 
-On mount, `AuthContext` calls `getSession()` (reads Supabase session from local storage) and subscribes to `onAuthStateChange` (cross-tab sync). Opening a new tab immediately recognizes an active session.
-
-Error handling:
-- `refreshRole()` wrapped in try-catch — falls back to `"user"` on failure
-- `setLoading(false)` in `finally` — spinner always resolves
-- `cancelled` flag prevents state updates after unmount
-
----
-
-## Role-Based Access Control
-
-```
-Sign up → trigger creates profile (role = "user", is_active = true)
-Sign in → AuthContext.login() fetches profile + checks is_active
-       → deactivated → force sign out + error
-       → active → admin → redirect /admin
-                → user  → redirect /dashboard
-```
-
-### Database (`schemas/profiles.sql`)
-
-| Column | Type | Default |
-|---|---|---|
-| `id` | UUID PK | FK `auth.users` |
-| `role` | TEXT | `'user'` (CHECK: admin, user) |
-| `is_active` | BOOLEAN | `true` |
-| `full_name` | TEXT | from `raw_user_meta_data` |
-| `barangay` | TEXT | from `raw_user_meta_data` |
-| `created_at` | TIMESTAMPTZ | `now()` |
-
-Includes:
-- `is_admin()` — SECURITY DEFINER function (avoids RLS recursion)
-- `get_all_profiles()` — SECURITY DEFINER RPC (joins with `auth.users` for email)
-- `handle_new_user()` — trigger auto-creates profile on signup
-- RLS: users read own profile, admins read/update all (via `is_admin()`)
-=======
 ## Auth Flow
 
 ### Sign Up
@@ -557,7 +460,7 @@ Includes:
 - `is_admin()` — SECURITY DEFINER, avoids RLS recursion
 - `get_all_profiles()` — SECURITY DEFINER RPC, joins with auth.users for email
 - `handle_new_user()` — trigger auto-creates profile on signup
->>>>>>> Stashed changes
+
 
 Set admin:
 ```sql
@@ -566,13 +469,11 @@ UPDATE public.profiles SET role = 'admin' WHERE id = '<uuid>';
 
 ---
 
-<<<<<<< Updated upstream
-## Auth Functions (`auth.js`)
-=======
+
 ## Services
 
 ### `auth.js` (15 functions)
->>>>>>> Stashed changes
+
 
 | Function | Purpose |
 |---|---|
@@ -582,18 +483,15 @@ UPDATE public.profiles SET role = 'admin' WHERE id = '<uuid>';
 | `getSession()` | Current session from local storage |
 | `getCurrentUser()` | Current auth user |
 | `getUserRole()` | Role from profiles (fallback: `"user"`) |
-<<<<<<< Updated upstream
-| `getProfile()` | Full profile row (role + is_active) |
-=======
+
 | `getProfile()` | Full profile row — auto-inserts missing row |
->>>>>>> Stashed changes
+
 | `verifyOtp(tokenHash, type)` | Email confirmation token verification |
 | `fetchAllProfiles()` | Admin RPC — all users with emails |
 | `updateUserRole(userId, role)` | Admin — change role |
 | `toggleUserActive(userId, bool)` | Admin — activate/deactivate |
 
-<<<<<<< Updated upstream
-=======
+
 ### `location.js` (3 functions)
 
 | Function | Purpose | DB Operation |
@@ -608,7 +506,7 @@ All use `.eq("id", user.id)` + `update()` — compatible with "Users can update 
 
 `searchAddress(query)` — calls Nominatim API, returns `[{ lat, lng, display_name }]`, filtered to `countrycodes=ph`.
 
->>>>>>> Stashed changes
+
 ---
 
 ## Toast System
@@ -622,14 +520,13 @@ All use `.eq("id", user.id)` + `update()` — compatible with "Users can update 
 | Role updated | "X is now admin/user." | success | 5s |
 | User activated/deactivated | "X activated/deactivated." | success | 5s |
 | Deactivated login | "Your account has been deactivated..." | error (modal) | — |
-<<<<<<< Updated upstream
-=======
+
 | Marked as safe | "Marked as safe." | success | 4s |
 | Help request sent | "Help request sent." | info | 4s |
 | Emergency alert sent | "Emergency alert sent." | error | 4s |
 | Location pinned | "Location pinned." | success | 2s |
 | Location pin failed | "Failed to save location: ..." | error | 5s |
->>>>>>> Stashed changes
+
 
 Fixed bottom-right, auto-dismiss, manually dismissible, survives route navigation.
 
@@ -652,14 +549,7 @@ Real-time on change (when touched) + blur. Red/green borders, inline errors, pas
 
 ## Supabase Setup
 
-<<<<<<< Updated upstream
-1. Run `schemas/profiles.sql` in SQL Editor
-2. **Auth → Settings → Email** — configure email confirmation
-3. **Auth → URL Configuration** — set Site URL (`http://localhost:5173`)
-4. **Auth → Email Templates** — confirm link: `{{ .SiteURL }}/confirm?token_hash={{ .TokenHash }}&type=signup`
-5. **Storage** — create public bucket `Assets`, upload `flood.mp4`
-6. Set your account as admin (SQL above)
-=======
+
 1. Run `schemas/profiles.sql` in SQL Editor (creates table, triggers, policies)
 2. Run `schemas/migration_location.sql` in SQL Editor (adds lat/lng/status/location_sharing columns + UPDATE policy)
 3. **Auth → Settings → Email** — configure email confirmation
@@ -667,7 +557,7 @@ Real-time on change (when touched) + blur. Red/green borders, inline errors, pas
 5. **Auth → Email Templates** — confirm link: `{{ .SiteURL }}/confirm?token_hash={{ .TokenHash }}&type=signup`
 6. **Storage** — create public bucket `Assets`, upload `flood.mp4`
 7. Set your account as admin (SQL above)
->>>>>>> Stashed changes
+
 
 ## Commands
 
@@ -678,8 +568,7 @@ npm run dev       # http://localhost:5173
 npm run build     # → dist/
 npm run preview
 ```
-<<<<<<< Updated upstream
-=======
+
 
 
 ## Known bugs
@@ -690,4 +579,4 @@ npm run preview
 
 ## Must implement
 - Tag as family feature
->>>>>>> Stashed changes
+
