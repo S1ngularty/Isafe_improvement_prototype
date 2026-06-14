@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Text, Pressable, ActivityIndicator, ScrollView, Switch } from "react-native";
+import { View, StyleSheet, Text, Pressable, ActivityIndicator, ScrollView, Switch, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import { useAuth } from "../../context/AuthContext";
-import { useToast } from "../../context/ToastContext";
-import { updateStatus, upsertLocation } from "../../services/location";
-import { getProfile } from "../../services/auth";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { useToast } from "../../context/ToastContext.jsx";
+import { updateStatus, upsertLocation } from "../../services/location.js";
+import { getProfile } from "../../services/auth.js";
+import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
+import WeatherPanel from "../../components/WeatherPanel.jsx";
+import AddressSearch from "../../components/AddressSearch.jsx";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -37,6 +40,7 @@ export default function DashboardScreen({ navigation }) {
   const [location, setLocation] = useState(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -110,6 +114,20 @@ export default function DashboardScreen({ navigation }) {
     [status, showToast, refreshProfile]
   );
 
+  const handleAddressSelect = useCallback(
+    async (address) => {
+      try {
+        await upsertLocation(address.lat, address.lng);
+        setLocation({ coords: { latitude: address.lat, longitude: address.lng } });
+        showToast("📍 Location updated", "success");
+        setShowAddressSearch(false);
+      } catch (error) {
+        showToast(error.message || "Failed to update location", "error");
+      }
+    },
+    [showToast]
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -123,6 +141,9 @@ export default function DashboardScreen({ navigation }) {
             <MaterialIcons name="person" size={24} color={COLORS.shieldPrimary} />
           </Pressable>
         </View>
+
+        {/* Announcement Banner */}
+        <AnnouncementBanner />
 
         {/* Current Status Card */}
         <View style={[styles.statusCard, { backgroundColor: getStatusBgColor(status) }]}>
@@ -149,6 +170,10 @@ export default function DashboardScreen({ navigation }) {
                 📍 Lat: {location.coords.latitude.toFixed(4)} | Lng: {location.coords.longitude.toFixed(4)}
               </Text>
               <Text style={styles.accuracyText}>Accuracy: {Math.round(location.coords.accuracy)}m</Text>
+              <Pressable style={styles.searchButton} onPress={() => setShowAddressSearch(true)}>
+                <MaterialIcons name="location-on" size={16} color={COLORS.shieldPrimary} />
+                <Text style={styles.searchButtonText}>Search & Set Address</Text>
+              </Pressable>
             </View>
           )}
           {locationEnabled && !location && (
@@ -158,6 +183,11 @@ export default function DashboardScreen({ navigation }) {
             </View>
           )}
         </View>
+
+        {/* Weather Panel */}
+        {locationEnabled && location && (
+          <WeatherPanel lat={location.coords.latitude} lng={location.coords.longitude} />
+        )}
 
         {/* Status Buttons */}
         <View style={styles.section}>
@@ -202,6 +232,29 @@ export default function DashboardScreen({ navigation }) {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Address Search Modal */}
+      <Modal
+        visible={showAddressSearch}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddressSearch(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Search Location</Text>
+              <Pressable onPress={() => setShowAddressSearch(false)}>
+                <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+              </Pressable>
+            </View>
+            <AddressSearch
+              onAddressSelect={handleAddressSelect}
+              onCancel={() => setShowAddressSearch(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -362,6 +415,45 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
+    color: COLORS.gray900,
+  },
+  searchButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.gray50,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+    gap: 6,
+  },
+  searchButtonText: {
+    fontSize: 12,
+    color: COLORS.shieldPrimary,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
     color: COLORS.gray900,
   },
 });

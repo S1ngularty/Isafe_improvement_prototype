@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { signIn, signUp } from "../../services/auth";
-import { useToast } from "../../context/ToastContext";
+import { signIn, signUp } from "../../services/auth.js";
+import { useToast } from "../../context/ToastContext.jsx";
 
 export default function AuthScreen({ onAuthSuccess }) {
   const { showToast } = useToast();

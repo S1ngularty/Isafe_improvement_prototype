@@ -2,13 +2,13 @@ import React, { useEffect } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import { ToastProvider, useToast } from "./context/ToastContext";
+import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
+import { ToastProvider, useToast } from "./context/ToastContext.jsx";
 import AuthScreen from "./screens/auth/AuthScreen";
 import DashboardScreen from "./screens/dashboard/DashboardScreen";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
-import ToastNotification from "./components/ToastNotification";
+import ToastNotification from "./components/ToastNotification.jsx";
 
 const Stack = createNativeStackNavigator();
 const COLORS = {

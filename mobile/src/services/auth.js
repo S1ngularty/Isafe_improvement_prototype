@@ -93,3 +93,26 @@ export async function updateProfile(updates) {
   if (error) throw error;
   return data;
 }
+
+// Admin functions (for future admin panel on mobile)
+export async function fetchAllProfiles() {
+  const { data, error } = await supabase.rpc("get_all_profiles");
+  if (error) throw error;
+  return data;
+}
+
+export async function updateUserRole(userId, role) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function toggleUserActive(userId, isActive) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_active: isActive })
+    .eq("id", userId);
+  if (error) throw error;
+}
