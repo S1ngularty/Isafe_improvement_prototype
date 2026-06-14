@@ -5,6 +5,10 @@
 
 -- 0. Clean up existing policies (in case of re-run)
 DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
+<<<<<<< Updated upstream
+=======
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+>>>>>>> Stashed changes
 DROP POLICY IF EXISTS "Admins can read all profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Admins can update profiles" ON public.profiles;
 
@@ -17,6 +21,15 @@ CREATE TABLE public.profiles (
   is_active BOOLEAN NOT NULL DEFAULT true,
   full_name TEXT,
   barangay  TEXT,
+<<<<<<< Updated upstream
+=======
+  lat       DOUBLE PRECISION,
+  lng       DOUBLE PRECISION,
+  last_seen_at TIMESTAMPTZ,
+  location_sharing BOOLEAN NOT NULL DEFAULT false,
+  status    TEXT NOT NULL DEFAULT 'safe'
+            CHECK (status IN ('safe', 'help', 'emergency')),
+>>>>>>> Stashed changes
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -41,7 +54,17 @@ CREATE POLICY "Users can read own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+<<<<<<< Updated upstream
 -- 5. RLS: Admins can read all profiles (uses is_admin() to avoid recursion)
+=======
+-- 5. RLS: Users can update their own profile (location, status, etc.)
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- 6. RLS: Admins can read all profiles (uses is_admin() to avoid recursion)
+>>>>>>> Stashed changes
 CREATE POLICY "Admins can read all profiles"
   ON public.profiles FOR SELECT
   USING (is_admin());

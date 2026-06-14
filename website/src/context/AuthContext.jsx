@@ -1,5 +1,9 @@
 import { createContext, useContext, useState, useEffect } from "react";
+<<<<<<< Updated upstream
 import { getSession, onAuthStateChange, getUserRole, getProfile, signIn, signUp, signOut } from "../js/auth.js";
+=======
+import { getSession, onAuthStateChange, getUserRole, getProfile, signIn, signUp, signOut } from "../services/auth.js";
+>>>>>>> Stashed changes
 
 const AuthContext = createContext(null);
 

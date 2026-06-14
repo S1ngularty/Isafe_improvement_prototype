@@ -3,7 +3,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
+<<<<<<< Updated upstream
 import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../js/auth";
+=======
+import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/auth";
+import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
+>>>>>>> Stashed changes
 import AdminSidebar from "../components/AdminSidebar";
 
 export default function AdminDashboard() {
@@ -14,6 +19,12 @@ export default function AdminDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+<<<<<<< Updated upstream
+=======
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [announceForm, setAnnounceForm] = useState({ title: "", description: "", image_url: "", type: "image" });
+>>>>>>> Stashed changes
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -27,9 +38,62 @@ export default function AdminDashboard() {
     }
   }, [showToast]);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     if (view === "users") loadUsers();
   }, [view, loadUsers]);
+=======
+  const loadAnnouncements = useCallback(async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const data = await fetchAllAnnouncements();
+      setAnnouncements(data);
+    } catch (err) {
+      showToast("Failed to load announcements: " + err.message, "error");
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    if (view === "users") loadUsers();
+    if (view === "announcements") loadAnnouncements();
+  }, [view, loadUsers, loadAnnouncements]);
+
+  async function handleCreateAnnouncement(e) {
+    e.preventDefault();
+    if (!announceForm.title.trim()) return;
+    try {
+      await createAnnouncement(announceForm);
+      setAnnounceForm({ title: "", description: "", image_url: "", type: "image" });
+      showToast("Announcement created.", "success");
+      loadAnnouncements();
+    } catch (err) {
+      showToast("Failed to create: " + err.message, "error");
+    }
+  }
+
+  async function handleToggleActive(announcement) {
+    try {
+      await updateAnnouncement(announcement.id, { is_active: !announcement.is_active });
+      setAnnouncements((prev) => prev.map((a) => (a.id === announcement.id ? { ...a, is_active: !a.is_active } : a)));
+      showToast(announcement.is_active ? "Announcement hidden." : "Announcement published.", "success");
+    } catch (err) {
+      showToast("Failed to update: " + err.message, "error");
+    }
+  }
+
+  async function handleDeleteAnnouncement(id) {
+    if (!confirm("Delete this announcement?")) return;
+    try {
+      await deleteAnnouncement(id);
+      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+      showToast("Announcement deleted.", "success");
+    } catch (err) {
+      showToast("Failed to delete: " + err.message, "error");
+    }
+  }
+>>>>>>> Stashed changes
 
   async function handleRoleToggle(user) {
     if (user.id === session.user.id) return;
@@ -85,13 +149,21 @@ export default function AdminDashboard() {
             <span className="px-2 py-0.5 text-xs font-bold bg-alert-600 rounded-md uppercase tracking-wide">Admin</span>
           </div>
           <div className="flex items-center gap-4">
+<<<<<<< Updated upstream
             <Link to="/" className="text-sm text-blue-200 hover:text-white transition-colors flex items-center gap-1">
+=======
+            <Link to="/" className="text-sm text-white/70 hover:text-white transition-colors flex items-center gap-1">
+>>>>>>> Stashed changes
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
               <span className="hidden sm:inline">Home</span>
             </Link>
+<<<<<<< Updated upstream
             <span className="text-sm text-blue-200 hidden md:inline">{session?.user?.email}</span>
+=======
+            <span className="text-sm text-white/70 hidden md:inline">{session?.user?.email}</span>
+>>>>>>> Stashed changes
             <button onClick={handleLogout} className="border-2 border-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors">
               Log Out
             </button>
@@ -349,7 +421,11 @@ export default function AdminDashboard() {
                       {users.map((user) => {
                         const isSelf = user.id === session.user.id;
                         return (
+<<<<<<< Updated upstream
                         <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${isSelf ? "bg-blue-50/50" : ""}`}>
+=======
+                        <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${isSelf ? "bg-shield-50/50" : ""}`}>
+>>>>>>> Stashed changes
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-gray-900">{user.full_name || "—"}</p>
@@ -398,6 +474,133 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
+<<<<<<< Updated upstream
+=======
+
+          {view === "announcements" && (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
+                  <p className="text-gray-500 text-sm mt-1">Create and manage banner announcements shown to all users.</p>
+                </div>
+              </div>
+
+              <div className="card mb-6">
+                <h3 className="font-bold text-gray-900 mb-4">New Announcement</h3>
+                <form onSubmit={handleCreateAnnouncement} className="space-y-3">
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Title</label>
+                      <input
+                        type="text"
+                        className="input-field py-2 text-sm"
+                        placeholder="Flood Alert"
+                        value={announceForm.title}
+                        onChange={(e) => setAnnounceForm((p) => ({ ...p, title: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+                      <select
+                        className="input-field py-2 text-sm"
+                        value={announceForm.type}
+                        onChange={(e) => setAnnounceForm((p) => ({ ...p, type: e.target.value }))}
+                      >
+                        <option value="image">Image</option>
+                        <option value="video">Video</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Description</label>
+                    <input
+                      type="text"
+                      className="input-field py-2 text-sm"
+                      placeholder="Stay vigilant. Report flooding in your area."
+                      value={announceForm.description}
+                      onChange={(e) => setAnnounceForm((p) => ({ ...p, description: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Image / Video URL</label>
+                    <input
+                      type="url"
+                      className="input-field py-2 text-sm"
+                      placeholder="https://..."
+                      value={announceForm.image_url}
+                      onChange={(e) => setAnnounceForm((p) => ({ ...p, image_url: e.target.value }))}
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary py-2 text-sm">Publish Announcement</button>
+                </form>
+              </div>
+
+              <div className="card p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr className="text-left text-gray-500 font-medium">
+                        <th className="px-6 py-3">Title</th>
+                        <th className="px-6 py-3 hidden md:table-cell">Type</th>
+                        <th className="px-6 py-3">Status</th>
+                        <th className="px-6 py-3 w-20">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {announcements.length === 0 && !announcementsLoading && (
+                        <tr>
+                          <td colSpan="4" className="px-6 py-12 text-center text-gray-400">
+                            No announcements yet. Create one above.
+                          </td>
+                        </tr>
+                      )}
+                      {announcementsLoading && (
+                        <tr>
+                          <td colSpan="4" className="px-6 py-12 text-center">
+                            <div className="w-6 h-6 border-2 border-shield-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                          </td>
+                        </tr>
+                      )}
+                      {announcements.map((a) => (
+                        <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <p className="font-medium text-gray-900 truncate max-w-[200px]">{a.title}</p>
+                            <p className="text-xs text-gray-400 truncate max-w-[200px]">{a.description}</p>
+                          </td>
+                          <td className="px-6 py-4 hidden md:table-cell">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">{a.type}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleToggleActive(a)}
+                              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                                a.is_active
+                                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                              }`}
+                            >
+                              {a.is_active ? "Active" : "Hidden"}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleDeleteAnnouncement(a.id)}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+>>>>>>> Stashed changes
         </main>
       </div>
     </div>

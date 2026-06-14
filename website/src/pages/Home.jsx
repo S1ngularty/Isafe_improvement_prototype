@@ -60,6 +60,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col">
+<<<<<<< Updated upstream
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -85,6 +86,33 @@ export default function Home() {
                 <>
                   <button onClick={() => openModal("login")} className="btn-outline px-4 py-2 text-sm">Log In</button>
                   <button onClick={() => openModal("signup")} className="btn-primary px-4 py-2 text-sm">Sign Up</button>
+=======
+      <header className="bg-shield-800 shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">P</span>
+              </div>
+              <span className="text-xl font-bold text-white">Prototype</span>
+            </div>
+            <nav className="flex items-center gap-4 text-sm font-medium">
+              <a href="#features" className="hidden sm:inline text-white/70 hover:text-white transition-colors">Features</a>
+              <a href="#how-it-works" className="hidden sm:inline text-white/70 hover:text-white transition-colors">How It Works</a>
+              {session ? (
+                <>
+                  <span className="text-white/70 hidden md:inline">{session.user.email}</span>
+                  {role === "admin" && (
+                    <Link to="/admin" className="bg-alert-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-alert-500 transition-colors">Admin</Link>
+                  )}
+                  <Link to="/dashboard" className="border-2 border-white/30 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/10 transition-colors text-sm">Dashboard</Link>
+                  <button onClick={handleLogout} className="text-white/70 hover:text-white transition-colors">Log Out</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => openModal("login")} className="border-2 border-white/30 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/10 transition-colors text-sm">Log In</button>
+                  <button onClick={() => openModal("signup")} className="bg-white text-shield-800 px-4 py-2 rounded-lg font-semibold hover:bg-red-50 transition-colors text-sm">Sign Up</button>
+>>>>>>> Stashed changes
                 </>
               )}
             </nav>
@@ -159,7 +187,11 @@ export default function Home() {
                 Protecting Communities.<br />
                 <span className="text-alert-500">Responding Faster.</span>
               </h1>
+<<<<<<< Updated upstream
               <p className="text-lg sm:text-xl text-blue-100 mb-10 leading-relaxed max-w-2xl drop-shadow">
+=======
+              <p className="text-lg sm:text-xl text-red-100 mb-10 leading-relaxed max-w-2xl drop-shadow">
+>>>>>>> Stashed changes
                 Prototype connects barangay officials and residents in real time during disasters and emergencies. Report incidents, receive alerts, and coordinate responses — all in one platform.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -190,7 +222,11 @@ export default function Home() {
                 <p className="text-gray-600">Instantly report fires, floods, earthquakes, and other emergencies with location details and severity levels.</p>
               </div>
               <div className="card text-center">
+<<<<<<< Updated upstream
                 <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-5">
+=======
+                <div className="w-14 h-14 bg-shield-100 rounded-xl flex items-center justify-center mx-auto mb-5">
+>>>>>>> Stashed changes
                   <svg className="w-7 h-7 text-shield-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">Real-Time Alerts</h3>
@@ -232,7 +268,11 @@ export default function Home() {
         <section className="py-20 bg-shield-800 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl sm:text-4xl font-bold mb-6">Ready to protect your community?</h2>
+<<<<<<< Updated upstream
             <p className="text-lg text-blue-200 mb-10 max-w-2xl mx-auto">Join thousands of barangays already using CityShield to safeguard their residents during emergencies.</p>
+=======
+            <p className="text-lg text-red-200 mb-10 max-w-2xl mx-auto">Join thousands of barangays already using CityShield to safeguard their residents during emergencies.</p>
+>>>>>>> Stashed changes
             {session ? (
               <Link to="/dashboard" className="btn-alert px-8 py-4 text-lg inline-block">Go to Dashboard</Link>
             ) : (
@@ -242,6 +282,7 @@ export default function Home() {
         </section>
       </main>
 
+<<<<<<< Updated upstream
       <footer className="bg-gray-900 text-gray-400 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
@@ -251,6 +292,17 @@ export default function Home() {
             <span className="text-white font-bold">CityShield</span>
           </div>
           <p className="text-sm">&copy; 2026 CityShield. All rights reserved.</p>
+=======
+      <footer className="bg-white border-t border-gray-200 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="w-6 h-6 bg-shield-600 rounded flex items-center justify-center">
+              <span className="text-white font-bold text-xs">P</span>
+            </div>
+            <span className="text-gray-900 font-bold">Prototype</span>
+          </div>
+          <p className="text-sm text-gray-400">&copy; 2026 Prototype. All rights reserved.</p>
+>>>>>>> Stashed changes
         </div>
       </footer>
 

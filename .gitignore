@@ -29,4 +29,9 @@ website/dist/
 website/build/
 website/*.tsbuildinfo
 
+<<<<<<< Updated upstream
 .env
+=======
+.env
+agents.md
+>>>>>>> Stashed changes
