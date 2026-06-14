@@ -3,12 +3,10 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
-<<<<<<< Updated upstream
-import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../js/auth";
-=======
+
 import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/auth";
 import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
->>>>>>> Stashed changes
+
 import AdminSidebar from "../components/AdminSidebar";
 
 export default function AdminDashboard() {
@@ -19,12 +17,11 @@ export default function AdminDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
-<<<<<<< Updated upstream
-=======
+
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
   const [announceForm, setAnnounceForm] = useState({ title: "", description: "", image_url: "", type: "image" });
->>>>>>> Stashed changes
+
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -38,11 +35,7 @@ export default function AdminDashboard() {
     }
   }, [showToast]);
 
-<<<<<<< Updated upstream
-  useEffect(() => {
-    if (view === "users") loadUsers();
-  }, [view, loadUsers]);
-=======
+
   const loadAnnouncements = useCallback(async () => {
     setAnnouncementsLoading(true);
     try {
@@ -93,7 +86,7 @@ export default function AdminDashboard() {
       showToast("Failed to delete: " + err.message, "error");
     }
   }
->>>>>>> Stashed changes
+
 
   async function handleRoleToggle(user) {
     if (user.id === session.user.id) return;
@@ -149,21 +142,17 @@ export default function AdminDashboard() {
             <span className="px-2 py-0.5 text-xs font-bold bg-alert-600 rounded-md uppercase tracking-wide">Admin</span>
           </div>
           <div className="flex items-center gap-4">
-<<<<<<< Updated upstream
-            <Link to="/" className="text-sm text-blue-200 hover:text-white transition-colors flex items-center gap-1">
-=======
+
             <Link to="/" className="text-sm text-white/70 hover:text-white transition-colors flex items-center gap-1">
->>>>>>> Stashed changes
+
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
               <span className="hidden sm:inline">Home</span>
             </Link>
-<<<<<<< Updated upstream
-            <span className="text-sm text-blue-200 hidden md:inline">{session?.user?.email}</span>
-=======
+
             <span className="text-sm text-white/70 hidden md:inline">{session?.user?.email}</span>
->>>>>>> Stashed changes
+
             <button onClick={handleLogout} className="border-2 border-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors">
               Log Out
             </button>
@@ -421,11 +410,9 @@ export default function AdminDashboard() {
                       {users.map((user) => {
                         const isSelf = user.id === session.user.id;
                         return (
-<<<<<<< Updated upstream
-                        <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${isSelf ? "bg-blue-50/50" : ""}`}>
-=======
+
                         <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${isSelf ? "bg-shield-50/50" : ""}`}>
->>>>>>> Stashed changes
+
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-gray-900">{user.full_name || "—"}</p>
@@ -474,8 +461,7 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
-<<<<<<< Updated upstream
-=======
+
 
           {view === "announcements" && (
             <>
@@ -600,7 +586,7 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
->>>>>>> Stashed changes
+
         </main>
       </div>
     </div>
