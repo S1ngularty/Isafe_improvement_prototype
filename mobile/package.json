@@ -1,5 +1,4 @@
 {
-<<<<<<< Updated upstream
   "name": "mobile",
   "version": "1.0.0",
   "main": "index.js",
@@ -42,9 +41,4 @@
     "web": "expo start --web"
   },
   "private": true
-=======
-  "dependencies": {
-    "@supabase/supabase-js": "^2.108.1"
-  }
->>>>>>> Stashed changes
 }
