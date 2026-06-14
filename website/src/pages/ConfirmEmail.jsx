@@ -1,10 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-<<<<<<< Updated upstream
-import { verifyOtp, signOut } from "../js/auth";
-=======
+
 import { verifyOtp, signOut } from "../services/auth";
->>>>>>> Stashed changes
+
 import { useToast } from "../context/ToastContext";
 
 export default function ConfirmEmail() {
