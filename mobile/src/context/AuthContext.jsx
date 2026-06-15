@@ -10,19 +10,32 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshSession = async () => {
+    try {
+      const sess = await getSession();
+      setSession(sess);
+      if (sess?.user) {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+        const userRole = await getUserRole();
+        setRole(userRole);
+        const userProfile = await getProfile();
+        setProfile(userProfile);
+      } else {
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setProfile(null);
+      }
+    } catch (error) {
+      console.error("[AuthContext] Error refreshing session:", error);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
-        const sess = await getSession();
-        setSession(sess);
-        if (sess?.user) {
-          const currentUser = await getCurrentUser();
-          setUser(currentUser);
-          const userRole = await getUserRole();
-          setRole(userRole);
-          const userProfile = await getProfile();
-          setProfile(userProfile);
-        }
+        await refreshSession();
       } catch (error) {
         console.error("[AuthContext] Error loading session:", error);
       } finally {
@@ -52,7 +65,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, role, profile, loading, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ session, user, role, profile, loading, logout, refreshProfile, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

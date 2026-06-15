@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Text, Pressable, Image, ActivityIndicator } from "react-native";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { fetchActiveAnnouncements } from "../services/announcements.js";
 
 const COLORS = {

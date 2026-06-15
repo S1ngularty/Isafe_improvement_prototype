@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, TextInput, Pressable, FlatList, Text, ActivityIndicator } from "react-native";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { View, StyleSheet, TextInput, Pressable, FlatList, Text, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { searchAddress } from "../services/geocode.js";
 
 const COLORS = {
@@ -22,6 +22,7 @@ export default function AddressSearch({ onAddressSelect, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [error, setError] = useState(null);
   const debounceTimer = useRef(null);
 
   useEffect(() => {
@@ -30,19 +31,25 @@ export default function AddressSearch({ onAddressSelect, onCancel }) {
     if (!query.trim()) {
       setResults([]);
       setShowResults(false);
+      setError(null);
       return;
     }
 
     debounceTimer.current = setTimeout(async () => {
       setLoading(true);
+      setError(null);
       try {
         const data = await searchAddress(query);
         setResults(data);
         setShowResults(true);
         setSelectedIndex(-1);
-      } catch (error) {
-        console.error("[AddressSearch] Error:", error);
+        if (data.length === 0) {
+          setError("No addresses found. Try a different search.");
+        }
+      } catch (err) {
+        console.error("[AddressSearch] Error:", err);
         setResults([]);
+        setError(err.message || "Search failed. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -78,7 +85,10 @@ export default function AddressSearch({ onAddressSelect, onCancel }) {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
       {/* Search Box */}
       <View style={styles.searchBox}>
         <MaterialIcons name="location-on" size={20} color={COLORS.shieldPrimary} />
@@ -105,6 +115,11 @@ export default function AddressSearch({ onAddressSelect, onCancel }) {
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={COLORS.shieldPrimary} />
               <Text style={styles.loadingText}>Searching...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={20} color={COLORS.gray500} />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : results.length > 0 ? (
             <FlatList
@@ -161,7 +176,7 @@ export default function AddressSearch({ onAddressSelect, onCancel }) {
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </Pressable>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -254,6 +269,17 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: COLORS.gray500,
+  },
+  errorContainer: {
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: COLORS.gray500,
+    textAlign: "center",
   },
   cancelButton: {
     marginTop: 8,

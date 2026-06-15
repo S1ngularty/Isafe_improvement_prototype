@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, StyleSheet, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useWeather } from "../hooks/useWeather.js";
 
 const COLORS = {

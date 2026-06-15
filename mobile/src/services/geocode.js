@@ -17,7 +17,15 @@ export async function searchAddress(query) {
     });
 
     const response = await fetch(`${NOMINATIM_URL}?${params}`);
-    if (!response.ok) throw new Error("Geocoding API error");
+    
+    // Handle rate limiting
+    if (response.status === 429) {
+      throw new Error("Search rate limited. Please wait a moment and try again.");
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Geocoding API error: ${response.status}`);
+    }
 
     const data = await response.json();
     return data.map((result) => ({
@@ -42,7 +50,15 @@ export async function reverseGeocode(lat, lng) {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?${params}`
     );
-    if (!response.ok) throw new Error("Reverse geocoding API error");
+    
+    // Handle rate limiting
+    if (response.status === 429) {
+      throw new Error("Geocoding rate limited. Please try again in a moment.");
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Reverse geocoding API error: ${response.status}`);
+    }
 
     const data = await response.json();
     return {
