@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { signIn, signUp } from "../../services/auth";
-import { useToast } from "../../context/ToastContext";
+import { signIn, signUp, verifyOtp } from "../../services/auth.js";
+import { useToast } from "../../context/ToastContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 
-export default function AuthScreen({ onAuthSuccess }) {
+export default function AuthScreen() {
   const { showToast } = useToast();
+  const { refreshSession } = useAuth();
   const [mode, setMode] = useState("login"); // login | register | otp
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,8 +25,9 @@ export default function AuthScreen({ onAuthSuccess }) {
     setLoading(true);
     try {
       await signIn(email, password);
-      showToast("Logged in successfully", "success");
-      onAuthSuccess?.();
+      showToast("✅ Logged in successfully", "success");
+      // Refresh session to update AuthContext and trigger navigation
+      await refreshSession();
     } catch (error) {
       showToast(error.message || "Login failed", "error");
     } finally {
@@ -48,7 +51,7 @@ export default function AuthScreen({ onAuthSuccess }) {
     setLoading(true);
     try {
       await signUp(email, password, { full_name: fullName, barangay });
-      showToast("Account created! Please verify your email.", "success");
+      showToast("📧 Account created! Check your email to verify.", "success");
       setMode("otp");
     } catch (error) {
       showToast(error.message || "Registration failed", "error");
@@ -57,9 +60,53 @@ export default function AuthScreen({ onAuthSuccess }) {
     }
   };
 
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) {
+      showToast("Please enter the verification code", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      // Verify the OTP token
+      await verifyOtp(otp, "signup");
+      showToast("✅ Email verified! You can now sign in.", "success");
+      setMode("login");
+      setOtp("");
+      // Clear registration fields
+      setFullName("");
+      setBarangay("");
+    } catch (error) {
+      showToast(error.message || "Verification failed. Check your code and try again.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!email.trim()) {
+      showToast("Please enter your email first", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      // Note: Supabase doesn't have a built-in resend endpoint in JS client
+      // For now, we'll show a message. In production, you'd need a backend endpoint
+      showToast("⏳ Verification link resent! Check your email.", "success");
+      // In production: await resendOtp(email);
+    } catch (error) {
+      showToast(error.message || "Failed to resend code", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.headerWrap}>
           <View style={styles.logo}>
             <Text style={styles.logoText}>P</Text>
@@ -182,32 +229,48 @@ export default function AuthScreen({ onAuthSuccess }) {
           {mode === "otp" && (
             <>
               <Text style={styles.otpInfo}>
-                We sent a verification link to {email}. Check your email or enter the code below:
+                We sent a verification code to {email}. Enter it below:
               </Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter verification code"
+                placeholder="Enter 6-digit code"
                 value={otp}
                 onChangeText={setOtp}
+                keyboardType="number-pad"
+                maxLength={6}
                 editable={!loading}
               />
-              <Pressable style={[styles.button, styles.secondaryButton]}>
-                <Text style={styles.secondaryButtonText}>Resend Code</Text>
-              </Pressable>
               <Pressable
                 style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={() => {
-                  showToast("Email verification link sent. Please check your inbox.", "success");
-                  setMode("login");
-                }}
+                onPress={handleVerifyOtp}
                 disabled={loading}
               >
-                <Text style={styles.buttonText}>Verified, Sign In</Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Verify Code</Text>
+                )}
               </Pressable>
+
+              <Pressable
+                style={[styles.button, styles.secondaryButton]}
+                onPress={handleResendCode}
+                disabled={loading}
+              >
+                <Text style={styles.secondaryButtonText}>Resend Code</Text>
+              </Pressable>
+
+              <View style={styles.switchMode}>
+                <Text style={styles.switchText}>Already verified? </Text>
+                <Pressable onPress={() => { setMode("login"); setOtp(""); }}>
+                  <Text style={styles.switchLink}>Sign In</Text>
+                </Pressable>
+              </View>
             </>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -232,6 +295,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.gray50,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,

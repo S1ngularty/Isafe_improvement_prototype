@@ -6,11 +6,11 @@ export async function upsertLocation(lat, lng) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .update({ lat, lng, last_seen_at: new Date().toISOString() })
+    .update({ lat: lat, lng: lng, last_seen_at: new Date().toISOString() })
     .eq("id", user.id)
     .select();
 
-  console.log("[upsertLocation] update:", { lat, lng, userId: user.id, data, error });
+  console.log("[upsertLocation] update:", { lat: lat, lng: lng, userId: user.id, data, error });
   if (error) throw error;
   return data;
 }

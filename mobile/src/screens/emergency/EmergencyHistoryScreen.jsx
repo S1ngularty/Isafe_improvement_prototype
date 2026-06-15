@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Text, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
-import { useAuth } from "../../context/AuthContext";
-import { supabase } from "../../services/supabase";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { supabase } from "../../services/supabase.js";
 
 const COLORS = {
   shieldDark: "#5c1010",

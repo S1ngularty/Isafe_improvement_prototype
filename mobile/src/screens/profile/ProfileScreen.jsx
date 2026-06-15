@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Text, Pressable, ScrollView, TextInput, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, Text, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MaterialIcons from "react-native-vector-icons/MaterialIcons";
-import { useAuth } from "../../context/AuthContext";
-import { useToast } from "../../context/ToastContext";
-import { updateProfile } from "../../services/auth";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { useToast } from "../../context/ToastContext.jsx";
+import { updateProfile } from "../../services/auth.js";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -31,8 +31,10 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setFullName(profile?.full_name || "");
-    setBarangay(profile?.barangay || "");
+    if (profile) {
+      setFullName(profile.full_name || "");
+      setBarangay(profile.barangay || "");
+    }
   }, [profile]);
 
   const handleSaveProfile = async () => {
@@ -44,7 +46,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       await updateProfile({ full_name: fullName, barangay });
       await refreshProfile();
-      showToast("Profile updated successfully", "success");
+      showToast("✅ Profile updated successfully", "success");
       setIsEditing(false);
     } catch (error) {
       showToast(error.message || "Failed to update profile", "error");
@@ -61,7 +63,8 @@ export default function ProfileScreen({ navigation }) {
         onPress: async () => {
           try {
             await logout();
-            showToast("Logged out successfully", "success");
+            showToast("✅ Logged out successfully", "success");
+            // Navigation happens automatically when session becomes null
           } catch (error) {
             showToast(error.message || "Logout failed", "error");
           }
@@ -83,7 +86,11 @@ export default function ProfileScreen({ navigation }) {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView contentContainerStyle={styles.content}>
         {/* Profile Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
@@ -135,11 +142,6 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Role</Text>
-            <Text style={styles.value}>{profile?.role || "user"}</Text>
-          </View>
-
-          <View style={styles.fieldGroup}>
             <Text style={styles.label}>Account Status</Text>
             <View style={styles.statusBadge}>
               <View style={[styles.statusDot, profile?.is_active && styles.statusDotActive]} />
@@ -173,6 +175,7 @@ export default function ProfileScreen({ navigation }) {
           </Pressable>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -181,6 +184,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   header: {
     flexDirection: "row",
