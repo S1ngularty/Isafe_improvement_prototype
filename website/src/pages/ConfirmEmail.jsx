@@ -26,18 +26,20 @@ export default function ConfirmEmail() {
       return;
     }
 
-    verifyOtp(tokenHash, type)
-      .then(async () => {
+    async function confirm() {
+      try {
+        await verifyOtp(tokenHash, type);
         setStatus("success");
         setMessage("Your email has been confirmed.");
         await signOut();
         showToast("Email confirmed! Please sign in.", "success", 5000);
         setTimeout(() => navigate("/", { replace: true }), 1500);
-      })
-      .catch((err) => {
+      } catch (err) {
         setStatus("error");
         setMessage(err.message || "Verification failed. The link may have expired.");
-      });
+      }
+    }
+    confirm();
   }, []);
 
   return (

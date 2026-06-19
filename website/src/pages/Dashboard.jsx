@@ -12,13 +12,16 @@ import UserMarker from "../components/UserMarker";
 import AddressSearch from "../components/AddressSearch";
 import AnnouncementBanner from "../components/AnnouncementBanner";
 import WeatherPanel from "../components/WeatherPanel";
+import FamilySetup from "../components/FamilySetup";
+import FamilyMemberList from "../components/FamilyMemberList";
 import useGeolocation from "../hooks/useGeolocation";
+import useFamilyLocations from "../hooks/useFamilyLocations";
 import { upsertLocation, updateStatus, updateLocationSharing } from "../services/location";
 import { getProfile } from "../services/auth";
 
 
 export default function Dashboard() {
-  const { session, role, logout } = useAuth();
+  const { session, role, profile, logout, refreshProfile } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [view, setView] = useState("dashboard");
@@ -31,6 +34,8 @@ export default function Dashboard() {
   const [resetKey, setResetKey] = useState(0);
   const { lat, lng, accuracy, error: geoError, tracking } = useGeolocation(locationEnabled);
 
+  const { members: familyMembers, family, refresh: refreshFamily } = useFamilyLocations();
+
   const displayLat = manualLat ?? lat;
   const displayLng = manualLng ?? lng;
   const isManual = manualLat !== null && manualLng !== null;
@@ -38,25 +43,31 @@ export default function Dashboard() {
   const mapZoom = displayLat && displayLng ? 16 : 6;
 
   useEffect(() => {
-    console.log("[Dashboard] useEffect fired, session:", !!session, session?.user?.id);
-    if (!session) return;
-    getProfile().then((profile) => {
-      console.log("[Dashboard] getProfile resolved:", profile);
-      if (profile) {
-        console.log("[Dashboard] setting status:", profile.status);
-        setStatus(profile.status || "safe");
-        if (profile.lat && profile.lng) {
-          console.log("[Dashboard] setting position:", profile.lat, profile.lng);
-          setManualLat(profile.lat);
-          setManualLng(profile.lng);
-        } else {
-          console.log("[Dashboard] no lat/lng in profile");
+    let cancelled = false;
+    async function loadProfile() {
+      if (!session) return;
+      try {
+        const p = await getProfile();
+        if (cancelled || !p) return;
+        setStatus(p.status || "safe");
+        if (p.lat && p.lng) {
+          setManualLat(p.lat);
+          setManualLng(p.lng);
         }
+      } catch {
+        // Profile load failed silently
       }
-    }).catch((err) => {
-      console.log("[Dashboard] getProfile failed:", err);
-    });
+    }
+    loadProfile();
+    return () => { cancelled = true; };
   }, [session]);
+
+  useEffect(() => {
+    if (profile) {
+      setStatus(profile.status || "safe");
+      setLocationEnabled(profile.location_sharing || false);
+    }
+  }, [profile]);
 
   function handleMapClick(latlng) {
     setManualLat(latlng.lat);
@@ -69,6 +80,7 @@ export default function Dashboard() {
       setStatus(newStatus);
       try {
         await updateStatus(newStatus);
+        refreshProfile();
         showToast(
           newStatus === "safe"
             ? "Marked as safe."
@@ -82,7 +94,7 @@ export default function Dashboard() {
         showToast("Failed to update status.", "error");
       }
     },
-    [status, showToast]
+    [status, showToast, refreshProfile]
   );
 
 
@@ -128,13 +140,66 @@ export default function Dashboard() {
 
 
         <main className="flex-1 p-4 sm:p-6 w-full flex flex-col gap-6">
+          {view === "family" && (
+            <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-7rem)]">
+              <div className="lg:w-80 shrink-0">
+                {family ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden">
+                    <FamilyMemberList members={familyMembers} family={family} onRefresh={refreshFamily} />
+                  </div>
+                ) : (
+                  <FamilySetup onDone={() => { refreshProfile(); refreshFamily(); }} />
+                )}
+              </div>
+              <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-lg">
+                <MapView center={[12.8, 121.7]} zoom={6} className="h-full w-full">
+                  {family && familyMembers.map((m) =>
+                    m.lat && m.lng ? (
+                      <UserMarker
+                        key={m.id}
+                        lat={m.lat}
+                        lng={m.lng}
+                        status={m.status}
+                        name={m.full_name}
+                        isSelf={false}
+                      />
+                    ) : null
+                  )}
+                  {displayLat && displayLng && (
+                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} />
+                  )}
+                </MapView>
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[2000] w-[calc(100%-2rem)] max-w-sm">
+                  <AddressSearch
+                    onSelect={({ lat, lng }) => {
+                      setManualLat(lat);
+                      setManualLng(lng);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {view === "dashboard" && (
             <>
               <AnnouncementBanner />
               <div className="h-[55vh] min-h-[380px] rounded-xl overflow-hidden shadow-lg relative group">
                 <MapView center={mapCenter} zoom={mapZoom} resetKey={resetKey} className="h-full w-full" onMapClick={handleMapClick}>
                   {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} />
+                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} />
+                  )}
+                  {family && familyMembers.map((m) =>
+                    m.lat && m.lng ? (
+                      <UserMarker
+                        key={m.id}
+                        lat={m.lat}
+                        lng={m.lng}
+                        status={m.status}
+                        name={m.full_name}
+                        isSelf={false}
+                      />
+                    ) : null
                   )}
                 </MapView>
 
@@ -153,34 +218,34 @@ export default function Dashboard() {
                   {!isManual && accuracy && <span className="text-gray-400 ml-1">~{Math.round(accuracy)}m</span>}
                 </div>
 
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-2">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-1.5">
                   {[
                     {
                       status: "safe", label: "Safe", activeBorder: "border-green-500", activeText: "text-green-700",
-                      icon: (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
+                      icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
                     },
                     {
                       status: "help", label: "Help", activeBorder: "border-yellow-500", activeText: "text-yellow-700",
-                      icon: (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
+                      icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
                     },
                     {
                       status: "emergency", label: "SOS", activeBorder: "border-alert-500", activeText: "text-alert-700",
-                      icon: (<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
+                      icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
                     },
                   ].map((btn) => (
                     <button
                       key={btn.status}
                       onClick={() => handleStatusChange(btn.status)}
-                      className={`bg-white/90 hover:bg-white backdrop-blur rounded-xl shadow-lg p-3 flex flex-col items-center gap-0.5 transition-all border-2 ${
+                      className={`bg-white/90 hover:bg-white backdrop-blur rounded-lg shadow-md p-2 flex flex-col items-center gap-0.5 transition-all border-2 ${
                         status === btn.status ? `${btn.activeBorder} ${btn.activeText} scale-105` : "border-transparent text-gray-500 hover:text-gray-700"
                       }`}
                       title={btn.label}
                     >
                       {btn.icon}
-                      <span className="text-[10px] font-bold">{btn.label}</span>
+                      <span className="text-[9px] font-bold leading-none">{btn.label}</span>
                     </button>
                   ))}
-                  <div className="w-px h-6 bg-gray-200 mx-auto" />
+                  <div className="w-px h-4 bg-gray-200 mx-auto" />
                   <button
                     onClick={() => {
                       if (!locationEnabled && !navigator.geolocation) {
@@ -191,16 +256,16 @@ export default function Dashboard() {
                       setLocationEnabled(next);
                       updateLocationSharing(next).catch(() => {});
                     }}
-                    className={`bg-white/90 hover:bg-white backdrop-blur rounded-xl shadow-lg p-3 flex flex-col items-center gap-0.5 transition-all border-2 ${
+                    className={`bg-white/90 hover:bg-white backdrop-blur rounded-lg shadow-md p-2 flex flex-col items-center gap-0.5 transition-all border-2 ${
                       locationEnabled ? "border-green-500 text-green-700 scale-105" : "border-transparent text-gray-500 hover:text-gray-700"
                     }`}
                     title="Share Location"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <span className="text-[10px] font-bold">Share</span>
+                    <span className="text-[9px] font-bold leading-none">Share</span>
                   </button>
                 </div>
 

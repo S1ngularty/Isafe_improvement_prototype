@@ -1,10 +1,4 @@
-const API_BASE = "https://api.open-meteo.com/v1/forecast";
-
-const CURRENT_PARAMS =
-  "temperature_2m,rain,precipitation,wind_speed_10m,wind_gusts_10m,surface_pressure,weather_code";
-
-const HOURLY_PARAMS =
-  "precipitation,rain,wind_speed_10m,wind_gusts_10m,surface_pressure,weather_code";
+import { apiGet } from "./backend.js";
 
 export function getWeatherIcon(code) {
   if (code === 0) return ClearSkyIcon;
@@ -78,55 +72,32 @@ function ThunderstormIcon() {
   );
 }
 
-function buildUrl(lat, lng, extraParams = "") {
-  const url = new URL(API_BASE);
-  url.searchParams.set("latitude", lat);
-  url.searchParams.set("longitude", lng);
-  url.searchParams.set("current", CURRENT_PARAMS);
-  url.searchParams.set("timezone", "Asia/Manila");
-  url.searchParams.set("forecast_days", "1");
-  if (extraParams) url.searchParams.set("hourly", HOURLY_PARAMS);
-  return url.toString();
-}
-
-function parseCurrent(json) {
-  if (!json?.current) return null;
-  const c = json.current;
+function toWeatherObject(data) {
   return {
-    temperature: Math.round(c.temperature_2m),
-    rain: c.rain ?? 0,
-    precipitation: c.precipitation ?? 0,
-    windSpeed: Math.round(c.wind_speed_10m),
-    windGusts: Math.round(c.wind_gusts_10m),
-    pressure: Math.round(c.surface_pressure),
-    weatherCode: c.weather_code,
-    icon: getWeatherIcon(c.weather_code),
+    temperature: data.temperature,
+    rain: data.rain,
+    precipitation: data.precipitation,
+    windSpeed: data.windSpeed,
+    windGusts: data.windGusts,
+    pressure: data.pressure,
+    weatherCode: data.weatherCode,
+    icon: getWeatherIcon(data.weatherCode),
   };
 }
 
-function parseHourly(json) {
-  if (!json?.hourly) return [];
-  const h = json.hourly;
-  return h.time.map((t, i) => ({
-    time: t,
-    precipitation: h.precipitation[i] ?? 0,
-    rain: h.rain?.[i] ?? 0,
-    windSpeed: Math.round(h.wind_speed_10m[i]),
-    windGusts: Math.round(h.wind_gusts_10m[i]),
-    pressure: Math.round(h.surface_pressure[i]),
-    weatherCode: h.weather_code[i],
-    icon: getWeatherIcon(h.weather_code[i]),
-  }));
+function toHourlyPoint(data) {
+  return {
+    ...data,
+    icon: getWeatherIcon(data.weatherCode),
+  };
 }
 
 export async function fetchCurrent(lat, lng) {
-  const res = await fetch(buildUrl(lat, lng));
-  if (!res.ok) throw new Error("Weather data unavailable");
-  return parseCurrent(await res.json());
+  const data = await apiGet("/api/weather/current", { lat, lng });
+  return toWeatherObject(data);
 }
 
 export async function fetchHourly(lat, lng) {
-  const res = await fetch(buildUrl(lat, lng, "hourly"));
-  if (!res.ok) throw new Error("Weather data unavailable");
-  return parseHourly(await res.json());
+  const data = await apiGet("/api/weather/hourly", { lat, lng });
+  return (data.hourly || []).map(toHourlyPoint);
 }

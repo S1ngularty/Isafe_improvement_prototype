@@ -9,33 +9,41 @@ export default function useWeather(lat, lng) {
   const cacheRef = useRef({ key: "", time: 0, current: null, hourly: [] });
 
   useEffect(() => {
-    if (lat == null || lng == null) {
-      setCurrent(null);
-      setHourly([]);
-      return;
-    }
+    let cancelled = false;
 
-    const coordKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-    const now = Date.now();
-    if (cacheRef.current.key === coordKey && now - cacheRef.current.time < 600000) {
-      setCurrent(cacheRef.current.current);
-      setHourly(cacheRef.current.hourly);
-      return;
-    }
+    async function load() {
+      if (lat == null || lng == null) {
+        setCurrent(null);
+        setHourly([]);
+        return;
+      }
 
-    setLoading(true);
-    setError(null);
+      const coordKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+      const now = Date.now();
+      if (cacheRef.current.key === coordKey && now - cacheRef.current.time < 600000) {
+        setCurrent(cacheRef.current.current);
+        setHourly(cacheRef.current.hourly);
+        return;
+      }
 
-    Promise.all([fetchCurrent(lat, lng), fetchHourly(lat, lng)])
-      .then(([c, h]) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [c, h] = await Promise.all([fetchCurrent(lat, lng), fetchHourly(lat, lng)]);
+        if (cancelled) return;
         cacheRef.current = { key: coordKey, time: now, current: c, hourly: h };
         setCurrent(c);
         setHourly(h);
-      })
-      .catch((err) => {
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
+      } catch (err) {
+        if (!cancelled) setError(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
   }, [lat, lng]);
 
   return { current, hourly, loading, error };
