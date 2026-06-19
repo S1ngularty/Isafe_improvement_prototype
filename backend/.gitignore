@@ -1,0 +1,4 @@
+# Ignore Firebase service account keys and env files
+FIREBASE_SERVICE_ACCOUNT.json
+.env
+.env.*
