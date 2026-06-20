@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -8,7 +9,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ToastProvider, useToast } from "./context/ToastContext.jsx";
 import AuthScreen from "./screens/auth/AuthScreen";
+import WelcomeScreen from "./screens/welcome/WelcomeScreen.jsx";
 import DashboardScreen from "./screens/dashboard/DashboardScreen";
+import FirstAidInstructions from "./screens/resources/FirstAidInstructions.jsx";
+import EmergencyGuidance from "./screens/resources/EmergencyGuidance.jsx";
+import EmergencyChecklist from "./screens/resources/EmergencyChecklist.jsx";
+import EmergencyCall from "./screens/resources/EmergencyCall.jsx";
 import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
@@ -28,6 +34,44 @@ function AuthStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Auth" component={AuthScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function HomeStack({ currentStatus }) {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Dashboard">
+        {(props) => <DashboardScreen {...props} currentStatus={currentStatus} />}
+      </Stack.Screen>
+      <Stack.Screen
+        name="FirstAidInstructions"
+        component={FirstAidInstructions}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyGuidance"
+        component={EmergencyGuidance}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyChecklist"
+        component={EmergencyChecklist}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyCall"
+        component={EmergencyCall}
+        options={{
+          animationEnabled: true,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -110,7 +154,7 @@ function AppTabs() {
       })}
     >
       <Tab.Screen name="Home" options={{ title: "Home" }}>
-        {(props) => <DashboardScreen {...props} currentStatus={currentStatus} />}
+        {(props) => <HomeStack {...props} currentStatus={currentStatus} />}
       </Tab.Screen>
       <Tab.Screen name="Alert"   component={EmergencyHistoryScreen} options={{ title: "Alerts" }} />
       <Tab.Screen
@@ -130,8 +174,34 @@ function DummyScreen() { return null; }
 function RootNavigator() {
   const { session, loading } = useAuth();
   const { toasts } = useToast();
+  const [welcomeShown, setWelcomeShown] = useState(null); // null = checking, true = shown, false = not shown
 
-  if (loading) {
+  // Check if welcome was already shown on this device
+  useEffect(() => {
+    const checkWelcomeStatus = async () => {
+      try {
+        const wasWelcomeShown = await AsyncStorage.getItem("welcome_seen");
+        setWelcomeShown(wasWelcomeShown === "true");
+      } catch (error) {
+        console.error("Error checking welcome status:", error);
+        setWelcomeShown(false); // Default to showing welcome if there's an error
+      }
+    };
+
+    checkWelcomeStatus();
+  }, []);
+
+  // Handle when user completes welcome screen
+  const handleWelcomeComplete = async () => {
+    try {
+      await AsyncStorage.setItem("welcome_seen", "true");
+      setWelcomeShown(true);
+    } catch (error) {
+      console.error("Error saving welcome status:", error);
+    }
+  };
+
+  if (loading || welcomeShown === null) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
@@ -142,7 +212,27 @@ function RootNavigator() {
   return (
     <View style={styles.container}>
       <NavigationContainer>
-        {session ? <AppTabs /> : <AuthStack />}
+        {!welcomeShown ? (
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen
+              name="WelcomeFlow"
+              options={{
+                animationEnabled: true,
+              }}
+            >
+              {(props) => (
+                <WelcomeScreen
+                  {...props}
+                  onComplete={handleWelcomeComplete}
+                />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+        ) : session ? (
+          <AppTabs />
+        ) : (
+          <AuthStack />
+        )}
       </NavigationContainer>
       <View style={styles.toastContainer}>
         {toasts.map((toast) => (
