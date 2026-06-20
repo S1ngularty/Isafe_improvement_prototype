@@ -1,6 +1,8 @@
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
+import * as Device from "expo-device";
+import { Platform } from "react-native";
+import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { supabase } from "./supabase";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -12,25 +14,25 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotificationsAsync() {
+  const platform = Platform.OS;
+
   if (!Device.isDevice) {
-    console.log('Must use a physical device');
+    console.log("Must use a physical device");
     return null;
   }
 
-  const { status: existingStatus } =
-    await Notifications.getPermissionsAsync();
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
   let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
-    const { status } =
-      await Notifications.requestPermissionsAsync();
+  if (existingStatus !== "granted") {
+    const { status } = await Notifications.requestPermissionsAsync();
 
     finalStatus = status;
   }
 
-  if (finalStatus !== 'granted') {
-    console.log('Permission denied');
+  if (finalStatus !== "granted") {
+    console.log("Permission denied");
     return null;
   }
 
@@ -45,11 +47,11 @@ export async function registerForPushNotificationsAsync() {
       })
     ).data;
 
-    console.log('Expo Push Token:', token);
+    console.log("Expo Push Token:", token);
 
     return token;
   } catch (error) {
-    console.error('Token error:', error);
+    console.error("Token error:", error);
     return null;
   }
 }
