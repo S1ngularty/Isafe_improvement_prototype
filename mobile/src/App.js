@@ -12,6 +12,7 @@ import DashboardScreen from "./screens/dashboard/DashboardScreen";
 import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
+import FamilyScreen from "./screens/family/FamilyScreen";
 import ToastNotification from "./components/ToastNotification.jsx";
 import SOSButton from "./components/SOSButton.jsx";
 import { updateStatus } from "./services/location.js";
@@ -102,9 +103,10 @@ function AppTabs() {
           }
 
           const icons = {
-            Home: "home",
-            Alert: "notifications",
-            Maps: "map",
+            Home:    "home",
+            Alert:   "notifications",
+            Family:  "people",
+            Maps:    "map",
             Profile: "person",
           };
 
@@ -136,16 +138,9 @@ function AppTabs() {
         options={{ title: "SOS" }}
         listeners={{ tabPress: (e) => e.preventDefault() }}
       />
-      <Tab.Screen
-        name="Maps"
-        component={MapsScreen}
-        options={{ title: "Maps" }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: "Profile" }}
-      />
+      <Tab.Screen name="Family"  component={FamilyScreen} options={{ title: "Family" }} />
+      <Tab.Screen name="Maps"    component={MapsScreen}    options={{ title: "Maps" }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
     </Tab.Navigator>
   );
 }

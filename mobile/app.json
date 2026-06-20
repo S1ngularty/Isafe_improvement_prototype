@@ -27,6 +27,9 @@
         "projectId": "6169de3d-3bd0-4233-af4f-f22a279fb150"
       }
     },
-    "owner": "singurity"
+    "owner": "singurity",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

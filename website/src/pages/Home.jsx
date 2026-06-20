@@ -3,11 +3,12 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import AuthModal from "../components/AuthModal";
+import { getStorageUrl } from "../services/supabase";
 
 const SLIDES = [
   {
     type: "video",
-    src: "https://ipkrnojfydmjqmawhrev.supabase.co/storage/v1/object/public/Assets/flood.mp4",
+    src: getStorageUrl("Assets", "flood.mp4"),
   },
   { type: "image", src: "https://cdia.asia/wp-content/uploads/2022/06/Drrm2-copy-1024x682.jpg" },
   { type: "image", src: "https://media.philstar.com/photos/2021/12/18/odette-response-22021-12-1817-26-20_2021-12-18_23-18-30.jpg" },
