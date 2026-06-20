@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -8,7 +9,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import { ToastProvider, useToast } from "./context/ToastContext.jsx";
 import AuthScreen from "./screens/auth/AuthScreen";
+import WelcomeScreen from "./screens/welcome/WelcomeScreen.jsx";
 import DashboardScreen from "./screens/dashboard/DashboardScreen";
+import FirstAidInstructions from "./screens/resources/FirstAidInstructions.jsx";
+import EmergencyGuidance from "./screens/resources/EmergencyGuidance.jsx";
+import EmergencyChecklist from "./screens/resources/EmergencyChecklist.jsx";
+import EmergencyCall from "./screens/resources/EmergencyCall.jsx";
 import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
@@ -36,28 +42,70 @@ function AuthStack() {
   );
 }
 
+function HomeStack({ currentStatus }) {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Dashboard">
+        {(props) => (
+          <DashboardScreen {...props} currentStatus={currentStatus} />
+        )}
+      </Stack.Screen>
+      <Stack.Screen
+        name="FirstAidInstructions"
+        component={FirstAidInstructions}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyGuidance"
+        component={EmergencyGuidance}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyChecklist"
+        component={EmergencyChecklist}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="EmergencyCall"
+        component={EmergencyCall}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 function AppTabs() {
   const { profile, refreshProfile } = useAuth();
   const { showToast } = useToast();
-  const [currentStatus, setCurrentStatus] = React.useState(
-    profile?.status || "safe",
-  );
+  const [currentStatus, setCurrentStatus] = useState(profile?.status || "safe");
 
   // Sync when profile loads from server
-  React.useEffect(() => {
+  useEffect(() => {
     if (profile?.status) setCurrentStatus(profile.status);
   }, [profile?.status]);
 
   // Returns a promise so SOSButton can catch failures,
   // but SOSButton no longer awaits it before allowing next tap.
-  const handleStatusChange = React.useCallback(
+  const handleStatusChange = useCallback(
     async (newStatus) => {
       // Optimistic local update — already done in SOSButton, mirror here for Dashboard card
       setCurrentStatus(newStatus);
       try {
         await updateStatus(newStatus);
         const emoji =
-          newStatus === "safe" ? "✅" : newStatus === "help" ? "⚠️" : "🚨";
+          newStatus === "safe"
+            ? "Success"
+            : newStatus === "help"
+              ? "Alert"
+              : "Emergency";
         const message =
           newStatus === "safe"
             ? "Marked as safe"
@@ -104,10 +152,10 @@ function AppTabs() {
           }
 
           const icons = {
-            Home:    "home",
-            Alert:   "notifications",
-            Family:  "people",
-            Maps:    "map",
+            Home: "home",
+            Alert: "notifications",
+            Family: "people",
+            Maps: "map",
             Profile: "person",
           };
 
@@ -123,9 +171,7 @@ function AppTabs() {
         tabBarInactiveTintColor: COLORS.gray300,
       })}>
       <Tab.Screen name="Home" options={{ title: "Home" }}>
-        {(props) => (
-          <DashboardScreen {...props} currentStatus={currentStatus} />
-        )}
+        {(props) => <HomeStack {...props} currentStatus={currentStatus} />}
       </Tab.Screen>
       <Tab.Screen
         name="Alert"
@@ -138,9 +184,21 @@ function AppTabs() {
         options={{ title: "SOS" }}
         listeners={{ tabPress: (e) => e.preventDefault() }}
       />
-      <Tab.Screen name="Family"  component={FamilyScreen} options={{ title: "Family" }} />
-      <Tab.Screen name="Maps"    component={MapsScreen}    options={{ title: "Maps" }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
+      <Tab.Screen
+        name="Family"
+        component={FamilyScreen}
+        options={{ title: "Family" }}
+      />
+      <Tab.Screen
+        name="Maps"
+        component={MapsScreen}
+        options={{ title: "Maps" }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: "Profile" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -152,11 +210,11 @@ function DummyScreen() {
 function RootNavigator() {
   const { session, loading } = useAuth();
   const { toasts } = useToast();
-  const [pushToken, setPushToken] = React.useState(null);
-  const storedTokenRef = React.useRef(null);
+  const [pushToken, setPushToken] = useState(null);
+  const storedTokenRef = useRef(null);
   const platform = Platform.OS;
 
-  React.useEffect(() => {
+  useEffect(() => {
     let notificationListener;
     let responseListener;
     let cancelled = false;
@@ -191,7 +249,9 @@ function RootNavigator() {
     };
   }, []);
 
-  React.useEffect(() => {
+  const [welcomeShown, setWelcomeShown] = useState(null); // null = checking, true = shown, false = not shown
+
+  useEffect(() => {
     const storeToken = async () => {
       const userId = session?.user?.id;
 
@@ -228,8 +288,32 @@ function RootNavigator() {
 
     storeToken();
   }, [pushToken, session?.user?.id, platform]);
+  // Check if welcome was already shown on this device
+  useEffect(() => {
+    const checkWelcomeStatus = async () => {
+      try {
+        const wasWelcomeShown = await AsyncStorage.getItem("welcome_seen");
+        setWelcomeShown(wasWelcomeShown === "true");
+      } catch (error) {
+        console.error("Error checking welcome status:", error);
+        setWelcomeShown(false); // Default to showing welcome if there's an error
+      }
+    };
 
-  if (loading) {
+    checkWelcomeStatus();
+  }, []);
+
+  // Handle when user completes welcome screen
+  const handleWelcomeComplete = async () => {
+    try {
+      await AsyncStorage.setItem("welcome_seen", "true");
+      setWelcomeShown(true);
+    } catch (error) {
+      console.error("Error saving welcome status:", error);
+    }
+  };
+
+  if (loading || welcomeShown === null) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
@@ -240,7 +324,23 @@ function RootNavigator() {
   return (
     <View style={styles.container}>
       <NavigationContainer>
-        {session ? <AppTabs /> : <AuthStack />}
+        {!welcomeShown ? (
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen
+              name="WelcomeFlow"
+              options={{
+                animationEnabled: true,
+              }}>
+              {(props) => (
+                <WelcomeScreen {...props} onComplete={handleWelcomeComplete} />
+              )}
+            </Stack.Screen>
+          </Stack.Navigator>
+        ) : session ? (
+          <AppTabs />
+        ) : (
+          <AuthStack />
+        )}
       </NavigationContainer>
 
       <View style={styles.toastContainer}>
