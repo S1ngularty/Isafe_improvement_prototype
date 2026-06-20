@@ -32,4 +32,5 @@ website/*.tsbuildinfo
 
 .env
 agents.md
-AGENTS.md
+AGENTS.md__pycache__/
+*.pyc
