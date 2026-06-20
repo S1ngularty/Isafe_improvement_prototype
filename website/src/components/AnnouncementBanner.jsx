@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchActiveAnnouncements } from "../services/announcements";
+import { getStorageUrl } from "../services/supabase";
 
 const FALLBACK_SLIDES = [
-  { id: "f1", title: "Flood Alert", description: "Stay vigilant. Report flooding in your area.", type: "video", image_url: "https://ipkrnojfydmjqmawhrev.supabase.co/storage/v1/object/public/Assets/flood.mp4" },
+  { id: "f1", title: "Flood Alert", description: "Stay vigilant. Report flooding in your area.", type: "video", image_url: getStorageUrl("Assets", "flood.mp4") },
   { id: "f2", title: "Disaster Preparedness", description: "Know your evacuation routes and emergency contacts.", type: "image", image_url: "https://cdia.asia/wp-content/uploads/2022/06/Drrm2-copy-1024x682.jpg" },
   { id: "f3", title: "Community Response", description: "Barangay officials are on standby. Report emergencies.", type: "image", image_url: "https://media.philstar.com/photos/2021/12/18/odette-response-22021-12-1817-26-20_2021-12-18_23-18-30.jpg" },
   { id: "f4", title: "Environmental Watch", description: "Monitor local conditions. Early warning saves lives.", type: "image", image_url: "https://imgs.mongabay.com/wp-content/uploads/sites/20/2021/02/24074757/DSC_0822.jpg" },
@@ -14,11 +15,17 @@ export default function AnnouncementBanner() {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    fetchActiveAnnouncements()
-      .then((data) => {
-        if (data && data.length > 0) setSlides(data);
-      })
-      .catch(() => {});
+    let cancelled = false;
+    async function loadAnnouncements() {
+      try {
+        const data = await fetchActiveAnnouncements();
+        if (!cancelled && data && data.length > 0) setSlides(data);
+      } catch {
+        // Fallback slides already displayed
+      }
+    }
+    loadAnnouncements();
+    return () => { cancelled = true; };
   }, []);
 
   const advance = useCallback(() => {

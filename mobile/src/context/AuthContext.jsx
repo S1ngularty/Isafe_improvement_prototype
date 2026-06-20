@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getSession, getCurrentUser, getUserRole, getProfile, signOut } from "../services/auth.js";
+import { supabase } from "../services/supabase.js";
 
 const AuthContext = createContext();
 
@@ -42,6 +43,35 @@ export function AuthProvider({ children }) {
         setLoading(false);
       }
     })();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        console.log("[AuthContext] Auth state changed:", event);
+        setSession(newSession);
+        
+        if (newSession?.user) {
+          try {
+            const currentUser = await getCurrentUser();
+            setUser(currentUser);
+            const userRole = await getUserRole();
+            setRole(userRole);
+            const userProfile = await getProfile();
+            setProfile(userProfile);
+          } catch (error) {
+            console.error("[AuthContext] Error updating user data:", error);
+          }
+        } else {
+          setUser(null);
+          setRole(null);
+          setProfile(null);
+        }
+      }
+    );
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const logout = async () => {

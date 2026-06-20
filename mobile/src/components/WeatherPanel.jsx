@@ -80,7 +80,7 @@ export default function WeatherPanel({ lat, lng }) {
       {/* Current Weather */}
       <View style={styles.currentSection}>
         <View style={styles.currentLeft}>
-          <Text style={styles.icon}>{current.icon}</Text>
+          <MaterialIcons name={current.icon} size={48} color={COLORS.shieldPrimary} />
           <Text style={styles.temperature}>{Math.round(current.temperature)}°C</Text>
         </View>
 
@@ -123,7 +123,7 @@ export default function WeatherPanel({ lat, lng }) {
                 {hourly.slice(0, 24).map((hour, index) => (
                   <View key={index} style={styles.hourlyCell}>
                     <Text style={styles.hourlyTime}>{hour.time}</Text>
-                    <Text style={styles.hourlyIcon}>{hour.icon}</Text>
+                    <MaterialIcons name={hour.icon} size={28} color={COLORS.shieldPrimary} style={styles.hourlyIconContainer} />
                     <View
                       style={[
                         styles.rainBar,
@@ -286,6 +286,9 @@ const styles = StyleSheet.create({
   hourlyTime: {
     fontSize: 11,
     color: COLORS.gray500,
+    marginBottom: 4,
+  },
+  hourlyIconContainer: {
     marginBottom: 4,
   },
   hourlyIcon: {

@@ -1,5 +1,6 @@
 import React from "react";
-import { View, StyleSheet, Text, Animated } from "react-native";
+import { View, StyleSheet, Text } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function ToastNotification({ message, type = "info", visible = true }) {
   if (!visible) return null;
@@ -33,19 +34,19 @@ export default function ToastNotification({ message, type = "info", visible = tr
   const getIcon = () => {
     switch (type) {
       case "success":
-        return "✅";
+        return "check-circle";
       case "error":
-        return "❌";
+        return "error";
       case "info":
-        return "ℹ️";
+        return "info";
       default:
-        return "•";
+        return "info";
     }
   };
 
   return (
     <View style={[styles.toast, { backgroundColor: getBackgroundColor() }]}>
-      <Text style={[styles.icon, { color: getTextColor() }]}>{getIcon()}</Text>
+      <MaterialIcons name={getIcon()} size={20} color={getTextColor()} />
       <Text style={[styles.message, { color: getTextColor() }]}>{message}</Text>
     </View>
   );
@@ -61,9 +62,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 12,
     gap: 8,
-  },
-  icon: {
-    fontSize: 16,
   },
   message: {
     flex: 1,
