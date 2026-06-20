@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   async function refreshRole() {
@@ -19,6 +20,17 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function refreshProfile() {
+    try {
+      const p = await getProfile();
+      setProfile(p);
+      return p;
+    } catch {
+      setProfile(null);
+      return null;
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -27,7 +39,10 @@ export function AuthProvider({ children }) {
         const s = await getSession();
         if (cancelled) return;
         setSession(s);
-        if (s) await refreshRole();
+        if (s) {
+          await refreshRole();
+          await refreshProfile();
+        }
       } catch {
         // session fetch failed — treat as logged out
       } finally {
@@ -41,8 +56,10 @@ export function AuthProvider({ children }) {
       setSession(s);
       if (s) {
         refreshRole();
+        refreshProfile();
       } else {
         setRole(null);
+        setProfile(null);
       }
     });
 
@@ -55,13 +72,15 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const { session: s } = await signIn(email, password);
     setSession(s);
-    const profile = await getProfile();
-    if (profile && profile.is_active === false) {
+    const p = await getProfile();
+    if (p && p.is_active === false) {
       await signOut();
       setSession(null);
       setRole(null);
+      setProfile(null);
       throw new Error("Your account has been deactivated. Contact an administrator.");
     }
+    setProfile(p);
     const r = await refreshRole();
     return { session: s, role: r };
   };
@@ -69,7 +88,10 @@ export function AuthProvider({ children }) {
   const signupFn = async (email, password, metadata = {}) => {
     const data = await signUp(email, password, metadata);
     setSession(data.session);
-    if (data.session) await refreshRole();
+    if (data.session) {
+      await refreshRole();
+      await refreshProfile();
+    }
     return data;
   };
 
@@ -77,10 +99,11 @@ export function AuthProvider({ children }) {
     await signOut();
     setSession(null);
     setRole(null);
+    setProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, role, loading, login, signup: signupFn, logout }}>
+    <AuthContext.Provider value={{ session, role, profile, loading, login, signup: signupFn, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

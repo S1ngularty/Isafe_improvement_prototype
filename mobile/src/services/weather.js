@@ -1,10 +1,5 @@
-// Open-Meteo Weather API Service
-// Free, no API key required
-// API: https://open-meteo.com/
+import { apiGet } from "./backend.js";
 
-const WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast";
-
-// WMO Weather Code Mapping
 const WMO_CODES = {
   0: { icon: "☀️", description: "Clear sky" },
   1: { icon: "🌤️", description: "Mainly clear" },
@@ -34,29 +29,19 @@ const WMO_CODES = {
 
 export async function fetchCurrent(lat, lng) {
   try {
-    const params = new URLSearchParams({
-      latitude: lat,
-      longitude: lng,
-      current: "temperature_2m,weather_code,precipitation,wind_speed_10m,wind_gusts_10m,pressure_msl",
-      timezone: "Asia/Manila",
-    });
-
-    const response = await fetch(`${WEATHER_API_URL}?${params}`);
-    if (!response.ok) throw new Error("Weather API error");
-
-    const data = await response.json();
-    const current = data.current;
+    const data = await apiGet("/api/weather/current", { lat, lng });
+    const code = data.weatherCode;
 
     return {
-      temperature: current.temperature_2m,
-      weatherCode: current.weather_code,
-      description: WMO_CODES[current.weather_code]?.description || "Unknown",
-      icon: WMO_CODES[current.weather_code]?.icon || "🌡️",
-      precipitation: current.precipitation,
-      windSpeed: current.wind_speed_10m,
-      windGusts: current.wind_gusts_10m,
-      pressure: current.pressure_msl,
-      isDanger: isDangerousCondition(current),
+      temperature: data.temperature,
+      weatherCode: code,
+      description: WMO_CODES[code]?.description || "Unknown",
+      icon: WMO_CODES[code]?.icon || "🌡️",
+      precipitation: data.precipitation,
+      windSpeed: data.windSpeed,
+      windGusts: data.windGusts,
+      pressure: data.pressure,
+      isDanger: isDangerousCondition(data),
     };
   } catch (error) {
     console.error("[fetchCurrent] Error:", error);
@@ -66,29 +51,18 @@ export async function fetchCurrent(lat, lng) {
 
 export async function fetchHourly(lat, lng) {
   try {
-    const params = new URLSearchParams({
-      latitude: lat,
-      longitude: lng,
-      hourly: "weather_code,precipitation,wind_speed_10m",
-      timezone: "Asia/Manila",
-      forecast_days: 1,
-    });
+    const data = await apiGet("/api/weather/hourly", { lat, lng });
+    const hourly = data.hourly || [];
 
-    const response = await fetch(`${WEATHER_API_URL}?${params}`);
-    if (!response.ok) throw new Error("Weather API error");
-
-    const data = await response.json();
-    const hourly = data.hourly;
-
-    return hourly.time.map((time, index) => ({
-      time: new Date(time).toLocaleTimeString("en-PH", {
+    return hourly.map((point) => ({
+      time: new Date(point.time).toLocaleTimeString("en-PH", {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      weatherCode: hourly.weather_code[index],
-      icon: WMO_CODES[hourly.weather_code[index]]?.icon || "🌡️",
-      precipitation: hourly.precipitation[index],
-      windSpeed: hourly.wind_speed_10m[index],
+      weatherCode: point.weatherCode,
+      icon: WMO_CODES[point.weatherCode]?.icon || "🌡️",
+      precipitation: point.precipitation,
+      windSpeed: point.windSpeed,
     }));
   } catch (error) {
     console.error("[fetchHourly] Error:", error);
@@ -97,25 +71,11 @@ export async function fetchHourly(lat, lng) {
 }
 
 function isDangerousCondition(current) {
-  const weatherCode = current.weather_code;
-  const precipitation = current.precipitation;
-  const windSpeed = current.wind_speed_10m;
-  const windGusts = current.wind_gusts_10m;
-  const pressure = current.pressure_msl;
-
-  // Thunderstorm codes
-  if (weatherCode >= 95) return true;
-
-  // Heavy rain
-  if (precipitation > 10) return true;
-
-  // Heavy wind
-  if (windSpeed > 50) return true;
-  if (windGusts > 60) return true;
-
-  // Low pressure
-  if (pressure < 1000) return true;
-
+  if (current.weatherCode >= 95) return true;
+  if (current.precipitation > 10) return true;
+  if (current.windSpeed > 50) return true;
+  if (current.windGusts > 60) return true;
+  if (current.pressure < 1000) return true;
   return false;
 }
 
