@@ -59,7 +59,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     setLocationEnabled(newValue);
     try {
       await updateLocationSharing(newValue);
-      showToast(newValue ? "📍 Location sharing enabled" : "📍 Location sharing disabled", "success");
+      showToast(newValue ? "Location sharing enabled" : "Location sharing disabled", "success");
     } catch (error) {
       setLocationEnabled(!newValue);
       showToast(error.message || "Failed to update location sharing", "error");
@@ -73,7 +73,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
       try {
         const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
         if (permStatus !== "granted") {
-          showToast("❌ Location permission denied", "error");
+          showToast("Location permission denied", "error");
           setLocationEnabled(false);
           return;
         }
@@ -99,11 +99,11 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
           await upsertLocation(loc.coords.latitude, loc.coords.longitude);
         } catch (dbError) {
           console.error("Error saving location:", dbError);
-          showToast("⚠️ Location updated locally (sync pending)", "info");
+          showToast("Location updated locally (sync pending)", "info");
         }
       } catch (error) {
         console.error("Error getting location:", error);
-        showToast("❌ Failed to get location. Check permissions.", "error");
+        showToast("Failed to get location. Check permissions.", "error");
         setLocationEnabled(false);
       }
     }, 10000);
@@ -114,7 +114,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     try {
       await upsertLocation(address.lat, address.lng);
       setLocation({ coords: { latitude: address.lat, longitude: address.lng } });
-      showToast("📍 Location updated", "success");
+      showToast("Location updated", "success");
       setShowAddressSearch(false);
     } catch (error) {
       showToast(error.message || "Failed to update location", "error");
@@ -139,13 +139,16 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
         {/* I'M SAFE Status Indicator */}
         <View style={styles.statusIndicatorContainer}>
           <View style={[styles.statusIndicator, { backgroundColor: getStatusBgColor(currentStatus) }]}>
-            <Text style={styles.statusIndicatorLabel}>
-              {currentStatus === "safe"
-                ? "✓ I'M SAFE"
-                : currentStatus === "help"
-                ? "⚠ I NEED HELP"
-                : "🚨 EMERGENCY"}
-            </Text>
+            <View style={styles.statusIndicatorContent}>
+              <MaterialIcons name={getStatusIcon(currentStatus)} size={20} color={getStatusTextColor(currentStatus)} />
+              <Text style={[styles.statusIndicatorLabel, { color: getStatusTextColor(currentStatus) }]}>
+                {currentStatus === "safe"
+                  ? "I'M SAFE"
+                  : currentStatus === "help"
+                  ? "I NEED HELP"
+                  : "EMERGENCY"}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -209,7 +212,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
               onPress={() => navigation.navigate("FirstAidInstructions")}
             >
               <View style={[styles.quickActionIconContainer, { backgroundColor: "#EF4444" }]}>
-                <MaterialIcons name="first-aid-kit" size={28} color={COLORS.white} />
+                <MaterialIcons name="medical-services" size={28} color={COLORS.white} />
               </View>
               <Text style={styles.quickActionLabel}>First Aid</Text>
             </Pressable>
@@ -264,7 +267,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
           {locationEnabled && location && (
             <View style={styles.locationInfo}>
               <Text style={styles.locationText}>
-                📍 Lat: {location.coords.latitude.toFixed(4)} | Lng: {location.coords.longitude.toFixed(4)}
+                Lat: {location.coords.latitude.toFixed(4)} | Lng: {location.coords.longitude.toFixed(4)}
               </Text>
               {location.coords.accuracy && (
                 <Text style={styles.accuracyText}>Accuracy: {Math.round(location.coords.accuracy)}m</Text>
@@ -394,6 +397,24 @@ function getStatusBgColor(status) {
   }
 }
 
+function getStatusIcon(status) {
+  switch (status) {
+    case "safe":      return "check-circle";
+    case "help":      return "error";
+    case "emergency": return "warning";
+    default:          return "info";
+  }
+}
+
+function getStatusTextColor(status) {
+  switch (status) {
+    case "safe":      return COLORS.successText;
+    case "help":      return COLORS.warningText;
+    case "emergency": return COLORS.errorText;
+    default:          return COLORS.shieldPrimary;
+  }
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -437,10 +458,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: "center",
   },
+  statusIndicatorContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   statusIndicatorLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: COLORS.white,
   },
 
   // Emergency Alert Section

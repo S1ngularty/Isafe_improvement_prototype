@@ -62,11 +62,11 @@ export default function EmergencyHistoryScreen({ navigation }) {
   const getStatusIcon = (status) => {
     switch (status) {
       case "safe":
-        return "✅";
+        return "check-circle";
       case "help":
-        return "⚠️";
+        return "error";
       case "emergency":
-        return "🚨";
+        return "warning";
       default:
         return "•";
     }
@@ -80,7 +80,10 @@ export default function EmergencyHistoryScreen({ navigation }) {
   const renderHistoryItem = ({ item }) => (
     <View style={styles.historyItem}>
       <View style={styles.itemHeader}>
-        <Text style={styles.itemStatus}>{getStatusIcon(item.status)} {item.status.toUpperCase()}</Text>
+        <View style={styles.statusWithIcon}>
+          <MaterialIcons name={getStatusIcon(item.status)} size={20} color={getStatusColor(item.status)} />
+          <Text style={[styles.itemStatus, { color: getStatusColor(item.status) }]}>{item.status.toUpperCase()}</Text>
+        </View>
         <Text style={styles.itemTime}>{formatTime(item.timestamp)}</Text>
       </View>
       <Text style={styles.itemLocation}>{item.location}</Text>
@@ -195,4 +198,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.gray400,
   },
+  statusWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
 });
+
+function getStatusColor(status) {
+  switch (status) {
+    case "safe":
+      return "#15803d";
+    case "help":
+      return "#d97706";
+    case "emergency":
+      return "#dc2626";
+    default:
+      return COLORS.gray500;
+  }
+}

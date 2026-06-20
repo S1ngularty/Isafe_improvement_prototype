@@ -46,7 +46,7 @@ export default function ProfileScreen({ navigation }) {
     try {
       await updateProfile({ full_name: fullName, barangay });
       await refreshProfile();
-      showToast("✅ Profile updated successfully", "success");
+      showToast("Profile updated successfully", "success");
       setIsEditing(false);
     } catch (error) {
       showToast(error.message || "Failed to update profile", "error");
@@ -63,7 +63,7 @@ export default function ProfileScreen({ navigation }) {
         onPress: async () => {
           try {
             await logout();
-            showToast("✅ Logged out successfully", "success");
+            showToast("Logged out successfully", "success");
             // Navigation happens automatically when session becomes null
           } catch (error) {
             showToast(error.message || "Logout failed", "error");

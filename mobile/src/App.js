@@ -100,7 +100,7 @@ function AppTabs() {
       try {
         await updateStatus(newStatus);
         const emoji =
-          newStatus === "safe" ? "✅" : newStatus === "help" ? "⚠️" : "🚨";
+          newStatus === "safe" ? "Success" : newStatus === "help" ? "Alert" : "Emergency";
         const message =
           newStatus === "safe"
             ? "Marked as safe"

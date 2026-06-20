@@ -79,7 +79,7 @@ const firstAidTips = [
       "Avoid using injured area",
       "Seek medical attention if severe",
     ],
-    icon: "health-and-safety",
+    icon: "healing",
   },
   {
     id: 5,

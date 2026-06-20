@@ -25,7 +25,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       await signIn(email, password);
-      showToast("✅ Logged in successfully", "success");
+      showToast("Logged in successfully", "success");
       // Refresh session to update AuthContext and trigger navigation
       await refreshSession();
     } catch (error) {
@@ -69,7 +69,7 @@ export default function AuthScreen() {
     try {
       // Verify the OTP token
       await verifyOtp(otp, "signup");
-      showToast("✅ Email verified! You can now sign in.", "success");
+      showToast("Email verified! You can now sign in.", "success");
       setMode("login");
       setOtp("");
       // Clear registration fields
