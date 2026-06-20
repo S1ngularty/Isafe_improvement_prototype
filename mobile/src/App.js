@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ActivityIndicator, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -17,6 +17,7 @@ import SOSButton from "./components/SOSButton.jsx";
 import { updateStatus } from "./services/location.js";
 import * as Notifications from "expo-notifications";
 import { registerForPushNotificationsAsync } from "./services/notification.js";
+import { supabase } from "./services/supabase.js";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -118,8 +119,7 @@ function AppTabs() {
         },
         tabBarActiveTintColor: COLORS.shieldPrimary,
         tabBarInactiveTintColor: COLORS.gray300,
-      })}
-    >
+      })}>
       <Tab.Screen name="Home" options={{ title: "Home" }}>
         {(props) => (
           <DashboardScreen {...props} currentStatus={currentStatus} />
@@ -157,20 +157,21 @@ function DummyScreen() {
 function RootNavigator() {
   const { session, loading } = useAuth();
   const { toasts } = useToast();
+  const [pushToken, setPushToken] = React.useState(null);
+  const storedTokenRef = React.useRef(null);
+  const platform = Platform.OS;
 
   React.useEffect(() => {
     let notificationListener;
     let responseListener;
+    let cancelled = false;
 
     const initNotifications = async () => {
       const token = await registerForPushNotificationsAsync();
+      console.log("Expo Push Token:", token);
 
-      if (token) {
-        console.log("Expo Push Token:", token);
-
-        // TODO:
-        // Send token to backend
-        // await savePushToken(token);
+      if (!cancelled && token) {
+        setPushToken(token);
       }
     };
 
@@ -189,10 +190,49 @@ function RootNavigator() {
     );
 
     return () => {
+      cancelled = true;
       notificationListener?.remove();
       responseListener?.remove();
     };
   }, []);
+
+  React.useEffect(() => {
+    const storeToken = async () => {
+      const userId = session?.user?.id;
+
+      if (!userId || !pushToken) return;
+
+      const storageKey = `${userId}:${platform}:${pushToken}`;
+
+      if (storedTokenRef.current === storageKey) return;
+
+      try {
+        const { error: deleteError } = await supabase
+          .from("notification")
+          .delete()
+          .eq("user_id", userId)
+          .eq("platform_type", platform);
+
+        if (deleteError) throw deleteError;
+
+        const { error: insertError } = await supabase
+          .from("notification")
+          .insert({
+            user_id: userId,
+            platform_type: platform,
+            push_token: pushToken,
+          });
+
+        if (insertError) throw insertError;
+
+        storedTokenRef.current = storageKey;
+      } catch (error) {
+        console.error("store push token:", error);
+      }
+    };
+
+    storeToken();
+  }, [pushToken, session?.user?.id, platform]);
 
   if (loading) {
     return (
