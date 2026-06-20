@@ -19,6 +19,7 @@ import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
 import FamilyScreen from "./screens/family/FamilyScreen";
+import MessagesScreen from "./screens/messages/MessagesScreen.jsx";
 import ToastNotification from "./components/ToastNotification.jsx";
 import SOSButton from "./components/SOSButton.jsx";
 import { updateStatus } from "./services/location.js";
@@ -152,11 +153,12 @@ function AppTabs() {
           }
 
           const icons = {
-            Home: "home",
-            Alert: "notifications",
-            Family: "people",
-            Maps: "map",
-            Profile: "person",
+            Home:     "home",
+            Alert:    "notifications",
+            Messages: "mail",
+            Family:   "people",
+            Maps:     "map",
+            Profile:  "person",
           };
 
           return (
@@ -179,6 +181,11 @@ function AppTabs() {
         options={{ title: "Alerts" }}
       />
       <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{ title: "Messages" }}
+      />
+      <Tab.Screen
         name="SOS"
         component={DummyScreen}
         options={{ title: "SOS" }}
@@ -189,11 +196,7 @@ function AppTabs() {
         component={FamilyScreen}
         options={{ title: "Family" }}
       />
-      <Tab.Screen
-        name="Maps"
-        component={MapsScreen}
-        options={{ title: "Maps" }}
-      />
+      <Tab.Screen name="Maps" component={MapsScreen} options={{ title: "Maps" }} />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
