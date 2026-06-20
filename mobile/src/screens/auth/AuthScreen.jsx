@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
 import { signIn, signUp, verifyOtp } from "../../services/auth.js";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -16,6 +17,8 @@ export default function AuthScreen() {
   const [barangay, setBarangay] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -189,22 +192,32 @@ export default function AuthScreen() {
                 autoCapitalize="none"
                 editable={!loading}
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                editable={!loading}
-              />
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                />
+                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.passwordToggle}>
+                  <MaterialIcons name={showPassword ? "visibility" : "visibility-off"} size={20} color="#991b1b" />
+                </Pressable>
+              </View>
+              <View style={styles.passwordInputWrapper}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  editable={!loading}
+                />
+                <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.passwordToggle}>
+                  <MaterialIcons name={showConfirmPassword ? "visibility" : "visibility-off"} size={20} color="#991b1b" />
+                </Pressable>
+              </View>
               <Pressable
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleRegister}
@@ -343,6 +356,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     backgroundColor: COLORS.white,
+    color: COLORS.gray900,
+  },
+  passwordInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    paddingRight: 8,
+    marginTop: 0,
+  },
+  passwordToggle: {
+    padding: 8,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
     color: COLORS.gray900,
   },
   button: {

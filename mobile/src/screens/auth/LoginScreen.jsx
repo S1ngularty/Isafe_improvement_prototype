@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import { MaterialIcons } from "@expo/vector-icons";
 
 function InputField({
   label,
@@ -125,7 +126,7 @@ export function LoginScreen() {
               rightAction={{
                 onPress: () => setHidePassword((current) => !current),
                 content: (
-                  <Text style={styles.eyeIcon}>{hidePassword ? "◔" : "◑"}</Text>
+                  <MaterialIcons name={hidePassword ? "visibility-off" : "visibility"} size={20} color="#991b1b" />
                 ),
               }}
             />
