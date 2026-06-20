@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 
-from app.api.index import router as api_router
+from app.api.notification_api import router as notificaition_router
+
+app =FastAPI()
 
 
-app = FastAPI(title="Prototype API", version="0.1.0")
-
-app.include_router(api_router)
+app.include_router(
+	notificaition_router,
+	prefix="/notification",
+	tags="notificaitons"
+)
 
 
 @app.get("/")
