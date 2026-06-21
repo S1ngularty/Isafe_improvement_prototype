@@ -6,3 +6,8 @@ class NotificationModel(BaseModel):
     title:str
     body:str
     data:Optional[Dict[str,Any]] = None
+
+class BroadcastNotificaitonModel(BaseModel):
+    title:str
+    body:str
+    data:Optional[Dict[str,Any]] =None

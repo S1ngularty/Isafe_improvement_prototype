@@ -1,4 +1,5 @@
 from app.integrations.expo_push import send_expo_push
+from app.core.supabase import client
 
 
 class NotificationService:
@@ -24,3 +25,17 @@ class NotificationService:
             "success": True,
             "response": result
         }
+
+    def send_notificaiton_to_all_users(payload):
+        tokens =  client.table("notification").select("push_token").execute()
+        tokens= tokens.data
+
+        for item in tokens:
+            send_expo_push(
+                token = item["push_token"],
+                title = payload.title,
+                body = payload.body
+            )
+
+        return {"success":True}
+        
