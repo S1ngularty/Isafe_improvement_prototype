@@ -8,17 +8,17 @@ OSRM_BASE = "https://router.project-osrm.org/route/v1/driving"
 ROUTE_CACHE_TTL = 300
 
 
-async def get_route(from_lat, from_lng, to_lat, to_lng):
-    coord_key = f"{round(from_lat,4)},{round(from_lng,4)}-{round(to_lat,4)},{round(to_lng,4)}"
+async def get_route(from_lat, from_lng, to_lat, to_lng, include_steps=False):
+    key = f"{round(from_lat,4)},{round(from_lng,4)}-{round(to_lat,4)},{round(to_lng,4)}:{'s' if include_steps else 'r'}"
     now = time.time()
 
-    if coord_key in CACHE and now - CACHE[coord_key]["ts"] < ROUTE_CACHE_TTL:
-        return CACHE[coord_key]["data"]
+    if key in CACHE and now - CACHE[key]["ts"] < ROUTE_CACHE_TTL:
+        return CACHE[key]["data"]
 
     await _throttle()
 
     url = f"{OSRM_BASE}/{from_lng},{from_lat};{to_lng},{to_lat}"
-    params = {"geometries": "geojson", "overview": "full", "steps": "false"}
+    params = {"geometries": "geojson", "overview": "full", "steps": "true" if include_steps else "false"}
 
     import httpx
 
@@ -42,8 +42,28 @@ async def get_route(from_lat, from_lng, to_lat, to_lng):
         "duration_min": duration_min,
     }
 
-    CACHE[coord_key] = {"ts": now, "data": result}
+    if include_steps:
+        result["steps"] = _parse_steps(route)
+
+    CACHE[key] = {"ts": now, "data": result}
     return result
+
+
+def _parse_steps(route):
+    legs = route.get("legs", [])
+    steps = []
+    for leg in legs:
+        for step in leg.get("steps", []):
+            maneuver = step.get("maneuver", {})
+            steps.append({
+                "instruction": step.get("instruction", ""),
+                "distance_m": round(step.get("distance", 0)),
+                "duration_s": round(step.get("duration", 0)),
+                "name": step.get("name", ""),
+                "maneuver_type": maneuver.get("type", ""),
+                "maneuver_modifier": maneuver.get("modifier", ""),
+            })
+    return steps
 
 
 async def _throttle():

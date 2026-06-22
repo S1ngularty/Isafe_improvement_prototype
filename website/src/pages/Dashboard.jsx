@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -7,6 +7,7 @@ import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
 import UserSidebar from "../components/UserSidebar";
 
+import { Polyline, Tooltip as LeafletTooltip } from "react-leaflet";
 import MapView from "../components/MapView";
 import UserMarker from "../components/UserMarker";
 import AddressSearch from "../components/AddressSearch";
@@ -14,10 +15,14 @@ import AnnouncementBanner from "../components/AnnouncementBanner";
 import WeatherPanel from "../components/WeatherPanel";
 import FamilySetup from "../components/FamilySetup";
 import FamilyMemberList from "../components/FamilyMemberList";
+import UserProfile from "../components/UserProfile";
+import RouteSteps from "../components/RouteSteps";
 import useGeolocation from "../hooks/useGeolocation";
 import useFamilyLocations from "../hooks/useFamilyLocations";
 import { upsertLocation, updateStatus, updateLocationSharing } from "../services/location";
 import { getProfile } from "../services/auth";
+import { fetchRoute, openOSMDirections } from "../services/routing.js";
+import { haversine, bearing } from "../utils/geo.js";
 
 
 export default function Dashboard() {
@@ -35,6 +40,10 @@ export default function Dashboard() {
   const { lat, lng, accuracy, error: geoError, tracking } = useGeolocation(locationEnabled);
 
   const { members: familyMembers, family, refresh: refreshFamily } = useFamilyLocations();
+
+  const [route, setRoute] = useState(null);
+  const [showProximity, setShowProximity] = useState(false);
+  const routeLoadingRef = useRef(false);
 
   const displayLat = manualLat ?? lat;
   const displayLng = manualLng ?? lng;
@@ -69,7 +78,23 @@ export default function Dashboard() {
     }
   }, [profile]);
 
+  async function handleMemberClick(member) {
+    if (!displayLat || !displayLng || routeLoadingRef.current) return;
+    routeLoadingRef.current = true;
+    try {
+      const result = await fetchRoute(displayLat, displayLng, member.lat, member.lng);
+      if (result) {
+        setRoute({ ...result, memberName: member.full_name || "Member" });
+      }
+    } catch {
+      // Route fetch failed silently
+    } finally {
+      routeLoadingRef.current = false;
+    }
+  }
+
   function handleMapClick(latlng) {
+    setRoute(null);
     setManualLat(latlng.lat);
     setManualLng(latlng.lng);
   }
@@ -102,6 +127,12 @@ export default function Dashboard() {
     await logout();
     showToast("Logged out successfully.", "info", 4000);
     navigate("/", { replace: true });
+  }
+
+  function handleOpenOSM() {
+    if (!route || !displayLat || !displayLng) return;
+    const target = route.coordinates[route.coordinates.length - 1];
+    openOSMDirections(displayLat, displayLng, target[0], target[1]);
   }
 
   return (
@@ -140,6 +171,8 @@ export default function Dashboard() {
 
 
         <main className="flex-1 p-4 sm:p-6 w-full flex flex-col gap-6">
+          {view === "profile" && <UserProfile />}
+
           {view === "family" && (
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-7rem)]">
               <div className="lg:w-80 shrink-0">
@@ -153,8 +186,14 @@ export default function Dashboard() {
               </div>
               <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-lg">
                 <MapView center={[12.8, 121.7]} zoom={6} className="h-full w-full">
-                  {family && familyMembers.map((m) =>
-                    m.lat && m.lng ? (
+                  {displayLat && displayLng && (
+                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
+                  )}
+                  {displayLat && displayLng && family && familyMembers.map((m) => {
+                    if (!m.lat || !m.lng) return null;
+                    const dist = haversine(displayLat, displayLng, m.lat, m.lng);
+                    const dir = bearing(displayLat, displayLng, m.lat, m.lng);
+                    return (
                       <UserMarker
                         key={m.id}
                         lat={m.lat}
@@ -162,11 +201,30 @@ export default function Dashboard() {
                         status={m.status}
                         name={m.full_name}
                         isSelf={false}
+                        avatarUrl={m.avatar_url}
+                        onClick={() => handleMemberClick(m)}
+                        distanceInfo={`${dist.toFixed(1)} km ${dir}`}
+                      />
+                    );
+                  })}
+                  {displayLat && displayLng && familyMembers.map((m) =>
+                    m.lat && m.lng ? (
+                      <Polyline
+                        key={`prox-${m.id}`}
+                        positions={[[displayLat, displayLng], [m.lat, m.lng]]}
+                        pathOptions={{ color: "#991b1b", dashArray: "4 3", weight: 1.5, opacity: 0.5 }}
                       />
                     ) : null
                   )}
-                  {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} />
+                  {route && (
+                    <Polyline
+                      positions={route.coordinates}
+                      pathOptions={{ color: "#991b1b", weight: 3, opacity: 0.9 }}
+                    >
+                      <LeafletTooltip sticky>
+                        {route.distance_km} km &middot; ~{route.duration_min} min to {route.memberName}
+                      </LeafletTooltip>
+                    </Polyline>
                   )}
                 </MapView>
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[2000] w-[calc(100%-2rem)] max-w-sm">
@@ -187,10 +245,13 @@ export default function Dashboard() {
               <div className="h-[55vh] min-h-[380px] rounded-xl overflow-hidden shadow-lg relative group">
                 <MapView center={mapCenter} zoom={mapZoom} resetKey={resetKey} className="h-full w-full" onMapClick={handleMapClick}>
                   {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} />
+                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
                   )}
-                  {family && familyMembers.map((m) =>
-                    m.lat && m.lng ? (
+                  {displayLat && displayLng && family && familyMembers.map((m) => {
+                    if (!m.lat || !m.lng) return null;
+                    const dist = showProximity ? haversine(displayLat, displayLng, m.lat, m.lng) : null;
+                    const dir = dist ? bearing(displayLat, displayLng, m.lat, m.lng) : null;
+                    return (
                       <UserMarker
                         key={m.id}
                         lat={m.lat}
@@ -198,8 +259,30 @@ export default function Dashboard() {
                         status={m.status}
                         name={m.full_name}
                         isSelf={false}
+                        avatarUrl={m.avatar_url}
+                        onClick={() => handleMemberClick(m)}
+                        distanceInfo={dist ? `${dist.toFixed(1)} km ${dir}` : null}
+                      />
+                    );
+                  })}
+                  {showProximity && displayLat && displayLng && familyMembers.map((m) =>
+                    m.lat && m.lng ? (
+                      <Polyline
+                        key={`prox-${m.id}`}
+                        positions={[[displayLat, displayLng], [m.lat, m.lng]]}
+                        pathOptions={{ color: "#991b1b", dashArray: "4 3", weight: 1.5, opacity: 0.5 }}
                       />
                     ) : null
+                  )}
+                  {route && (
+                    <Polyline
+                      positions={route.coordinates}
+                      pathOptions={{ color: "#991b1b", weight: 3, opacity: 0.9 }}
+                    >
+                      <LeafletTooltip sticky>
+                        {route.distance_km} km &middot; ~{route.duration_min} min to {route.memberName}
+                      </LeafletTooltip>
+                    </Polyline>
                   )}
                 </MapView>
 
@@ -212,10 +295,24 @@ export default function Dashboard() {
                   />
                 </div>
 
-                <div className="absolute top-3 right-3 z-[1000] bg-white/90 backdrop-blur rounded-lg shadow px-3 py-1.5 flex items-center gap-2 text-xs">
-                  <span className={`w-2 h-2 rounded-full ${tracking || isManual ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-                  <span className="text-gray-600">{tracking || isManual ? (isManual ? "Manual" : "Live") : "Off"}</span>
-                  {!isManual && accuracy && <span className="text-gray-400 ml-1">~{Math.round(accuracy)}m</span>}
+                <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2">
+                  {family && (
+                    <button
+                      onClick={() => setShowProximity((v) => !v)}
+                      className={`bg-white/90 backdrop-blur rounded-lg shadow px-3 py-1.5 flex items-center gap-1.5 text-xs transition-colors ${showProximity ? "text-shield-700 border border-shield-300" : "text-gray-500"}`}
+                      title="Show proximity lines"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      </svg>
+                      {showProximity ? "Hide" : "Lines"}
+                    </button>
+                  )}
+                  <div className="bg-white/90 backdrop-blur rounded-lg shadow px-3 py-1.5 flex items-center gap-2 text-xs">
+                    <span className={`w-2 h-2 rounded-full ${tracking || isManual ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+                    <span className="text-gray-600">{tracking || isManual ? (isManual ? "Manual" : "Live") : "Off"}</span>
+                    {!isManual && accuracy && <span className="text-gray-400 ml-1">~{Math.round(accuracy)}m</span>}
+                  </div>
                 </div>
 
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-1.5">
@@ -303,6 +400,10 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
+
+              {route && (
+                <RouteSteps route={route} onClear={() => setRoute(null)} onOpenOSM={handleOpenOSM} />
+              )}
 
               <WeatherPanel lat={displayLat} lng={displayLng} />
 
