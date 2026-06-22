@@ -16,3 +16,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+const SUPABASE_STORAGE_URL = `${supabaseUrl}/storage/v1/object/public`;
+
+export function getStorageUrl(bucket, path) {
+  return `${SUPABASE_STORAGE_URL}/${bucket}/${path}`;
+}

@@ -164,3 +164,111 @@ ALTER TABLE public.profiles REPLICA IDENTITY FULL;
 
 - **Status buttons** (Dashboard map): shrunk from `p-3 rounded-xl` to `p-2 rounded-lg`, icons `w-5→w-4`, text `text-[10px]→text-[9px]`. No longer overlap Leaflet zoom controls on 14" screens.
 - **Toast z-index**: bumped from `z-[200]` to `z-[9999]` so toasts render above the map in all views.
+
+---
+
+## 2026-06-22T02:56Z
+
+### Feature: Route Navigation (OSRM via Backend Proxy)
+
+#### Backend
+- `backend/app/services/routing.py` — OSRM demo server HTTP client, 5-min cache, 1 req/sec throttle, coordinate swap `[lng,lat]→[lat,lng]`, step-by-step parsing with maneuver types
+- `backend/app/api/routing.py` — `GET /api/routing/route?from_lat=...&from_lng=...&to_lat=...&to_lng=...&steps=true|false` → `{coordinates, distance_km, duration_min, steps[]}`
+- `backend/app/main.py` — registered routing router
+
+#### Web — RouteSteps Component
+- `website/src/services/routing.js` — `fetchRoute()` + `openOSMDirections()` deep-link
+- `website/src/utils/geo.js` — `haversine()`, `bearing()` for proximity lines
+- `website/src/components/RouteSteps.jsx` — OSM-style turn-by-turn panel with:
+  - Inline SVG maneuver arrows (straight, left, right, slight-left/right, sharp-left/right, u-turn, roundabout, fork, depart, arrive)
+  - Collapsible via header click with chevron indicator
+  - Left-border color accents per step (green=departure, gray=turn, light=arrival)
+  - Step count in header, distance on each row
+  - "Open in OpenStreetMap" link for external navigation
+  - HTML tag stripping for clean instruction text
+- `website/src/pages/Dashboard.jsx` — route polyline on map with tooltip, proximity line toggle, RouteSteps panel below map
+
+#### Mobile — Route Navigation
+- `mobile/src/services/routing.js` — `fetchRoute()` via backend
+- `mobile/src/utils/geo.js` — `haversine()`, `bearing()`
+- `mobile/src/screens/maps/MapsScreen.jsx` — family member chips with direction arrows, tap-to-route, collapsible steps panel with maneuver icons (↰ ↱ ↑ ↩ ⟳ ● ◉), "Open in OpenStreetMap" via `Linking`
+- `mobile/src/assets/leafletMapHtml.js` — auto-generated offline Leaflet HTML bundle (166KB, no CDN dependencies)
+
+---
+
+### Feature: Profile Pictures as Marker Icons
+
+#### Database — `schemas/avatars.sql`
+- Adds `avatar_url TEXT` column to `profiles`
+- Creates `avatars` storage bucket (public, 5MB limit, images only)
+- Storage RLS: authenticated users manage their own `user_{id}/` folder, public can view
+- Updates `get_family_members()` RPC to return `avatar_url`
+
+#### Website
+- `website/src/services/profile.js` — `uploadAvatar(file)`, `removeAvatar()`, `updateProfile()`
+- `website/src/components/UserProfile.jsx` — sidebar panel: click-to-upload avatar circle, name/barangay fields, status display
+- `website/src/components/UserMarker.jsx` — circular `<img>` marker pin head with colored status ring border + triangle pointer; letter-circle fallback when no avatar; larger size for self-marker (36px vs 30px)
+- `website/src/components/UserSidebar.jsx` — "Profile" nav item (person icon)
+- `website/src/pages/Dashboard.jsx` — passes `avatarUrl` from profile context to all markers
+
+#### Mobile
+- `mobile/src/services/supabase.js` — added `getStorageUrl(bucket, path)` helper
+- `mobile/src/services/profile.js` — `uploadAvatar(uri)`, `removeAvatar()`, `updateProfile()`
+- `mobile/src/screens/profile/ProfileScreen.jsx` — `expo-image-picker` integration, avatar preview circle with camera badge icon, remove photo option
+- `mobile/src/screens/maps/MapsScreen.jsx` — WebView markers render avatar images (or letter fallback) with colored status border ring
+- `mobile/src/assets/leafletMapHtml.js` — `addOrUpdateMarker()` accepts `avatarUrl` parameter for in-map avatar rendering
+
+---
+
+### Mobile MapsScreen — Emergency-App Redesign
+
+Complete overhaul of `mobile/src/screens/maps/MapsScreen.jsx`:
+- **Dark theme**: dark status bar, dark map background, dark zoom controls
+- **Compact header**: status dot + SAFE/HELP/EMERGENCY label, family name badge, live coordinates
+- **Floating action buttons** (left side): pin icon (saves location), my-location icon (reset to GPS after manual pin)
+- **Floating action buttons** (right side): open-in-OSM icon, close route icon
+- **Family member chips**: horizontal scrollable bar with status dots, names, distances, directions — tap to route
+- **Route steps panel**: collapsible bottom panel with colored left-bar accents, maneuver icons, distance per step
+- **Tap-to-pin**: tap map background → posts MAP_CLICK event → sets manual pin position → updates marker
+- **Offline map**: Leaflet CSS/JS fully inlined in `leafletMapHtml.js` bundle (166KB), no CDN dependencies
+
+---
+
+### Bug Fixes (2026-06-22)
+
+#### Marker Drift on Zoom
+- **Cause:** `transform: translate(...)` CSS in divIcon HTML double-shifted markers — Leaflet's `iconAnchor` already applies the same offset
+- **Fix:** Removed CSS transform; used flexbox layout for circle + triangle
+
+#### Route Data Not Escaping in WebView
+- **Cause:** `sendToMap` used manual quote escaping (`replace(/'/g)`) which broke on special characters in route data
+- **Fix:** Uses double `JSON.stringify` for safe JavaScript injection
+
+#### OSRM HTML Tags in Instructions
+- **Cause:** OSRM returns instructions like `"Head <b>north</b> on..."` — HTML tags broke React Native Text rendering (showed `'n` artifacts)
+- **Fix:** Added `stripHtml()` function that strips HTML tags and decodes entities (`&#39;` → `'`, `&amp;` → `&`)
+
+#### Status Color Not Syncing on Mobile Marker
+- **Cause:** `sendLocations` was a stale closure — useEffect didn't include it in dependency array
+- **Fix:** Converted to `useCallback` with `[profile, session, manualLat, manualLng]` deps; added to effect deps
+
+#### Map Loading Indefinitely
+- **Cause:** 15s fallback timer used stale `mapLoaded` closure (always read `false`)
+- **Fix:** Changed to `setMapLoaded(prev => ...)` for accurate state reading
+- **Additional:** Leaflet CDN failure now detected immediately — try/catch sends MAP_LOADED with error field
+
+#### Nested `<button>` in RouteSteps
+- **Cause:** Collapse toggle was a `<button>` containing the clear `<button>` → invalid DOM
+- **Fix:** Outer toggle changed to `<div role="button" tabIndex={0}>`; clear button uses `stopPropagation`
+
+#### Family Not Showing After Re-login
+- **Cause:** `getMyFamily()` queried `profiles` directly — PostgREST schema cache didn't include new `family_id` column
+- **Fix:** Uses `supabase.rpc("get_my_family_id")` — RPCs bypass PostgREST's column cache
+
+#### RLS Infinite Recursion (42P17)
+- **Cause:** RLS policies used inline subqueries on `profiles` that self-evaluated recursively
+- **Fix:** Replaced with `public.get_my_family_id()` (SECURITY DEFINER function)
+
+#### Mobile Backend URL Not Auto-Detecting
+- **Attempted:** `expo-constants` to parse dev host IP
+- **Result:** Reverted to manual `EXPO_PUBLIC_BACKEND_URL` in `.env` — more reliable
