@@ -33,11 +33,7 @@ app.add_middleware(
 
 app.include_router(weather_router)
 app.include_router(geocode_router)
-app.include_router(
-	notificaition_router,
-	prefix="/notification",
-	tags="notificaitons"
-)
+app.include_router(notificaition_router)
 
 @app.get("/")
 async def root() -> dict[str, str]:

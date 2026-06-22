@@ -11,3 +11,9 @@ class BroadcastNotificaitonModel(BaseModel):
     title:str
     body:str
     data:Optional[Dict[str,Any]] =None
+
+class NotifyContactUserModel(BaseModel):
+    user_id:str
+    title:str 
+    body:str
+    data:Optional[Dict[str,Any]] = None
