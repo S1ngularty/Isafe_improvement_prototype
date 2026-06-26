@@ -275,7 +275,7 @@ function RootNavigator() {
 
         const { error: insertError } = await supabase
           .from("notification")
-          .insert({
+          .upsert({
             user_id: userId,
             platform_type: platform,
             push_token: pushToken,
