@@ -14,6 +14,7 @@ class BroadcastNotificaitonModel(BaseModel):
 
 class NotifyContactUserModel(BaseModel):
     user_id:str
-    title:str 
+    status:str
     body:str
-    data:Optional[Dict[str,Any]] = None
+    title:Optional[str] = None
+    payload:Optional[Any] = None
