@@ -5,35 +5,29 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Switch,
+  Image,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialIcons } from "@expo/vector-icons";
-
-const COLORS = {
-  shieldDark: "#5c1010",
-  shieldPrimary: "#991b1b",
-  alert: "#b91c1c",
-  gray50: "#f9fafb",
-  gray100: "#f3f4f6",
-  gray200: "#e5e7eb",
-  gray300: "#d1d5db",
-  gray400: "#9ca3af",
-  gray500: "#6b7280",
-  gray600: "#4b5563",
-  gray700: "#374151",
-  gray900: "#111827",
-  white: "#fff",
-  successBg: "#dcfce7",
-  successText: "#15803d",
-};
+import { 
+  ArrowLeft, 
+  ChevronRight,
+  Shield,
+  AlertTriangle,
+  HomeIcon,
+  Droplets,
+  Wind,
+  Users
+} from "lucide-react-native";
 
 const checklists = [
   {
     id: 1,
     title: "Home Emergency Kit",
-    icon: "home",
+    icon: Shield,
     color: "#EF4444",
+    bgColor: "#FEF2F2",
+    image: "https://www.mrcooper.com/blog/wp-content/uploads/2021/10/EmergencySurvivalKit_Blog.jpg",
     items: [
       "Water (1 gallon per person per day for 3+ days)",
       "Non-perishable food for 3+ days",
@@ -41,7 +35,7 @@ const checklists = [
       "Flashlight and extra batteries",
       "Battery or hand-crank powered radio",
       "Medication and medical equipment",
-      "Documents in waterproof container (ID, insurance, deeds)",
+      "Documents in waterproof container",
       "Cash and credit cards",
       "Whistle for signaling",
       "Dust mask or N95 respirator",
@@ -52,14 +46,16 @@ const checklists = [
   {
     id: 2,
     title: "Evacuation Readiness",
-    icon: "directions-run",
+    icon: AlertTriangle,
     color: "#F59E0B",
+    bgColor: "#FFFBEB",
+    image: "https://media.istockphoto.com/id/1363765782/photo/parents-explaining-to-their-children-how-to-use-the-radio-in-an-emergency.jpg?s=612x612&w=0&k=20&c=sNNBbr1-9GB-dewIVcWwknNqt2liGVRAH1s4F8s2OKc=",
     items: [
       "Know your evacuation routes from home and work",
       "Practice evacuation drills with family",
       "Prepare bug-out bag with essentials",
       "Have car fueled to at least half-tank",
-      "Know how to turn off utilities (gas, water, electricity)",
+      "Know how to turn off utilities",
       "Have important documents in waterproof container",
       "Store copies of insurance policies and deeds",
       "Have pet carriers and supplies ready",
@@ -72,8 +68,10 @@ const checklists = [
   {
     id: 3,
     title: "Before Earthquake",
-    icon: "public",
+    icon: HomeIcon,
     color: "#3B82F6",
+    bgColor: "#EFF6FF",
+    image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSXmKBuS2qkINug0fgkO4SEKZdI-0Q1jbXTZQ&s",
     items: [
       "Secure heavy furniture to walls",
       "Store breakables in low cabinets",
@@ -92,8 +90,10 @@ const checklists = [
   {
     id: 4,
     title: "Before Typhoon/Storm",
-    icon: "cloud",
+    icon: Wind,
     color: "#8B5CF6",
+    bgColor: "#F5F3FF",
+    image: "https://i0.wp.com/mandry.club/wp-content/uploads/2025/03/The-typhoon-can-be-seen-very-well.webp?ssl=1",
     items: [
       "Monitor weather forecasts regularly",
       "Stock up on non-perishable food and water",
@@ -112,8 +112,10 @@ const checklists = [
   {
     id: 5,
     title: "Before Flood",
-    icon: "water",
+    icon: Droplets,
     color: "#06B6D4",
+    bgColor: "#ECFEFF",
+    image: "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=400",
     items: [
       "Know your flood risk zone",
       "Install backflow valve on sewer line",
@@ -132,8 +134,10 @@ const checklists = [
   {
     id: 6,
     title: "Family Communication Plan",
-    icon: "group",
+    icon: Users,
     color: "#EC4899",
+    bgColor: "#FDF2F8",
+    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=400",
     items: [
       "Establish out-of-state contact person",
       "Write down contact numbers for all family members",
@@ -152,16 +156,7 @@ const checklists = [
 ];
 
 export default function EmergencyChecklist({ navigation }) {
-  const [expandedId, setExpandedId] = useState(null);
   const [checkedItems, setCheckedItems] = useState({});
-
-  const toggleItem = (checklistId, itemIndex) => {
-    const key = `${checklistId}-${itemIndex}`;
-    setCheckedItems((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
 
   const getCheckedCount = (checklistId) => {
     let count = 0;
@@ -183,130 +178,94 @@ export default function EmergencyChecklist({ navigation }) {
     return Math.round((checked / checklist.items.length) * 100);
   };
 
+  const handleChecklistPress = (checklist) => {
+    navigation.navigate("ChecklistDetail", { 
+      checklist,
+      checkedItems,
+      setCheckedItems 
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#800000" />
+      
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.shieldPrimary} />
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <ArrowLeft color="#FFFFFF" size={24} />
         </Pressable>
         <Text style={styles.headerTitle}>Emergency Checklist</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.introText}>
-          Prepare for emergencies with these comprehensive checklists. Track your preparedness and stay safe.
-        </Text>
-
-        <View style={styles.emergencyBanner}>
-          <MaterialIcons name="checklist" size={20} color={COLORS.white} />
-          <Text style={styles.emergencyText}>Complete these checklists to ensure your family is prepared</Text>
+        
+        {/* Introduction */}
+        <View style={styles.introContainer}>
+          <Text style={styles.introTagline}>Stay prepared. Stay safe.</Text>
+          <Text style={styles.introDescription}>
+            Track your preparedness with these essential checklists.
+          </Text>
         </View>
 
-        {/* Checklists */}
-        <View style={styles.checklistsContainer}>
-          {checklists.map((checklist) => (
-            <View key={checklist.id}>
+        {/* Checklist Cards */}
+        <View style={styles.checklistContainer}>
+          {checklists.map((checklist) => {
+            const IconComponent = checklist.icon;
+            const progress = getProgressPercentage(checklist.id);
+            const checked = getCheckedCount(checklist.id);
+            
+            return (
               <Pressable
-                style={styles.checklistCard}
-                onPress={() => setExpandedId(expandedId === checklist.id ? null : checklist.id)}
+                key={checklist.id}
+                style={styles.card}
+                onPress={() => handleChecklistPress(checklist)}
               >
-                <View style={styles.checklistHeader}>
-                  <View style={[styles.checklistIconContainer, { backgroundColor: checklist.color }]}>
-                    <MaterialIcons name={checklist.icon} size={24} color={COLORS.white} />
+                <Image source={{ uri: checklist.image }} style={styles.cardImage} />
+                
+                <View style={styles.cardContent}>
+                  <View style={styles.titleRow}>
+                    <View style={[styles.iconContainer, { backgroundColor: checklist.bgColor }]}>
+                      <IconComponent color={checklist.color} size={20} />
+                    </View>
+                    <Text style={styles.cardTitle}>{checklist.title}</Text>
                   </View>
                   
-                  <View style={styles.checklistTitleContainer}>
-                    <Text style={styles.checklistTitle}>{checklist.title}</Text>
-                    <View style={styles.progressContainer}>
-                      <View style={styles.progressBarBg}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            {
-                              width: `${getProgressPercentage(checklist.id)}%`,
-                              backgroundColor: checklist.color,
-                            },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.progressText}>
-                        {getCheckedCount(checklist.id)}/{checklist.items.length}
-                      </Text>
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressBarBg}>
+                      <View
+                        style={[
+                          styles.progressBarFill,
+                          {
+                            width: `${progress}%`,
+                            backgroundColor: checklist.color,
+                          },
+                        ]}
+                      />
                     </View>
+                    <Text style={styles.progressText}>
+                      {checked}/{checklist.items.length}
+                    </Text>
                   </View>
-
-                  <MaterialIcons
-                    name={expandedId === checklist.id ? "expand-less" : "expand-more"}
-                    size={24}
-                    color={COLORS.gray400}
-                  />
                 </View>
 
-                {expandedId === checklist.id && (
-                  <View style={styles.checklistContent}>
-                    {checklist.items.map((item, index) => {
-                      const isChecked = checkedItems[`${checklist.id}-${index}`];
-                      return (
-                        <Pressable
-                          key={index}
-                          style={styles.checklistItem}
-                          onPress={() => toggleItem(checklist.id, index)}
-                        >
-                          <View
-                            style={[
-                              styles.checkbox,
-                              {
-                                backgroundColor: isChecked ? checklist.color : "transparent",
-                                borderColor: checklist.color,
-                              },
-                            ]}
-                          >
-                            {isChecked && (
-                              <MaterialIcons name="check" size={16} color={COLORS.white} />
-                            )}
-                          </View>
-                          <Text
-                            style={[
-                              styles.itemText,
-                              isChecked && styles.itemTextChecked,
-                            ]}
-                          >
-                            {item}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
+                <ChevronRight color="#A0A0A0" size={20} />
               </Pressable>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
-        {/* Tips Section */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.tipsTitle}>Preparedness Tips:</Text>
-          <View style={styles.tipItem}>
-            <MaterialIcons name="lightbulb" size={16} color={COLORS.shieldPrimary} />
-            <Text style={styles.tipText}>Review and update checklists every 6 months</Text>
+        {/* Tips Banner */}
+        <View style={styles.tipsBanner}>
+          <View style={styles.tipsTextContainer}>
+            <Text style={styles.tipsTitle}>Preparedness Tips</Text>
+            <Text style={styles.tipsSubtitle}>
+              Review and update your <Text style={styles.highlightText}>checklists regularly.</Text>
+            </Text>
           </View>
-          <View style={styles.tipItem}>
-            <MaterialIcons name="lightbulb" size={16} color={COLORS.shieldPrimary} />
-            <Text style={styles.tipText}>Practice evacuation routes with your family quarterly</Text>
-          </View>
-          <View style={styles.tipItem}>
-            <MaterialIcons name="lightbulb" size={16} color={COLORS.shieldPrimary} />
-            <Text style={styles.tipText}>Store emergency supplies in easily accessible locations</Text>
-          </View>
-          <View style={styles.tipItem}>
-            <MaterialIcons name="lightbulb" size={16} color={COLORS.shieldPrimary} />
-            <Text style={styles.tipText}>Keep important documents in waterproof containers</Text>
-          </View>
-          <View style={styles.tipItem}>
-            <MaterialIcons name="lightbulb" size={16} color={COLORS.shieldPrimary} />
-            <Text style={styles.tipText}>Check emergency supply expiration dates regularly</Text>
+          <View style={styles.tipsIconContainer}>
+            <Shield color="#800000" size={24} />
           </View>
         </View>
       </ScrollView>
@@ -317,163 +276,145 @@ export default function EmergencyChecklist({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray50,
+    backgroundColor: '#FAFAFA',
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    backgroundColor: '#800000',
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray200,
+  },
+  backButton: {
+    padding: 4,
   },
   headerTitle: {
+    color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.gray900,
+    fontWeight: '700',
   },
   scrollContent: {
+    paddingBottom: 20,
+  },
+  introContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
-  introText: {
-    fontSize: 13,
-    color: COLORS.gray600,
+  introTagline: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#4A1515',
+    marginBottom: 4,
+  },
+  introDescription: {
+    fontSize: 14,
+    color: '#555555',
     lineHeight: 20,
-    marginBottom: 16,
   },
-  emergencyBanner: {
-    flexDirection: "row",
-    backgroundColor: COLORS.shieldPrimary,
+  checklistContainer: {
+    paddingHorizontal: 16,
+  },
+  card: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 12,
-    gap: 8,
-    alignItems: "center",
-    marginBottom: 20,
+    marginVertical: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  emergencyText: {
+  cardImage: {
+    width: 90,
+    height: 70,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+  },
+  cardContent: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.white,
-    lineHeight: 18,
+    paddingHorizontal: 12,
   },
-  checklistsContainer: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  checklistCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.gray200,
-  },
-  checklistHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    gap: 12,
-  },
-  checklistIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checklistTitleContainer: {
-    flex: 1,
-  },
-  checklistTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.gray900,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 6,
   },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
   progressContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   progressBarBg: {
     flex: 1,
-    height: 6,
-    backgroundColor: COLORS.gray200,
-    borderRadius: 3,
-    overflow: "hidden",
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    overflow: 'hidden',
   },
   progressBarFill: {
-    height: "100%",
-    borderRadius: 3,
+    height: '100%',
+    borderRadius: 2,
   },
   progressText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.gray600,
+    fontWeight: '600',
+    color: '#6B7280',
     minWidth: 30,
   },
-  checklistContent: {
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    backgroundColor: COLORS.gray50,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray200,
-  },
-  checklistItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 12,
-    gap: 10,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  itemText: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.gray700,
-    lineHeight: 18,
-    paddingTop: 2,
-  },
-  itemTextChecked: {
-    color: COLORS.gray500,
-    textDecorationLine: "line-through",
-  },
-  tipsSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
+  tipsBanner: {
+    backgroundColor: '#FDF2F2',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.shieldPrimary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#F5E6E6',
+  },
+  tipsTextContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   tipsTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.gray900,
-    marginBottom: 12,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#800000',
+    marginBottom: 2,
   },
-  tipItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 10,
-    gap: 10,
-  },
-  tipText: {
-    flex: 1,
+  tipsSubtitle: {
     fontSize: 12,
-    color: COLORS.gray700,
-    lineHeight: 18,
-    paddingTop: 2,
+    color: '#444444',
+  },
+  highlightText: {
+    color: '#800000',
+    fontWeight: '600',
+  },
+  tipsIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5E6E6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

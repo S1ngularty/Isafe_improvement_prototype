@@ -26,6 +26,7 @@ import { updateStatus } from "./services/location.js";
 import * as Notifications from "expo-notifications";
 import { registerForPushNotificationsAsync } from "./services/notification.js";
 import { supabase } from "./services/supabase.js";
+import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -68,6 +69,13 @@ function HomeStack({ currentStatus }) {
       <Stack.Screen
         name="EmergencyChecklist"
         component={EmergencyChecklist}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="ChecklistDetail"
+        component={ChecklistDetail}
         options={{
           animationEnabled: true,
         }}
@@ -153,12 +161,12 @@ function AppTabs() {
           }
 
           const icons = {
-            Home:     "home",
-            Alert:    "notifications",
+            Home: "home",
+            Alert: "notifications",
             Messages: "mail",
-            Family:   "people",
-            Maps:     "map",
-            Profile:  "person",
+            Family: "people",
+            Maps: "map",
+            Profile: "person",
           };
 
           return (
@@ -196,7 +204,11 @@ function AppTabs() {
         component={FamilyScreen}
         options={{ title: "Family" }}
       />
-      <Tab.Screen name="Maps" component={MapsScreen} options={{ title: "Maps" }} />
+      <Tab.Screen
+        name="Maps"
+        component={MapsScreen}
+        options={{ title: "Maps" }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
