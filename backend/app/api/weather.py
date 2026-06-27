@@ -2,6 +2,7 @@ from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 from app.services.weather import fetch_weather
 from app.services.rainviewer import get_radar_frames
+from app.services.groq import analyze_weather
 
 router = APIRouter(prefix="/api/weather", tags=["weather"])
 
@@ -68,3 +69,18 @@ async def radar_frames():
         return {"data": data, "error": None}
     except Exception as e:
         return {"data": None, "error": {"code": "RADAR_ERROR", "message": str(e)}}
+
+
+class AnalyzeRequest(BaseModel):
+    language: str = Field(default="en", pattern=r"^(en|fil)$")
+    current: dict
+    hourly: list[dict] = Field(default_factory=list)
+
+
+@router.post("/analyze", response_model=dict)
+async def analyze(body: AnalyzeRequest):
+    try:
+        data = await analyze_weather(body.current, body.hourly, body.language)
+        return {"data": data, "error": None}
+    except Exception as e:
+        return {"data": None, "error": {"code": "ANALYSIS_ERROR", "message": str(e)}}

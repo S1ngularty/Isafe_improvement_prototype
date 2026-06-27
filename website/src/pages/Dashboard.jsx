@@ -282,9 +282,7 @@ export default function Dashboard() {
           )}
 
           {view === "forecast" && (
-            <div className="max-w-2xl mx-auto w-full">
-              <ForecastPage lat={displayLat} lng={displayLng} />
-            </div>
+            <ForecastPage lat={displayLat} lng={displayLng} />
           )}
 
           {view === "hazard" && <FloodHazardView />}

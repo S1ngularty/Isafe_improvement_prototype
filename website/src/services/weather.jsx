@@ -1,5 +1,23 @@
 import { apiGet } from "./backend.js";
 
+async function apiPostRaw(path, body) {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+  const res = await fetch(`${BACKEND_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Request failed: ${res.status}`);
+  }
+  const envelope = await res.json();
+  if (envelope.error) {
+    throw new Error(envelope.error.message || "Unknown error");
+  }
+  return envelope.data;
+}
+
 export function getWeatherIcon(code) {
   if (code === 0) return ClearSkyIcon;
   if (code <= 3) return PartlyCloudyIcon;
@@ -100,4 +118,8 @@ export async function fetchCurrent(lat, lng) {
 export async function fetchHourly(lat, lng) {
   const data = await apiGet("/api/weather/hourly", { lat, lng });
   return (data.hourly || []).map(toHourlyPoint);
+}
+
+export async function fetchAnalysis(current, hourly, language) {
+  return apiPostRaw("/api/weather/analyze", { current, hourly, language });
 }
