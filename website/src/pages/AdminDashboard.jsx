@@ -8,7 +8,7 @@ import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/
 import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
 
 import AdminSidebar from "../components/AdminSidebar";
-
+import FloodHazardView from "./floodHazard/FloodHazardView";
 export default function AdminDashboard() {
   const { session, logout } = useAuth();
   const { showToast } = useToast();
@@ -586,6 +586,8 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
+
+          {view === "hazard" && <FloodHazardView />}
 
         </main>
       </div>

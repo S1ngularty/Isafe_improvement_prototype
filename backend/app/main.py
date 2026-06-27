@@ -8,6 +8,7 @@ from app.api.weather import router as weather_router
 from app.api.geocode import router as geocode_router
 from app.api.routing import router as routing_router
 from app.api.notification_api import router as notificaition_router
+from app.api.flood_hazard import router as flood_hazard_router
 from app.mqtt.client import start_mqtt
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ app.include_router(weather_router)
 app.include_router(geocode_router)
 app.include_router(routing_router)
 app.include_router(notificaition_router)
+app.include_router(flood_hazard_router)
 
 @app.get("/")
 async def root() -> dict[str, str]:
