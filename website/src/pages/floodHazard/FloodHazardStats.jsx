@@ -19,7 +19,7 @@ export default function FloodHazardStats({ summary }) {
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {cards.map(({ label, value, borderColor, bgColor }) => (
         <div key={label} className={`${bgColor} border-2 ${borderColor} rounded-xl px-4 py-3 shadow-sm`}>
-          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">{label}</p>
+           <p className="text-xs text-gray-600 uppercase font-bold tracking-wide">{label}</p>
           <p className="text-2xl font-extrabold text-gray-900 mt-1">{value}</p>
         </div>
       ))}

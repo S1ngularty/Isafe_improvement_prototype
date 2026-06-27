@@ -2,7 +2,7 @@ export default function LayerControl({ opacity, setOpacity, basemap, setBasemap 
   return (
     <div className="bg-white/95 backdrop-blur rounded-lg shadow border border-gray-200 p-3 space-y-3 text-xs">
       <div>
-        <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1">Opacity: {opacity}%</label>
+        <label className="text-[11px] text-gray-500 uppercase font-bold block mb-1">Opacity: {opacity}%</label>
         <input
           type="range"
           min="20"
@@ -14,7 +14,7 @@ export default function LayerControl({ opacity, setOpacity, basemap, setBasemap 
       </div>
 
       <div>
-        <label className="text-[10px] text-gray-400 uppercase font-bold block mb-1">Basemap</label>
+        <label className="text-[11px] text-gray-500 uppercase font-bold block mb-1">Basemap</label>
         <select
           value={basemap}
           onChange={(e) => setBasemap(e.target.value)}

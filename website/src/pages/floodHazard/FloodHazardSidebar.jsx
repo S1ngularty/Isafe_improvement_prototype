@@ -20,7 +20,7 @@ export default function FloodHazardSidebar({ selected, summary }) {
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
       <div>
         <h3 className="text-sm font-bold text-gray-900">{s.barangay}</h3>
-        <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+        <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold ${
           s.risk_level === "Very High" ? "bg-red-900 text-white" :
           s.risk_level === "High" ? "bg-red-600 text-white" :
           s.risk_level === "Moderate" ? "bg-orange-500 text-white" :
@@ -39,14 +39,14 @@ export default function FloodHazardSidebar({ selected, summary }) {
         ].map(({ label, value, color }) => (
           <div key={label} className="flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${color}`} />
-            <span className="text-[11px] text-gray-500 flex-1">{label}</span>
-            <span className="text-[11px] font-semibold text-gray-900">{value}</span>
+            <span className="text-xs text-gray-600 flex-1">{label}</span>
+            <span className="text-xs font-semibold text-gray-900">{value}</span>
           </div>
         ))}
       </div>
 
       <div className="pt-2 border-t border-gray-100">
-        <div className="text-[10px] text-gray-400 space-y-1">
+        <div className="text-[11px] text-gray-500 space-y-1">
           <p>Hazard Area: {s.total_hazard_has?.toFixed(1)} ha</p>
           <p>Barangay Area: {s.barangay_area_has?.toFixed(1)} ha</p>
           <p>Coverage Ratio: {s.pct_total_hazard > 0 ? ((s.total_hazard_has / (s.barangay_area_has || 0.01)) * 100).toFixed(1) : "0.0"}%</p>

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 from app.services.weather import fetch_weather
+from app.services.rainviewer import get_radar_frames
 
 router = APIRouter(prefix="/api/weather", tags=["weather"])
 
@@ -58,3 +59,12 @@ async def hourly_weather(
         return {"data": data, "error": None}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Weather service unavailable: {str(e)}")
+
+
+@router.get("/radar", response_model=dict)
+async def radar_frames():
+    try:
+        data = await get_radar_frames()
+        return {"data": data, "error": None}
+    except Exception as e:
+        return {"data": None, "error": {"code": "RADAR_ERROR", "message": str(e)}}

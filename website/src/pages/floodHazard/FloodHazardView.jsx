@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
 import { fetchAll, rerunAnalysis } from "../../services/floodHazardApi";
 import FloodHazardStats from "./FloodHazardStats";
 import FloodHazardMap from "./FloodHazardMap";
@@ -10,6 +11,7 @@ import LayerControl from "./LayerControl";
 
 export default function FloodHazardView() {
   const { showToast } = useToast();
+  const { role } = useAuth();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [geojson, setGeojson] = useState(null);
@@ -66,18 +68,20 @@ export default function FloodHazardView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Flood Risk Analysis</h1>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             Tagkawayan, Quezon — 100-Year Flood Hazard Model
             {lastUpdated && <span> &middot; Last updated: {new Date(lastUpdated).toLocaleString()}</span>}
           </p>
         </div>
-        <button
-          onClick={handleRerun}
-          disabled={rerunLoading}
-          className="btn-primary py-2 px-4 text-sm"
-        >
-          {rerunLoading ? "Running..." : "Rerun Analysis"}
-        </button>
+        {role === "admin" && (
+          <button
+            onClick={handleRerun}
+            disabled={rerunLoading}
+            className="btn-primary py-2 px-4 text-sm"
+          >
+            {rerunLoading ? "Running..." : "Rerun Analysis"}
+          </button>
+        )}
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-800">

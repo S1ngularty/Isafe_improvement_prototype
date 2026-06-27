@@ -30,19 +30,19 @@ export default function FloodHazardCharts({ summary, onSelectBarangay }) {
   }
 
   const layout = {
-    font: { size: 10, color: "#4b5563" },
+    font: { size: 11, color: "#374151" },
     margin: { l: 10, r: 10, t: 35, b: 10 },
     plot_bgcolor: "transparent",
     paper_bgcolor: "transparent",
     showlegend: true,
-    legend: { orientation: "h", y: 1.1, x: 0.5, xanchor: "center", font: { size: 9 } },
+    legend: { orientation: "h", y: 1.1, x: 0.5, xanchor: "center", font: { size: 10 } },
     height: 300,
   };
 
   const donutLayout = {
     ...layout,
     showlegend: true,
-    legend: { font: { size: 9 } },
+    legend: { font: { size: 10 } },
     height: 280,
     margin: { l: 10, r: 10, t: 30, b: 10 },
   };
@@ -75,7 +75,7 @@ export default function FloodHazardCharts({ summary, onSelectBarangay }) {
             ...layout,
             barmode: "stack",
             title: "Top 15 Barangays — Flood Hazard Coverage",
-            xaxis: { tickangle: -35, tickfont: { size: 8 }, automargin: true },
+              xaxis: { tickangle: -35, tickfont: { size: 9 }, automargin: true },
             yaxis: { title: "Area Coverage (%)", rangemode: "tozero" },
           }}
           config={{ displayModeBar: false, responsive: true }}
@@ -106,7 +106,7 @@ export default function FloodHazardCharts({ summary, onSelectBarangay }) {
               hole: 0.45,
               textinfo: "label+value",
               textposition: "outside",
-              textfont: { size: 9 },
+              textfont: { size: 10 },
             }]}
             layout={{ ...donutLayout, title: "Risk Distribution" }}
             config={{ displayModeBar: false, responsive: true }}
@@ -135,12 +135,12 @@ export default function FloodHazardCharts({ summary, onSelectBarangay }) {
                 riskCounts["None"] || 0,
               ],
               textposition: "outside",
-              textfont: { size: 10, color: "#4b5563" },
+              textfont: { size: 11, color: "#374151" },
             }]}
             layout={{
               ...layout,
               title: "Barangay Count by Risk Level",
-              xaxis: { tickfont: { size: 8 } },
+              xaxis: { tickfont: { size: 9 } },
               yaxis: { title: "Barangays", rangemode: "tozero" },
             }}
             config={{ displayModeBar: false, responsive: true }}

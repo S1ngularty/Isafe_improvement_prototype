@@ -59,7 +59,7 @@ export default function FloodHazardTable({ summary, onSelectBarangay, selectedBa
           placeholder="Search barangay..."
           className="text-xs rounded-md border-gray-200 py-1.5 px-2.5 w-48 focus:ring-1 focus:ring-shield-500 focus:border-shield-500"
         />
-        <span className="text-[10px] text-gray-400">{filtered.length} barangays</span>
+        <span className="text-xs text-gray-500">{filtered.length} barangays</span>
       </div>
       <div className="overflow-x-auto max-h-96 overflow-y-auto">
         <table className="w-full text-xs">
@@ -69,7 +69,7 @@ export default function FloodHazardTable({ summary, onSelectBarangay, selectedBa
                 <th
                   key={key}
                   onClick={() => handleSort(key)}
-                  className="text-left px-4 py-2 text-gray-500 font-medium cursor-pointer hover:text-gray-700 whitespace-nowrap"
+                  className="text-left px-4 py-2 text-gray-600 font-semibold cursor-pointer hover:text-gray-900 whitespace-nowrap"
                 >
                   {label}
                   <SortIcon active={sortKey === key} asc={sortAsc} />
@@ -87,11 +87,11 @@ export default function FloodHazardTable({ summary, onSelectBarangay, selectedBa
                 }`}
               >
                 <td className="px-4 py-2 font-medium text-gray-900">{s.barangay}</td>
-                <td className="px-4 py-2 text-gray-600">{s.pct_high?.toFixed(1)}</td>
-                <td className="px-4 py-2 text-gray-600">{s.pct_medium?.toFixed(1)}</td>
+                <td className="px-4 py-2 text-gray-700">{s.pct_high?.toFixed(1)}</td>
+                <td className="px-4 py-2 text-gray-700">{s.pct_medium?.toFixed(1)}</td>
                 <td className="px-4 py-2 font-semibold text-gray-900">{s.pct_total_hazard?.toFixed(1)}</td>
                 <td className="px-4 py-2">
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${RISK_BADGE[s.risk_level] || "bg-gray-100 text-gray-500"}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${RISK_BADGE[s.risk_level] || "bg-gray-100 text-gray-500"}`}>
                     {s.risk_level || "None"}
                   </span>
                 </td>
