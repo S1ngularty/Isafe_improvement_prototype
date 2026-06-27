@@ -48,11 +48,22 @@ class NotificationService:
         if not getattr(payload, "user_id", None):
             return {"success": False, "message": "user_id is required"}
 
-        if not getattr(payload, "title", None):
-            return {"success": False, "message": "title is required"}
+        if not getattr(payload, "status", None):
+            return {"success": False, "message": "status is required"}
 
         if not getattr(payload, "body", None):
             return {"success": False, "message": "body is required"}
+
+        title = getattr(payload, "title", None)
+        if not title:
+            status_label = str(payload.status).strip().replace("_", " ").title()
+            title = f"{status_label} alert"
+
+        notification_data = {
+            "user_id": payload.user_id,
+            "status": payload.status,
+            "payload": payload.payload or {},
+        }
 
         try:
             result = (
@@ -88,8 +99,10 @@ class NotificationService:
 
                     send_expo_push(
                         token=push_token,
-                        title=payload.title,
+                        title=title,
                         body=payload.body
+                        ,
+                        data=notification_data
                     )
 
                     sent_count += 1

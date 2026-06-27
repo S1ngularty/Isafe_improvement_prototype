@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export async function upsertLocation(lat, lng) {
   const user = (await supabase.auth.getUser()).data.user;
@@ -10,9 +11,48 @@ export async function upsertLocation(lat, lng) {
     .eq("id", user.id)
     .select();
 
-  console.log("[upsertLocation] update:", { lat: lat, lng: lng, userId: user.id, data, error });
+  console.log("[upsertLocation] update:", {
+    lat: lat,
+    lng: lng,
+    userId: user.id,
+    data,
+    error,
+  });
   if (error) throw error;
   return data;
+}
+
+async function StatusNotification({ status, userId, data }) {
+  let message = "";
+
+  switch (status.trim()) {
+    case "safe":
+      message = `${data.full_name} wants to remind you that he/she safe!`;
+      break;
+    case "help":
+      message = `${data.full_name} is asking for help, tap the banner to show his/her full status`;
+      break;
+    case "emergency":
+      message = `${data.full_name} is in emergency, please click the notification banner to show his/her location and make action immediately!`;
+      break;
+  }
+
+  const result = await fetch(`${BACKEND_URL}/api/notify/contacts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "Application/json",
+    },
+    body: JSON.stringify({
+      status,
+      body:message,
+      payload:data,
+      user_id: userId
+    }),
+  });
+
+  const payload = await result.json();
+  console.log(payload)
+
 }
 
 export async function updateStatus(status) {
@@ -25,7 +65,14 @@ export async function updateStatus(status) {
     .eq("id", user.id)
     .select();
 
-  console.log("[updateStatus] update:", { status, userId: user.id, data, error });
+  console.log("[updateStatus] update:", {
+    status,
+    userId: user.id,
+    data,
+    error,
+  });
+
+  StatusNotification({ status, userId: user.id, data });
   if (error) throw error;
   return data;
 }
@@ -39,7 +86,11 @@ export async function updateLocationSharing(enabled) {
     .update({ location_sharing: enabled })
     .eq("id", user.id);
 
-  console.log("[updateLocationSharing] update:", { enabled, userId: user.id, error });
+  console.log("[updateLocationSharing] update:", {
+    enabled,
+    userId: user.id,
+    error,
+  });
   if (error) throw error;
 }
 

@@ -26,6 +26,8 @@ import { updateStatus } from "./services/location.js";
 import * as Notifications from "expo-notifications";
 import { registerForPushNotificationsAsync } from "./services/notification.js";
 import { supabase } from "./services/supabase.js";
+import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
+import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -72,6 +74,18 @@ function HomeStack({ currentStatus }) {
           animationEnabled: true,
         }}
       />
+      <Stack.Screen
+        name="ChecklistDetail"
+        component={ChecklistDetail}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen name="FirstAidDetail"
+      component={FirstAidDetail}
+      options={{
+        animationEnabled:true,
+      }}/>
       <Stack.Screen
         name="EmergencyCall"
         component={EmergencyCall}
@@ -153,12 +167,12 @@ function AppTabs() {
           }
 
           const icons = {
-            Home:     "home",
-            Alert:    "notifications",
+            Home: "home",
+            Alert: "notifications",
             Messages: "mail",
-            Family:   "people",
-            Maps:     "map",
-            Profile:  "person",
+            Family: "people",
+            Maps: "map",
+            Profile: "person",
           };
 
           return (
@@ -196,7 +210,11 @@ function AppTabs() {
         component={FamilyScreen}
         options={{ title: "Family" }}
       />
-      <Tab.Screen name="Maps" component={MapsScreen} options={{ title: "Maps" }} />
+      <Tab.Screen
+        name="Maps"
+        component={MapsScreen}
+        options={{ title: "Maps" }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
@@ -275,7 +293,7 @@ function RootNavigator() {
 
         const { error: insertError } = await supabase
           .from("notification")
-          .insert({
+          .upsert({
             user_id: userId,
             platform_type: platform,
             push_token: pushToken,
