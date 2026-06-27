@@ -27,6 +27,7 @@ import * as Notifications from "expo-notifications";
 import { registerForPushNotificationsAsync } from "./services/notification.js";
 import { supabase } from "./services/supabase.js";
 import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
+import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -80,6 +81,11 @@ function HomeStack({ currentStatus }) {
           animationEnabled: true,
         }}
       />
+      <Stack.Screen name="FirstAidDetail"
+      component={FirstAidDetail}
+      options={{
+        animationEnabled:true,
+      }}/>
       <Stack.Screen
         name="EmergencyCall"
         component={EmergencyCall}
