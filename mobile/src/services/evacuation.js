@@ -1,7 +1,7 @@
 import { apiGet } from "./backend.js";
 
 export async function fetchNearestEvacuationAreas(lat, lng, limit = 5) {
-  const data = await apiGet("/api/evacuation-centers/nearest", {
+  const data = await apiGet("/api/evacuation-areas/nearest", {
     lat,
     lng,
     limit,

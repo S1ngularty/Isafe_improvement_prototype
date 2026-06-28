@@ -23,11 +23,11 @@ export default function Modal({ open, onClose, children }) {
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" />
-      <div className="relative w-full max-w-md animate-modal-in">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg animate-modal-in max-h-[90vh] my-4">
+        <div className="bg-white rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors z-10"
+            className="sticky top-3 z-10 float-right mr-3 mt-3 w-8 h-8 flex items-center justify-center rounded-full bg-white/80 hover:bg-gray-100 transition-colors shadow-sm"
             aria-label="Close"
           >
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

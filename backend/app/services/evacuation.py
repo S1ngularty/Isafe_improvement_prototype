@@ -50,3 +50,14 @@ async def get_nearest_evacuation_areas(lat: float, lng: float, limit: int = 5) -
 
     ranked = rank_evacuation_areas(areas, lat, lng)
     return ranked[: max(limit, 1)]
+
+async def get_active_evacuation_areas() -> list[dict]:
+    client = get_client()
+    result = (
+        client.table("evacuation_areas")
+        .select("*")
+        .eq("status", "active")
+        .order("name")
+        .execute()
+    )
+    return result.data or []
