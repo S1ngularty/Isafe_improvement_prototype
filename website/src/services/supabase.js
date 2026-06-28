@@ -7,7 +7,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables. Check your .env file.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+});
 
 const SUPABASE_STORAGE_URL = `${supabaseUrl}/storage/v1/object/public`;
 

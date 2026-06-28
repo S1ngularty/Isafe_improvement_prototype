@@ -15,6 +15,7 @@ import FirstAidInstructions from "./screens/resources/FirstAidInstructions.jsx";
 import EmergencyGuidance from "./screens/resources/EmergencyGuidance.jsx";
 import EmergencyChecklist from "./screens/resources/EmergencyChecklist.jsx";
 import EmergencyCall from "./screens/resources/EmergencyCall.jsx";
+import EvacuationCentersScreen from "./screens/resources/EvacuationCentersScreen.jsx";
 import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
@@ -26,6 +27,9 @@ import { updateStatus } from "./services/location.js";
 import * as Notifications from "expo-notifications";
 import { registerForPushNotificationsAsync } from "./services/notification.js";
 import { supabase } from "./services/supabase.js";
+import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
+import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
+import EvacuationMapScreen from "./screens/resources/EvacuationMap.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -73,12 +77,31 @@ function HomeStack({ currentStatus }) {
         }}
       />
       <Stack.Screen
+        name="ChecklistDetail"
+        component={ChecklistDetail}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="FirstAidDetail"
+        component={FirstAidDetail}
+        options={{
+          animationEnabled: true,
+        }}
+      />
+      <Stack.Screen
         name="EmergencyCall"
         component={EmergencyCall}
         options={{
           animationEnabled: true,
         }}
       />
+      <Stack.Screen
+        name="Evacuation"
+        component={EvacuationCentersScreen}
+      />
+      <Stack.Screen name="EvacuationMap" component={EvacuationMapScreen} />
     </Stack.Navigator>
   );
 }
@@ -153,12 +176,13 @@ function AppTabs() {
           }
 
           const icons = {
-            Home:     "home",
-            Alert:    "notifications",
+            Home: "home",
+            Alert: "notifications",
             Messages: "mail",
-            Family:   "people",
-            Maps:     "map",
-            Profile:  "person",
+            Family: "people",
+            Maps: "map",
+            Evacuation: "local-hospital",
+            Profile: "person",
           };
 
           return (
@@ -196,7 +220,11 @@ function AppTabs() {
         component={FamilyScreen}
         options={{ title: "Family" }}
       />
-      <Tab.Screen name="Maps" component={MapsScreen} options={{ title: "Maps" }} />
+      <Tab.Screen
+        name="Maps"
+        component={MapsScreen}
+        options={{ title: "Maps" }}
+      />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
@@ -275,7 +303,7 @@ function RootNavigator() {
 
         const { error: insertError } = await supabase
           .from("notification")
-          .insert({
+          .upsert({
             user_id: userId,
             platform_type: platform,
             push_token: pushToken,

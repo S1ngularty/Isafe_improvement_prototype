@@ -14,6 +14,6 @@ def notify_all_users(payload:BroadcastNotificaitonModel):
     result = NotificationService.send_notificaiton_to_all_users(payload)
     return result
 
-@router.post("notify-contacts")
+@router.post("/contacts")
 def notify_contacts(payload:NotifyContactUserModel):
     return NotificationService.send_alert_notification(payload)

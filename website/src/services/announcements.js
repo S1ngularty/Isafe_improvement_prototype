@@ -1,48 +1,42 @@
-import { supabase } from "./supabase.js";
+import { apiGet, apiPost, apiPut, apiDelete } from "./backend.js";
 
 export async function fetchActiveAnnouncements() {
-  const { data, error } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) throw error;
-  return data;
+  try {
+    return await apiGet("/api/announcements/active");
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchAllAnnouncements() {
-  const { data, error } = await supabase
-    .from("announcements")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data;
+  try {
+    return await apiGet("/api/announcements/admin");
+  } catch {
+    return [];
+  }
 }
 
-export async function createAnnouncement({ title, description, image_url, type }) {
-  const user = (await supabase.auth.getUser()).data.user;
-  const { data, error } = await supabase
-    .from("announcements")
-    .insert({ title, description, image_url, type, created_by: user?.id })
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+export async function createAnnouncement({ title, short_description, long_description, image_url, file }) {
+  const form = new FormData();
+  form.append("title", title);
+  form.append("short_description", short_description);
+  if (long_description) form.append("long_description", long_description);
+  if (file) form.append("file", file);
+  if (image_url) form.append("image_url", image_url);
+  return apiPost("/api/announcements", form);
 }
 
-export async function updateAnnouncement(id, updates) {
-  const { data, error } = await supabase
-    .from("announcements")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+export async function updateAnnouncement(id, { title, short_description, long_description, image_url, is_active, file }) {
+  const form = new FormData();
+  if (title !== undefined) form.append("title", title);
+  if (short_description !== undefined) form.append("short_description", short_description);
+  if (long_description !== undefined) form.append("long_description", long_description);
+  if (image_url !== undefined) form.append("image_url", image_url);
+  if (is_active !== undefined) form.append("is_active", String(is_active));
+  if (file) form.append("file", file);
+  return apiPut(`/api/announcements/${id}`, form);
 }
 
 export async function deleteAnnouncement(id) {
-  const { error } = await supabase.from("announcements").delete().eq("id", id);
-  if (error) throw error;
+  return apiDelete(`/api/announcements/${id}`);
 }

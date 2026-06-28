@@ -38,3 +38,18 @@ export async function leaveFamily() {
   const { error } = await supabase.rpc("leave_family");
   if (error) throw new Error(error.message);
 }
+
+export async function removeFamilyMember(targetId) {
+  const { error } = await supabase.rpc("remove_family_member", { target_id: targetId });
+  if (error) throw new Error(error.message);
+}
+
+export async function promoteFamilyMember(targetId) {
+  const { error } = await supabase.rpc("promote_family_member", { target_id: targetId });
+  if (error) throw new Error(error.message);
+}
+
+export async function demoteFamilyMember(targetId) {
+  const { error } = await supabase.rpc("demote_family_member", { target_id: targetId });
+  if (error) throw new Error(error.message);
+}

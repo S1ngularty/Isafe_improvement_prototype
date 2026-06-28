@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -12,14 +12,23 @@ import MapView from "../components/MapView";
 import UserMarker from "../components/UserMarker";
 import AddressSearch from "../components/AddressSearch";
 import AnnouncementBanner from "../components/AnnouncementBanner";
-import WeatherPanel from "../components/WeatherPanel";
+import AnnouncementDetail from "../components/AnnouncementDetail";
+import TcwsBanner from "../components/TcwsBanner";
 import FamilySetup from "../components/FamilySetup";
 import FamilyMemberList from "../components/FamilyMemberList";
 import UserProfile from "../components/UserProfile";
 import RouteSteps from "../components/RouteSteps";
+import EvacMarker from "../components/EvacMarker";
+import ForecastPage from "../components/ForecastPage";
+import FloodHazardView from "./floodHazard/FloodHazardView";
+import RainViewerPage from "./RainViewerPage";
+import EmergencyContactsPanel from "../components/EmergencyContactsPanel";
 import useGeolocation from "../hooks/useGeolocation";
 import useFamilyLocations from "../hooks/useFamilyLocations";
-import { upsertLocation, updateStatus, updateLocationSharing } from "../services/location";
+import useEvacuationAreas from "../hooks/useEvacuationAreas";
+import useTcwsAlerts from "../hooks/useTcwsAlerts";
+import useWeather from "../hooks/useWeather";
+import { upsertLocation, updateLocationSharing } from "../services/location";
 import { getProfile } from "../services/auth";
 import { fetchRoute, openOSMDirections } from "../services/routing.js";
 import { haversine, bearing } from "../utils/geo.js";
@@ -33,7 +42,6 @@ export default function Dashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [locationEnabled, setLocationEnabled] = useState(false);
-  const [status, setStatus] = useState("safe");
   const [manualLat, setManualLat] = useState(null);
   const [manualLng, setManualLng] = useState(null);
   const [resetKey, setResetKey] = useState(0);
@@ -43,10 +51,15 @@ export default function Dashboard() {
 
   const [route, setRoute] = useState(null);
   const [showProximity, setShowProximity] = useState(false);
+  const [detailAnnouncement, setDetailAnnouncement] = useState(null);
   const routeLoadingRef = useRef(false);
 
   const displayLat = manualLat ?? lat;
   const displayLng = manualLng ?? lng;
+
+  const { areas: evacAreas, nearest: nearestEvac, nearestDist } = useEvacuationAreas(displayLat, displayLng);
+  const { current: weatherCurrent } = useWeather(displayLat, displayLng);
+  const { alerts: tcwsAlerts, changed: tcwsChanged, dismissed: tcwsDismissed, dismiss: dismissTcws } = useTcwsAlerts();
   const isManual = manualLat !== null && manualLng !== null;
   const mapCenter = displayLat && displayLng ? [displayLat, displayLng] : [12.8, 121.7];
   const mapZoom = displayLat && displayLng ? 16 : 6;
@@ -58,7 +71,6 @@ export default function Dashboard() {
       try {
         const p = await getProfile();
         if (cancelled || !p) return;
-        setStatus(p.status || "safe");
         if (p.lat && p.lng) {
           setManualLat(p.lat);
           setManualLng(p.lng);
@@ -73,7 +85,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (profile) {
-      setStatus(profile.status || "safe");
       setLocationEnabled(profile.location_sharing || false);
     }
   }, [profile]);
@@ -93,34 +104,26 @@ export default function Dashboard() {
     }
   }
 
+  async function handleEvacClick(center) {
+    if (!displayLat || !displayLng || routeLoadingRef.current) return;
+    routeLoadingRef.current = true;
+    try {
+      const result = await fetchRoute(displayLat, displayLng, center.latitude, center.longitude);
+      if (result) {
+        setRoute({ ...result, memberName: center.name || "Evacuation Center" });
+      }
+    } catch {
+      // Route fetch failed silently
+    } finally {
+      routeLoadingRef.current = false;
+    }
+  }
+
   function handleMapClick(latlng) {
     setRoute(null);
     setManualLat(latlng.lat);
     setManualLng(latlng.lng);
   }
-
-  const handleStatusChange = useCallback(
-    async (newStatus) => {
-      if (newStatus === status) return;
-      setStatus(newStatus);
-      try {
-        await updateStatus(newStatus);
-        refreshProfile();
-        showToast(
-          newStatus === "safe"
-            ? "Marked as safe."
-            : newStatus === "help"
-              ? "Help request sent."
-              : "Emergency alert sent.",
-          newStatus === "safe" ? "success" : newStatus === "help" ? "info" : "error",
-          4000
-        );
-      } catch {
-        showToast("Failed to update status.", "error");
-      }
-    },
-    [status, showToast, refreshProfile]
-  );
 
 
   async function handleLogout() {
@@ -134,6 +137,8 @@ export default function Dashboard() {
     const target = route.coordinates[route.coordinates.length - 1];
     openOSMDirections(displayLat, displayLng, target[0], target[1]);
   }
+
+  const WeatherIcon = weatherCurrent?.icon;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -155,6 +160,12 @@ export default function Dashboard() {
             )}
 
             <span className="text-sm text-white/70 hidden sm:inline">{session?.user?.email}</span>
+            {weatherCurrent && (
+              <div className="flex items-center gap-1.5 bg-white/10 rounded-lg px-2.5 py-1">
+                {WeatherIcon && <WeatherIcon />}
+                <span className="text-sm font-bold text-white">{weatherCurrent.temperature}&deg;C</span>
+              </div>
+            )}
             <button onClick={handleLogout} className="border-2 border-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white/10 transition-colors">Log Out</button>
 
           </div>
@@ -171,6 +182,12 @@ export default function Dashboard() {
 
 
         <main className="flex-1 p-4 sm:p-6 w-full flex flex-col gap-6">
+          {!tcwsDismissed && (tcwsChanged || tcwsAlerts.length > 0) && (
+            <TcwsBanner
+              alerts={tcwsAlerts}
+              onDismiss={dismissTcws}
+            />
+          )}
           {view === "profile" && <UserProfile />}
 
           {view === "family" && (
@@ -178,7 +195,7 @@ export default function Dashboard() {
               <div className="lg:w-80 shrink-0">
                 {family ? (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden">
-                    <FamilyMemberList members={familyMembers} family={family} onRefresh={refreshFamily} />
+                    <FamilyMemberList members={familyMembers} family={family} currentUserId={session?.user?.id} onRefresh={refreshFamily} />
                   </div>
                 ) : (
                   <FamilySetup onDone={() => { refreshProfile(); refreshFamily(); }} />
@@ -187,7 +204,7 @@ export default function Dashboard() {
               <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-lg">
                 <MapView center={[12.8, 121.7]} zoom={6} className="h-full w-full">
                   {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
+                    <UserMarker lat={displayLat} lng={displayLng} status={profile?.status || "safe"} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
                   )}
                   {displayLat && displayLng && family && familyMembers.map((m) => {
                     if (!m.lat || !m.lng) return null;
@@ -207,6 +224,17 @@ export default function Dashboard() {
                       />
                     );
                   })}
+                  {evacAreas.map((center) => (
+                    <EvacMarker
+                      key={`evac-${center.id}`}
+                      lat={center.latitude}
+                      lng={center.longitude}
+                      name={center.name}
+                      description={center.description}
+                      capacity={center.capacity}
+                      onClick={() => handleEvacClick(center)}
+                    />
+                  ))}
                   {displayLat && displayLng && familyMembers.map((m) =>
                     m.lat && m.lng ? (
                       <Polyline
@@ -239,13 +267,36 @@ export default function Dashboard() {
             </div>
           )}
 
+          {view === "contacts" && (
+            <div className="h-[calc(100vh-7rem)]">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden p-5">
+                {profile && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Emergency Contacts</h3>
+                    <p className="text-xs text-gray-400">Family members with direct call and SMS access</p>
+                  </div>
+                )}
+                <EmergencyContactsPanel family={family} members={familyMembers} profile={profile} />
+              </div>
+            </div>
+          )}
+
+          {view === "forecast" && (
+            <ForecastPage lat={displayLat} lng={displayLng} />
+          )}
+
+          {view === "hazard" && <FloodHazardView />}
+
+          {view === "rainviewer" && <RainViewerPage />}
+
           {view === "dashboard" && (
             <>
-              <AnnouncementBanner />
+              <AnnouncementBanner onClick={setDetailAnnouncement} />
+
               <div className="h-[55vh] min-h-[380px] rounded-xl overflow-hidden shadow-lg relative group">
                 <MapView center={mapCenter} zoom={mapZoom} resetKey={resetKey} className="h-full w-full" onMapClick={handleMapClick}>
                   {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={status} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
+                    <UserMarker lat={displayLat} lng={displayLng} status={profile?.status || "safe"} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
                   )}
                   {displayLat && displayLng && family && familyMembers.map((m) => {
                     if (!m.lat || !m.lng) return null;
@@ -264,7 +315,18 @@ export default function Dashboard() {
                         distanceInfo={dist ? `${dist.toFixed(1)} km ${dir}` : null}
                       />
                     );
-                  })}
+                  }                  )}
+                  {evacAreas.map((center) => (
+                    <EvacMarker
+                      key={`evac-${center.id}`}
+                      lat={center.latitude}
+                      lng={center.longitude}
+                      name={center.name}
+                      description={center.description}
+                      capacity={center.capacity}
+                      onClick={() => handleEvacClick(center)}
+                    />
+                  ))}
                   {showProximity && displayLat && displayLng && familyMembers.map((m) =>
                     m.lat && m.lng ? (
                       <Polyline
@@ -316,33 +378,6 @@ export default function Dashboard() {
                 </div>
 
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-1.5">
-                  {[
-                    {
-                      status: "safe", label: "Safe", activeBorder: "border-green-500", activeText: "text-green-700",
-                      icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
-                    },
-                    {
-                      status: "help", label: "Help", activeBorder: "border-yellow-500", activeText: "text-yellow-700",
-                      icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
-                    },
-                    {
-                      status: "emergency", label: "SOS", activeBorder: "border-alert-500", activeText: "text-alert-700",
-                      icon: (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>),
-                    },
-                  ].map((btn) => (
-                    <button
-                      key={btn.status}
-                      onClick={() => handleStatusChange(btn.status)}
-                      className={`bg-white/90 hover:bg-white backdrop-blur rounded-lg shadow-md p-2 flex flex-col items-center gap-0.5 transition-all border-2 ${
-                        status === btn.status ? `${btn.activeBorder} ${btn.activeText} scale-105` : "border-transparent text-gray-500 hover:text-gray-700"
-                      }`}
-                      title={btn.label}
-                    >
-                      {btn.icon}
-                      <span className="text-[9px] font-bold leading-none">{btn.label}</span>
-                    </button>
-                  ))}
-                  <div className="w-px h-4 bg-gray-200 mx-auto" />
                   <button
                     onClick={() => {
                       if (!locationEnabled && !navigator.geolocation) {
@@ -405,72 +440,59 @@ export default function Dashboard() {
                 <RouteSteps route={route} onClear={() => setRoute(null)} onOpenOSM={handleOpenOSM} />
               )}
 
-              <WeatherPanel lat={displayLat} lng={displayLng} />
-
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { color: "alert", label: "Active Alerts", value: "0", sub: "No active emergencies" },
-                  { color: "shield", label: "Reports Filed", value: "0", sub: "No reports yet" },
-                  { color: "green", label: "Resolved", value: "0", sub: "No incidents" },
-                  { color: "shield", label: "Evac Centers", value: "3", sub: "Nearest: 0.8km" },
-                ].map(({ color, label, value, sub }) => (
-                  <div key={label} className={`card border-l-4 ${color === "alert" ? "border-alert-600" : color === "shield" ? "border-shield-600" : "border-green-600"}`}>
-                    <h3 className="font-bold text-gray-900 text-sm mb-1">{label}</h3>
-                    <p className="text-2xl font-extrabold text-gray-900">{value}</p>
-                    <p className="text-xs text-gray-400 mt-1">{sub}</p>
-
-                  </div>
-                ))}
-              </div>
-
-
-              <div className="grid lg:grid-cols-2 gap-4">
-                <div className="card">
-                  <h3 className="font-bold text-gray-900 mb-3">Quick Actions</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { title: "Report Emergency", sub: "New incident", icon: (<svg className="w-4 h-4 text-alert-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>) },
-                      { title: "My Reports", sub: "View status", icon: (<svg className="w-4 h-4 text-shield-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>) },
-                      { title: "Evacuation Map", sub: "Find centers", icon: (<svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>) },
-                      { title: "Hotlines", sub: "Contacts", icon: (<svg className="w-4 h-4 text-shield-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>) },
-                    ].map(({ title, sub, icon }) => (
-                      <button key={title} className="text-left px-3 py-2.5 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shrink-0">{icon}</div>
-                        <div><p className="text-xs font-semibold text-gray-900">{title}</p><p className="text-[10px] text-gray-400">{sub}</p></div>
-                      </button>
-                    ))}
+              {nearestEvac && (
+                <div className="bg-white rounded-xl shadow-sm border-l-4 border-indigo-600 px-5 py-4">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    Nearest Evacuation Center Near You
+                  </p>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-base font-bold text-gray-900 truncate">{nearestEvac.name}</p>
+                      {nearestEvac.description && (
+                        <p className="text-xs text-gray-500 truncate">{nearestEvac.description}</p>
+                      )}
+                      <p className="text-sm text-indigo-600 font-semibold mt-0.5">
+                        {nearestDist < 1
+                          ? `${(nearestDist * 1000).toFixed(0)}m away`
+                          : `${nearestDist.toFixed(1)} km away`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleEvacClick(nearestEvac)}
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors shrink-0"
+                    >
+                      Get Directions
+                    </button>
                   </div>
                 </div>
-                <div className="card">
-                  <h3 className="font-bold text-gray-900 mb-3">Recent Alerts</h3>
+              )}
 
-                  <div className="space-y-3">
-                    {[
-                      { text: "Flood warning — Barangay San Roque", time: "10 min ago", color: "bg-alert-500" },
-                      { text: "Road cleared — Main Highway", time: "1 hour ago", color: "bg-green-500" },
-                      { text: "Evacuation drill announced", time: "3 hours ago", color: "bg-shield-500" },
-                      { text: "Weather advisory: heavy rain", time: "5 hours ago", color: "bg-yellow-400" },
-
-                    ].map(({ text, time, color }) => (
-                      <div key={text} className="flex items-start gap-2.5">
-                        <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${color}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-700 truncate">{text}</p>
-                          <p className="text-[10px] text-gray-400">{time}</p>
-
-                        </div>
-                      </div>
-                    ))}
+              {family && familyMembers && familyMembers.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Emergency Contacts</p>
+                    <button
+                      onClick={() => setView("contacts")}
+                      className="text-[10px] text-shield-600 font-semibold hover:underline"
+                    >
+                      View All
+                    </button>
                   </div>
-
-                  <p className="text-[10px] text-gray-400 mt-3">Placeholder alert feed</p>
-
+                  <EmergencyContactsPanel family={family} members={familyMembers} profile={profile} compact />
                 </div>
-              </div>
+              )}
+
             </>
           )}
         </main>
       </div>
+
+      {detailAnnouncement && (
+        <AnnouncementDetail
+          announcement={detailAnnouncement}
+          onClose={() => setDetailAnnouncement(null)}
+        />
+      )}
     </div>
   );
 }

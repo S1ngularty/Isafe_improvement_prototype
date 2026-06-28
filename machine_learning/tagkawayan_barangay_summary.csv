@@ -1,0 +1,43 @@
+barangay,total_pixels,flood_pixels,mean_risk,std_risk,top_feature,flood_pct,risk_level
+Cabugwang,1,1,0.6125,,TWI,100.0,Very High
+Aliji,7,2,0.3214,0.3718,landcover,28.57,Very High
+Seguiwan,47,11,0.199,0.3442,landcover,23.4,Very High
+Laurel,30,4,0.1274,0.2543,landcover,13.33,Very High
+Victoria,28,3,0.1105,0.2621,landcover,10.71,Very High
+Mangayao,30,2,0.0679,0.2309,landcover,6.67,Very High
+Katimo,41,2,0.0627,0.1737,landcover,4.88,Very High
+Candalapdap,45,2,0.0522,0.1568,elevation,4.44,Very High
+Sabang,29,1,0.0462,0.1313,landcover,3.45,Very High
+ManatoStation,25,1,0.0408,0.1865,landcover,4.0,High
+SantaCecilia,5,0,0.0232,0.0307,landcover,0.0,High
+Magsaysay,2,0,0.0186,0.0117,elevation,0.0,High
+Poblacion,3,0,0.0145,0.0107,landcover,0.0,High
+Kinatakutan,73,0,0.0134,0.0252,landcover,0.0,High
+Cagascas,25,0,0.0077,0.0349,landcover,0.0,High
+Mahinta,9,0,0.0069,0.0132,landcover,0.0,High
+SanIsidro,22,0,0.0029,0.0085,landcover,0.0,High
+Colong-Colong,27,0,0.0024,0.0083,landcover,0.0,Moderate
+Maguibuay,61,0,0.0021,0.0113,elevation,0.0,Moderate
+SanRoque,43,0,0.0013,0.0026,landcover,0.0,Moderate
+Bukal,27,0,0.001,0.0029,elevation,0.0,Moderate
+MuntingParang,27,0,0.0006,0.0019,elevation,0.0,Moderate
+SanFrancisco,62,0,0.0006,0.0028,elevation,0.0,Moderate
+ManatoCentral,22,0,0.0005,0.0016,landcover,0.0,Moderate
+DelRosario,37,0,0.0005,0.0018,landcover,0.0,Moderate
+Bamban,61,0,0.0004,0.0015,landcover,0.0,Low
+Tabason,29,0,0.0004,0.0019,landcover,0.0,Low
+Payapa,64,0,0.0004,0.0015,landcover,0.0,Low
+Mansilay,60,0,0.0003,0.0015,landcover,0.0,Low
+SantoTomas,67,0,0.0002,0.001,landcover,0.0,Very Low
+SanDiego,16,0,0.0002,0.0008,elevation,0.0,Very Low
+SanVicente,40,0,0.0002,0.0007,elevation,0.0,Very Low
+Tunton,41,0,0.0002,0.0007,elevation,0.0,Very Low
+Mapulot,132,0,0.0002,0.0012,landcover,0.0,Very Low
+SantoNinoII,60,0,0.0001,0.0004,landcover,0.0,Very Low
+Casispalan,137,0,0.0001,0.0006,landcover,0.0,Very Low
+Bosigon,146,0,0.0001,0.0005,landcover,0.0,Very Low
+Landing,97,0,0.0001,0.0007,landcover,0.0,Very Low
+SantoNinoI,42,0,0.0001,0.0005,elevation,0.0,Very Low
+BagongSilang,72,0,0.0,0.0,elevation,0.0,Very Low
+Rizal,1,0,0.0,,elevation,0.0,Very Low
+SantaMonica,62,0,0.0,0.0,elevation,0.0,Very Low

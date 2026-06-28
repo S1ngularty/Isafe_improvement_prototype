@@ -1,21 +1,31 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  View, StyleSheet, Text, Pressable, ActivityIndicator,
-  ScrollView, Switch, Modal,
+  View,
+  StyleSheet,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  ScrollView,
+  Switch,
+  Modal,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
-import { upsertLocation, updateLocationSharing } from "../../services/location.js";
+import {
+  upsertLocation,
+  updateLocationSharing,
+} from "../../services/location.js";
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
 
 const COLORS = {
   shieldDark: "#5c1010",
-  shieldPrimary: "#991b1b",
+  shieldPrimary: "#800000",
   alert: "#b91c1c",
   gray50: "#f9fafb",
   gray100: "#f3f4f6",
@@ -35,20 +45,29 @@ const COLORS = {
   errorText: "#dc2626",
 };
 
-// currentStatus is owned by AppTabs in App.js and passed down as a prop
-export default function DashboardScreen({ navigation, currentStatus = "safe" }) {
+export default function DashboardScreen({
+  navigation,
+  currentStatus = "safe",
+}) {
   const { session, profile } = useAuth();
   const { showToast } = useToast();
 
-  const [locationEnabled, setLocationEnabled] = useState(profile?.location_sharing ?? false);
+  const [locationEnabled, setLocationEnabled] = useState(
+    profile?.location_sharing ?? false,
+  );
   const [location, setLocation] = useState(
     profile?.lat && profile?.lng
-      ? { coords: { latitude: profile.lat, longitude: profile.lng, accuracy: null } }
-      : null
+      ? {
+          coords: {
+            latitude: profile.lat,
+            longitude: profile.lng,
+            accuracy: null,
+          },
+        }
+      : null,
   );
   const [showAddressSearch, setShowAddressSearch] = useState(false);
 
-  // Sync location toggle if profile refreshes
   useEffect(() => {
     if (profile?.location_sharing !== undefined) {
       setLocationEnabled(profile.location_sharing);
@@ -59,25 +78,30 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     setLocationEnabled(newValue);
     try {
       await updateLocationSharing(newValue);
-      showToast(newValue ? "Location sharing enabled" : "Location sharing disabled", "success");
+      showToast(
+        newValue ? "Location sharing enabled" : "Location sharing disabled",
+        "success",
+      );
     } catch (error) {
       setLocationEnabled(!newValue);
       showToast(error.message || "Failed to update location sharing", "error");
     }
   };
 
-  // Request permission + get initial fix when toggled on
   useEffect(() => {
     if (!locationEnabled) return;
     (async () => {
       try {
-        const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
+        const { status: permStatus } =
+          await Location.requestForegroundPermissionsAsync();
         if (permStatus !== "granted") {
           showToast("Location permission denied", "error");
           setLocationEnabled(false);
           return;
         }
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
         setLocation(loc);
         await upsertLocation(loc.coords.latitude, loc.coords.longitude);
       } catch (error) {
@@ -88,12 +112,13 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     })();
   }, [locationEnabled]);
 
-  // Poll every 10 s while enabled
   useEffect(() => {
     if (!locationEnabled) return;
     const interval = setInterval(async () => {
       try {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
         setLocation(loc);
         try {
           await upsertLocation(loc.coords.latitude, loc.coords.longitude);
@@ -110,43 +135,69 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     return () => clearInterval(interval);
   }, [locationEnabled]);
 
-  const handleAddressSelect = useCallback(async (address) => {
-    try {
-      await upsertLocation(address.lat, address.lng);
-      setLocation({ coords: { latitude: address.lat, longitude: address.lng } });
-      showToast("Location updated", "success");
-      setShowAddressSearch(false);
-    } catch (error) {
-      showToast(error.message || "Failed to update location", "error");
-    }
-  }, [showToast]);
+  const handleAddressSelect = useCallback(
+    async (address) => {
+      try {
+        await upsertLocation(address.lat, address.lng);
+        setLocation({
+          coords: { latitude: address.lat, longitude: address.lng },
+        });
+        showToast("Location updated", "success");
+        setShowAddressSearch(false);
+      } catch (error) {
+        showToast(error.message || "Failed to update location", "error");
+      }
+    },
+    [showToast],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <StatusBar barStyle="light-content" backgroundColor="#800000" />
 
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning,</Text>
-            <Text style={styles.userName}>{profile?.full_name || "User"}</Text>
-          </View>
-          <Pressable style={styles.heartButton} onPress={() => navigation.navigate("Profile")}>
-            <MaterialIcons name="favorite" size={24} color={COLORS.shieldPrimary} />
-          </Pressable>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Good morning,</Text>
+          <Text style={styles.userName}>{profile?.full_name || "User"}</Text>
         </View>
+        <Pressable
+          style={styles.heartButton}
+          onPress={() => navigation.navigate("Profile")}>
+          <MaterialIcons
+            name="favorite"
+            size={24}
+            color={COLORS.shieldPrimary}
+          />
+        </Pressable>
+      </View>
 
-        {/* I'M SAFE Status Indicator */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        {/* Status Indicator */}
         <View style={styles.statusIndicatorContainer}>
-          <View style={[styles.statusIndicator, { backgroundColor: getStatusBgColor(currentStatus) }]}>
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: getStatusBgColor(currentStatus) },
+            ]}>
             <View style={styles.statusIndicatorContent}>
-              <MaterialIcons name={getStatusIcon(currentStatus)} size={20} color={getStatusTextColor(currentStatus)} />
-              <Text style={[styles.statusIndicatorLabel, { color: getStatusTextColor(currentStatus) }]}>
+              <MaterialIcons
+                name={getStatusIcon(currentStatus)}
+                size={20}
+                color={getStatusTextColor(currentStatus)}
+              />
+              <Text
+                style={[
+                  styles.statusIndicatorLabel,
+                  { color: getStatusTextColor(currentStatus) },
+                ]}>
                 {currentStatus === "safe"
                   ? "I'M SAFE"
                   : currentStatus === "help"
-                  ? "I NEED HELP"
-                  : "EMERGENCY"}
+                    ? "I NEED HELP"
+                    : "EMERGENCY"}
               </Text>
             </View>
           </View>
@@ -157,18 +208,28 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
         {/* Emergency Alert Section */}
         <View style={styles.emergencyAlertSection}>
-          <Text style={styles.emergencyAlertTitle}>EMERGENCY - TAP TO ALERT</Text>
-          <Text style={styles.emergencyAlertSubtitle}>Tap the button nearby based on your location</Text>
-          
+          <Text style={styles.emergencyAlertTitle}>
+            EMERGENCY - TAP TO ALERT
+          </Text>
+          <Text style={styles.emergencyAlertSubtitle}>
+            Tap the button based on your situation
+          </Text>
+
           <View style={styles.tapOptionsContainer}>
             {/* 1 TAP */}
             <Pressable style={styles.tapOption}>
               <View style={[styles.tapCircle, styles.tapSafe]}>
-                <MaterialIcons name="check-circle" size={32} color={COLORS.white} />
+                <MaterialIcons
+                  name="check-circle"
+                  size={32}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.tapCount}>1 TAP</Text>
-              <Text style={styles.tapStatus}>I am Safe</Text>
-              <Text style={styles.tapDescription}>I am okay. No help needed.</Text>
+              <Text style={[styles.tapStatus, { color: COLORS.successText }]}>
+                I am Safe
+              </Text>
+              <Text style={styles.tapDescription}>No help needed</Text>
             </Pressable>
 
             {/* 2 TAPS */}
@@ -177,8 +238,10 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
                 <MaterialIcons name="error" size={32} color={COLORS.white} />
               </View>
               <Text style={styles.tapCount}>2 TAPS</Text>
-              <Text style={styles.tapStatus}>I Feel Unsafe</Text>
-              <Text style={styles.tapDescription}>I need someone check me out.</Text>
+              <Text style={[styles.tapStatus, { color: COLORS.warningText }]}>
+                I Feel Unsafe
+              </Text>
+              <Text style={styles.tapDescription}>Need someone to check</Text>
             </Pressable>
 
             {/* 3 TAPS */}
@@ -187,66 +250,106 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
                 <MaterialIcons name="warning" size={32} color={COLORS.white} />
               </View>
               <Text style={styles.tapCount}>3 TAPS</Text>
-              <Text style={styles.tapStatus}>I am in Danger</Text>
-              <Text style={styles.tapDescription}>I need emergency alert</Text>
+              <Text style={[styles.tapStatus, { color: COLORS.errorText }]}>
+                In Danger
+              </Text>
+              <Text style={styles.tapDescription}>Need emergency alert</Text>
             </Pressable>
           </View>
         </View>
 
-        {/* Quick Actions Section */}
+        {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
-          <Text style={styles.quickActionsTitle}>QUICK ACTIONS</Text>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("EmergencyCall")}
-            >
-              <View style={styles.quickActionIconContainer}>
+              onPress={() => navigation.navigate("EmergencyCall")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#EF4444" },
+                ]}>
                 <MaterialIcons name="phone" size={28} color={COLORS.white} />
               </View>
               <Text style={styles.quickActionLabel}>Help</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("FirstAidInstructions")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#EF4444" }]}>
-                <MaterialIcons name="medical-services" size={28} color={COLORS.white} />
+              onPress={() => navigation.navigate("FirstAidInstructions")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#10b981" },
+                ]}>
+                <MaterialIcons
+                  name="medical-services"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>First Aid</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("EmergencyGuidance")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#f59e0b" }]}>
+              onPress={() => navigation.navigate("EmergencyGuidance")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#f59e0b" },
+                ]}>
                 <MaterialIcons name="warning" size={28} color={COLORS.white} />
               </View>
               <Text style={styles.quickActionLabel}>Emergency</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("EmergencyChecklist")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#10b981" }]}>
-                <MaterialIcons name="checklist" size={28} color={COLORS.white} />
+              onPress={() => navigation.navigate("EmergencyChecklist")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#8b5cf6" },
+                ]}>
+                <MaterialIcons
+                  name="checklist"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Checklist</Text>
             </Pressable>
 
             <Pressable style={styles.quickActionButton}>
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#3b82f6" }]}>
-                <MaterialIcons name="local-police" size={28} color={COLORS.white} />
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#3b82f6" },
+                ]}>
+                <MaterialIcons
+                  name="local-police"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Police</Text>
             </Pressable>
 
-            <Pressable style={styles.quickActionButton}>
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#8b5cf6" }]}>
-                <MaterialIcons name="location-city" size={28} color={COLORS.white} />
+            <Pressable
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate("Evacuation")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#06b6d4" },
+                ]}>
+                <MaterialIcons
+                  name="location-city"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Evacuation</Text>
             </Pressable>
@@ -254,33 +357,41 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
         </View>
 
         {/* Location Tracking */}
-        <View style={styles.section}>
+        <View style={styles.locationSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Location Tracking</Text>
             <Switch
               value={locationEnabled}
               onValueChange={handleLocationToggle}
-              trackColor={{ false: COLORS.gray300, true: COLORS.gray400 }}
-              thumbColor={locationEnabled ? COLORS.shieldPrimary : COLORS.gray500}
+              trackColor={{ false: COLORS.gray300, true: "#800000" }}
+              thumbColor={locationEnabled ? "#800000" : COLORS.gray500}
             />
           </View>
           {locationEnabled && location && (
             <View style={styles.locationInfo}>
-              <Text style={styles.locationText}>
-                Lat: {location.coords.latitude.toFixed(4)} | Lng: {location.coords.longitude.toFixed(4)}
-              </Text>
+              <View style={styles.locationRow}>
+                <MaterialIcons name="location-on" size={16} color="#800000" />
+                <Text style={styles.locationText}>
+                  {location.coords.latitude.toFixed(4)},{" "}
+                  {location.coords.longitude.toFixed(4)}
+                </Text>
+              </View>
               {location.coords.accuracy && (
-                <Text style={styles.accuracyText}>Accuracy: {Math.round(location.coords.accuracy)}m</Text>
+                <Text style={styles.accuracyText}>
+                  Accuracy: {Math.round(location.coords.accuracy)}m
+                </Text>
               )}
-              <Pressable style={styles.searchButton} onPress={() => setShowAddressSearch(true)}>
-                <MaterialIcons name="location-on" size={16} color={COLORS.shieldPrimary} />
-                <Text style={styles.searchButtonText}>Search & Set Address</Text>
+              <Pressable
+                style={styles.searchButton}
+                onPress={() => setShowAddressSearch(true)}>
+                <MaterialIcons name="search" size={16} color="#800000" />
+                <Text style={styles.searchButtonText}>Search Address</Text>
               </Pressable>
             </View>
           )}
           {locationEnabled && !location && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator color={COLORS.shieldPrimary} />
+              <ActivityIndicator color="#800000" />
               <Text style={styles.loadingText}>Getting location...</Text>
             </View>
           )}
@@ -288,23 +399,32 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
         {/* Weather Panel */}
         {locationEnabled && location && (
-          <WeatherPanel lat={location.coords.latitude} lng={location.coords.longitude} />
+          <WeatherPanel
+            lat={location.coords.latitude}
+            lng={location.coords.longitude}
+          />
         )}
 
-        {/* Flood Warning Section */}
+        {/* Flood Warning */}
         <View style={styles.floodWarningSection}>
           <View style={styles.floodWarningHeader}>
-            <MaterialIcons name="water" size={20} color={COLORS.shieldPrimary} />
-            <Text style={styles.floodWarningTitle}>FLOOD WARNING (Bukidnon)</Text>
-            <MaterialIcons name="chevron-right" size={20} color={COLORS.gray300} />
+            <MaterialIcons name="water" size={20} color="#800000" />
+            <Text style={styles.floodWarningTitle}>FLOOD WARNING</Text>
+            <MaterialIcons
+              name="chevron-right"
+              size={20}
+              color={COLORS.gray300}
+            />
           </View>
-          <Text style={styles.floodWarningText}>Water level is rising in your area. Stay alert for updates.</Text>
+          <Text style={styles.floodWarningText}>
+            Water level is rising in your area. Stay alert for updates.
+          </Text>
         </View>
 
-        {/* Status Overview Section */}
+        {/* Status Overview */}
         <View style={styles.statusOverviewSection}>
           <View style={styles.statusOverviewHeader}>
-            <Text style={styles.statusOverviewTitle}>STATUS OVERVIEW</Text>
+            <Text style={styles.sectionTitle}>Status Overview</Text>
             <Pressable>
               <Text style={styles.viewAllLink}>View all</Text>
             </Pressable>
@@ -318,7 +438,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
             <View style={styles.statusOverviewItem}>
               <View style={styles.statusBadge}>
-                <MaterialIcons name="info" size={16} color="#F59E0B" />
+                <MaterialIcons name="info" size={14} color="#F59E0B" />
                 <Text style={styles.statusBadgeText}>ADVISORY</Text>
               </View>
               <Text style={styles.statusOverviewLabel}>Flood Status</Text>
@@ -331,26 +451,34 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
             <View style={[styles.statusOverviewItem, styles.sosOverviewItem]}>
               <View style={styles.sosIconOverview}>
-                <MaterialIcons name="sos" size={24} color={COLORS.white} />
+                <MaterialIcons name="sos" size={20} color={COLORS.white} />
               </View>
-              <Text style={styles.statusOverviewLabel}>SOS Status</Text>
+              <Text
+                style={[styles.statusOverviewLabel, { color: COLORS.white }]}>
+                SOS Status
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* AI Chatbots Placeholder */}
+        {/* AI Assistant */}
         <View style={styles.aiBotSection}>
           <View style={styles.aiBotHeader}>
-            <MaterialIcons name="smart-toy" size={20} color={COLORS.shieldPrimary} />
+            <MaterialIcons name="smart-toy" size={20} color="#800000" />
             <Text style={styles.aiBotTitle}>AI Assistant</Text>
           </View>
           <View style={styles.aiBotPlaceholder}>
-            <MaterialIcons name="chat-bubble-outline" size={40} color={COLORS.gray300} />
-            <Text style={styles.aiBotPlaceholderText}>Chat with our AI assistant</Text>
+            <MaterialIcons
+              name="chat-bubble-outline"
+              size={40}
+              color={COLORS.gray300}
+            />
+            <Text style={styles.aiBotPlaceholderText}>
+              Chat with our AI assistant
+            </Text>
             <Text style={styles.aiBotPlaceholderSubtext}>Coming soon</Text>
           </View>
         </View>
-
       </ScrollView>
 
       {/* Address Search Modal */}
@@ -358,14 +486,13 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
         visible={showAddressSearch}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowAddressSearch(false)}
-      >
+        onRequestClose={() => setShowAddressSearch(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Search Location</Text>
               <Pressable onPress={() => setShowAddressSearch(false)}>
-                <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                <MaterialIcons name="close" size={24} color="#800000" />
               </Pressable>
             </View>
             <AddressSearch
@@ -381,54 +508,67 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
 function getStatusColor(status) {
   switch (status) {
-    case "safe":      return COLORS.successText;
-    case "help":      return COLORS.warningText;
-    case "emergency": return COLORS.errorText;
-    default:          return COLORS.shieldPrimary;
+    case "safe":
+      return COLORS.successText;
+    case "help":
+      return COLORS.warningText;
+    case "emergency":
+      return COLORS.errorText;
+    default:
+      return COLORS.shieldPrimary;
   }
 }
 
 function getStatusBgColor(status) {
   switch (status) {
-    case "safe":      return COLORS.successBg;
-    case "help":      return COLORS.warningBg;
-    case "emergency": return COLORS.errorBg;
-    default:          return COLORS.gray50;
+    case "safe":
+      return COLORS.successBg;
+    case "help":
+      return COLORS.warningBg;
+    case "emergency":
+      return COLORS.errorBg;
+    default:
+      return COLORS.gray50;
   }
 }
 
 function getStatusIcon(status) {
   switch (status) {
-    case "safe":      return "check-circle";
-    case "help":      return "error";
-    case "emergency": return "warning";
-    default:          return "info";
+    case "safe":
+      return "check-circle";
+    case "help":
+      return "error";
+    case "emergency":
+      return "warning";
+    default:
+      return "info";
   }
 }
 
 function getStatusTextColor(status) {
   switch (status) {
-    case "safe":      return COLORS.successText;
-    case "help":      return COLORS.warningText;
-    case "emergency": return COLORS.errorText;
-    default:          return COLORS.shieldPrimary;
+    case "safe":
+      return COLORS.successText;
+    case "help":
+      return COLORS.warningText;
+    case "emergency":
+      return COLORS.errorText;
+    default:
+      return COLORS.shieldPrimary;
   }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.gray50,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    backgroundColor: "#FAFAFA",
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
   },
   greeting: {
     fontSize: 14,
@@ -436,51 +576,59 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   userName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: COLORS.gray900,
-    marginTop: 4,
+    marginTop: 2,
   },
   heartButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.gray100,
     justifyContent: "center",
     alignItems: "center",
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
   statusIndicatorContainer: {
     marginBottom: 16,
   },
   statusIndicator: {
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignItems: "center",
   },
   statusIndicatorContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
   statusIndicatorLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
+    letterSpacing: 0.5,
   },
-
-  // Emergency Alert Section
   emergencyAlertSection: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   emergencyAlertTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: COLORS.shieldPrimary,
+    color: "#800000",
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   emergencyAlertSubtitle: {
     fontSize: 12,
@@ -497,12 +645,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tapCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   tapSafe: {
     backgroundColor: "#10b981",
@@ -511,7 +664,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f59e0b",
   },
   tapEmergency: {
-    backgroundColor: COLORS.shieldPrimary,
+    backgroundColor: "#800000",
   },
   tapCount: {
     fontSize: 11,
@@ -520,52 +673,56 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   tapStatus: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
-    color: COLORS.gray900,
     marginBottom: 4,
     textAlign: "center",
   },
   tapDescription: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.gray500,
     textAlign: "center",
-    lineHeight: 15,
+    lineHeight: 14,
   },
-
-  // Quick Actions Section
   quickActionsSection: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  quickActionsTitle: {
-    fontSize: 13,
+  sectionTitle: {
+    fontSize: 15,
     fontWeight: "700",
     color: COLORS.gray900,
-    letterSpacing: 0.5,
     marginBottom: 12,
   },
   quickActionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 12,
   },
   quickActionButton: {
     width: "31%",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   quickActionIconContainer: {
     width: 56,
     height: 56,
-    borderRadius: 12,
-    backgroundColor: COLORS.shieldPrimary,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   quickActionLabel: {
     fontSize: 11,
@@ -573,13 +730,81 @@ const styles = StyleSheet.create({
     color: COLORS.gray900,
     textAlign: "center",
   },
-
-  // Flood Warning Section
+  locationSection: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  locationInfo: {
+    backgroundColor: COLORS.gray50,
+    borderRadius: 10,
+    padding: 12,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  locationText: {
+    fontSize: 12,
+    color: COLORS.gray700,
+    fontWeight: "500",
+  },
+  accuracyText: {
+    fontSize: 11,
+    color: COLORS.gray500,
+    marginBottom: 8,
+  },
+  searchButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+  },
+  searchButtonText: {
+    fontSize: 12,
+    color: "#800000",
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: COLORS.gray500,
+  },
   floodWarningSection: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: "#800000",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   floodWarningHeader: {
     flexDirection: "row",
@@ -589,7 +814,7 @@ const styles = StyleSheet.create({
   },
   floodWarningTitle: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: COLORS.gray900,
     letterSpacing: 0.3,
@@ -599,13 +824,16 @@ const styles = StyleSheet.create({
     color: COLORS.gray600,
     lineHeight: 18,
   },
-
-  // Status Overview Section
   statusOverviewSection: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statusOverviewHeader: {
     flexDirection: "row",
@@ -613,28 +841,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  statusOverviewTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.gray900,
-    letterSpacing: 0.3,
-  },
   viewAllLink: {
     fontSize: 12,
-    color: COLORS.shieldPrimary,
+    color: "#800000",
     fontWeight: "600",
   },
   statusOverviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: 10,
   },
   statusOverviewItem: {
     flex: 1,
-    minWidth: "48%",
+    minWidth: "47%",
     backgroundColor: COLORS.gray50,
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingVertical: 14,
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
@@ -654,45 +876,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(245, 158, 11, 0.1)",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
     gap: 4,
     marginBottom: 4,
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#F59E0B",
   },
   sosOverviewItem: {
-    backgroundColor: COLORS.shieldPrimary,
+    backgroundColor: "#800000",
   },
   sosIconOverview: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 4,
   },
-
-  // AI Bot Section
   aiBotSection: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   aiBotHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
-    gap: 8,
+    gap: 10,
   },
   aiBotTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: COLORS.gray900,
   },
@@ -700,7 +925,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 24,
     backgroundColor: COLORS.gray50,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.gray200,
     borderStyle: "dashed",
@@ -716,66 +941,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray500,
     marginTop: 4,
   },
-
-  // Section styles (kept from original)
-  section: {
-    marginBottom: 20,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.gray900,
-  },
-  locationInfo: {
-    backgroundColor: COLORS.gray50,
-    borderRadius: 8,
-    padding: 12,
-  },
-  locationText: {
-    fontSize: 12,
-    color: COLORS.gray700,
-    marginBottom: 4,
-    fontWeight: "500",
-  },
-  accuracyText: {
-    fontSize: 11,
-    color: COLORS.gray500,
-  },
-  loadingContainer: {
-    alignItems: "center",
-    paddingVertical: 16,
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: COLORS.gray500,
-  },
-  searchButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.white,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 8,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: COLORS.gray200,
-  },
-  searchButtonText: {
-    fontSize: 12,
-    color: COLORS.shieldPrimary,
-    fontWeight: "600",
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -783,8 +948,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 16,
     maxHeight: "80%",

@@ -4,10 +4,13 @@ import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ConfirmEmail from "./pages/ConfirmEmail";
 import ProtectedRoute from "./components/ProtectedRoute";
+import StatusWidget from "./components/StatusWidget";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <StatusWidget />
+      <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/confirm" element={<ConfirmEmail />} />
       <Route
@@ -27,5 +30,6 @@ export default function App() {
         }
       />
     </Routes>
+    </>
   );
 }

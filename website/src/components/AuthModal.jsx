@@ -21,6 +21,10 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
   const [tab, setTab] = useState(initialTab);
   const [fullName, setFullName] = useState("");
   const [barangay, setBarangay] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [bloodType, setBloodType] = useState("");
+  const [householdSize, setHouseholdSize] = useState("");
+  const [specialNeeds, setSpecialNeeds] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -43,6 +47,10 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     setPassword("");
     setFullName("");
     setBarangay("");
+    setPhoneNumber("");
+    setBloodType("");
+    setHouseholdSize("");
+    setSpecialNeeds("");
   }
 
   function validate(field, value) {
@@ -52,6 +60,9 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     }
     if (field === "barangay") {
       if (!value.trim()) return "Barangay is required.";
+    }
+    if (field === "phoneNumber") {
+      if (value && !/^\+63\d{10}$/.test(value)) return "Use +63 format (e.g. +639123456789).";
     }
     if (field === "email") {
       if (!value.trim()) return "Email is required.";
@@ -85,6 +96,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     markTouched(field);
     if (field === "fullName") setErrors((p) => ({ ...p, fullName: validate("fullName", fullName) }));
     if (field === "barangay") setErrors((p) => ({ ...p, barangay: validate("barangay", barangay) }));
+    if (field === "phoneNumber") setErrors((p) => ({ ...p, phoneNumber: validate("phoneNumber", phoneNumber) }));
     if (field === "email") setErrors((p) => ({ ...p, email: validate("email", email) }));
     if (field === "confirm") setErrors((p) => ({ ...p, confirm: validate("confirm", confirm) }));
   }
@@ -93,6 +105,11 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     setEmail(val);
     if (touched.email) setErrors((p) => ({ ...p, email: validate("email", val) }));
     setServerError("");
+  }
+
+  function handlePhoneChange(val) {
+    setPhoneNumber(val);
+    if (touched.phoneNumber) setErrors((p) => ({ ...p, phoneNumber: validate("phoneNumber", val) }));
   }
 
   function handleFullNameChange(val) {
@@ -157,6 +174,10 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
         const data = await signup(email, password, {
           full_name: fullName.trim(),
           barangay: barangay.trim(),
+          phone_number: phoneNumber.trim(),
+          blood_type: bloodType,
+          household_size: householdSize || null,
+          special_needs: specialNeeds.trim(),
         });
         onClose();
         if (!data.session) {
@@ -270,6 +291,58 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
                   autoComplete="address-level3"
                 />
                 {errors.barangay && touched.barangay && <p className="field-error">{errors.barangay}</p>}
+              </div>
+              <div>
+                <label htmlFor="auth-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+                <input
+                  id="auth-phone"
+                  type="tel"
+                  className={inputClass("phoneNumber")}
+                  placeholder="+639123456789"
+                  value={phoneNumber}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  onBlur={() => handleBlur("phoneNumber")}
+                  autoComplete="tel"
+                />
+                {errors.phoneNumber && touched.phoneNumber && <p className="field-error">{errors.phoneNumber}</p>}
+              </div>
+              <div>
+                <label htmlFor="auth-blood" className="block text-sm font-medium text-gray-700 mb-1">Blood Type</label>
+                <select
+                  id="auth-blood"
+                  className="input-field"
+                  value={bloodType}
+                  onChange={(e) => setBloodType(e.target.value)}
+                >
+                  <option value="">Not specified</option>
+                  {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="auth-hh" className="block text-sm font-medium text-gray-700 mb-1">Household Size</label>
+                <input
+                  id="auth-hh"
+                  type="number"
+                  min="1"
+                  max="20"
+                  className="input-field"
+                  placeholder="Number of persons in household"
+                  value={householdSize}
+                  onChange={(e) => setHouseholdSize(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="auth-needs" className="block text-sm font-medium text-gray-700 mb-1">Special Needs</label>
+                <textarea
+                  id="auth-needs"
+                  className="input-field min-h-[60px] resize-y"
+                  placeholder="Disabilities, medical conditions, or accessibility requirements"
+                  value={specialNeeds}
+                  onChange={(e) => setSpecialNeeds(e.target.value)}
+                  rows={2}
+                />
               </div>
               <div>
                 <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
