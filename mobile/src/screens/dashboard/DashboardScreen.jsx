@@ -1,14 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  View, StyleSheet, Text, Pressable, ActivityIndicator,
-  ScrollView, Switch, Modal, StatusBar,
+  View,
+  StyleSheet,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  ScrollView,
+  Switch,
+  Modal,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
-import { upsertLocation, updateLocationSharing } from "../../services/location.js";
+import {
+  upsertLocation,
+  updateLocationSharing,
+} from "../../services/location.js";
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
@@ -35,15 +45,26 @@ const COLORS = {
   errorText: "#dc2626",
 };
 
-export default function DashboardScreen({ navigation, currentStatus = "safe" }) {
+export default function DashboardScreen({
+  navigation,
+  currentStatus = "safe",
+}) {
   const { session, profile } = useAuth();
   const { showToast } = useToast();
 
-  const [locationEnabled, setLocationEnabled] = useState(profile?.location_sharing ?? false);
+  const [locationEnabled, setLocationEnabled] = useState(
+    profile?.location_sharing ?? false,
+  );
   const [location, setLocation] = useState(
     profile?.lat && profile?.lng
-      ? { coords: { latitude: profile.lat, longitude: profile.lng, accuracy: null } }
-      : null
+      ? {
+          coords: {
+            latitude: profile.lat,
+            longitude: profile.lng,
+            accuracy: null,
+          },
+        }
+      : null,
   );
   const [showAddressSearch, setShowAddressSearch] = useState(false);
 
@@ -57,7 +78,10 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     setLocationEnabled(newValue);
     try {
       await updateLocationSharing(newValue);
-      showToast(newValue ? "Location sharing enabled" : "Location sharing disabled", "success");
+      showToast(
+        newValue ? "Location sharing enabled" : "Location sharing disabled",
+        "success",
+      );
     } catch (error) {
       setLocationEnabled(!newValue);
       showToast(error.message || "Failed to update location sharing", "error");
@@ -68,13 +92,16 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     if (!locationEnabled) return;
     (async () => {
       try {
-        const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
+        const { status: permStatus } =
+          await Location.requestForegroundPermissionsAsync();
         if (permStatus !== "granted") {
           showToast("Location permission denied", "error");
           setLocationEnabled(false);
           return;
         }
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
         setLocation(loc);
         await upsertLocation(loc.coords.latitude, loc.coords.longitude);
       } catch (error) {
@@ -89,7 +116,9 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     if (!locationEnabled) return;
     const interval = setInterval(async () => {
       try {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
         setLocation(loc);
         try {
           await upsertLocation(loc.coords.latitude, loc.coords.longitude);
@@ -106,47 +135,69 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
     return () => clearInterval(interval);
   }, [locationEnabled]);
 
-  const handleAddressSelect = useCallback(async (address) => {
-    try {
-      await upsertLocation(address.lat, address.lng);
-      setLocation({ coords: { latitude: address.lat, longitude: address.lng } });
-      showToast("Location updated", "success");
-      setShowAddressSearch(false);
-    } catch (error) {
-      showToast(error.message || "Failed to update location", "error");
-    }
-  }, [showToast]);
+  const handleAddressSelect = useCallback(
+    async (address) => {
+      try {
+        await upsertLocation(address.lat, address.lng);
+        setLocation({
+          coords: { latitude: address.lat, longitude: address.lng },
+        });
+        showToast("Location updated", "success");
+        setShowAddressSearch(false);
+      } catch (error) {
+        showToast(error.message || "Failed to update location", "error");
+      }
+    },
+    [showToast],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#800000" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Good morning,</Text>
           <Text style={styles.userName}>{profile?.full_name || "User"}</Text>
         </View>
-        <Pressable style={styles.heartButton} onPress={() => navigation.navigate("Profile")}>
-          <MaterialIcons name="favorite" size={24} color={COLORS.shieldPrimary} />
+        <Pressable
+          style={styles.heartButton}
+          onPress={() => navigation.navigate("Profile")}>
+          <MaterialIcons
+            name="favorite"
+            size={24}
+            color={COLORS.shieldPrimary}
+          />
         </Pressable>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         {/* Status Indicator */}
         <View style={styles.statusIndicatorContainer}>
-          <View style={[styles.statusIndicator, { backgroundColor: getStatusBgColor(currentStatus) }]}>
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: getStatusBgColor(currentStatus) },
+            ]}>
             <View style={styles.statusIndicatorContent}>
-              <MaterialIcons name={getStatusIcon(currentStatus)} size={20} color={getStatusTextColor(currentStatus)} />
-              <Text style={[styles.statusIndicatorLabel, { color: getStatusTextColor(currentStatus) }]}>
+              <MaterialIcons
+                name={getStatusIcon(currentStatus)}
+                size={20}
+                color={getStatusTextColor(currentStatus)}
+              />
+              <Text
+                style={[
+                  styles.statusIndicatorLabel,
+                  { color: getStatusTextColor(currentStatus) },
+                ]}>
                 {currentStatus === "safe"
                   ? "I'M SAFE"
                   : currentStatus === "help"
-                  ? "I NEED HELP"
-                  : "EMERGENCY"}
+                    ? "I NEED HELP"
+                    : "EMERGENCY"}
               </Text>
             </View>
           </View>
@@ -157,17 +208,27 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
         {/* Emergency Alert Section */}
         <View style={styles.emergencyAlertSection}>
-          <Text style={styles.emergencyAlertTitle}>EMERGENCY - TAP TO ALERT</Text>
-          <Text style={styles.emergencyAlertSubtitle}>Tap the button based on your situation</Text>
-          
+          <Text style={styles.emergencyAlertTitle}>
+            EMERGENCY - TAP TO ALERT
+          </Text>
+          <Text style={styles.emergencyAlertSubtitle}>
+            Tap the button based on your situation
+          </Text>
+
           <View style={styles.tapOptionsContainer}>
             {/* 1 TAP */}
             <Pressable style={styles.tapOption}>
               <View style={[styles.tapCircle, styles.tapSafe]}>
-                <MaterialIcons name="check-circle" size={32} color={COLORS.white} />
+                <MaterialIcons
+                  name="check-circle"
+                  size={32}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.tapCount}>1 TAP</Text>
-              <Text style={[styles.tapStatus, { color: COLORS.successText }]}>I am Safe</Text>
+              <Text style={[styles.tapStatus, { color: COLORS.successText }]}>
+                I am Safe
+              </Text>
               <Text style={styles.tapDescription}>No help needed</Text>
             </Pressable>
 
@@ -177,7 +238,9 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
                 <MaterialIcons name="error" size={32} color={COLORS.white} />
               </View>
               <Text style={styles.tapCount}>2 TAPS</Text>
-              <Text style={[styles.tapStatus, { color: COLORS.warningText }]}>I Feel Unsafe</Text>
+              <Text style={[styles.tapStatus, { color: COLORS.warningText }]}>
+                I Feel Unsafe
+              </Text>
               <Text style={styles.tapDescription}>Need someone to check</Text>
             </Pressable>
 
@@ -187,7 +250,9 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
                 <MaterialIcons name="warning" size={32} color={COLORS.white} />
               </View>
               <Text style={styles.tapCount}>3 TAPS</Text>
-              <Text style={[styles.tapStatus, { color: COLORS.errorText }]}>In Danger</Text>
+              <Text style={[styles.tapStatus, { color: COLORS.errorText }]}>
+                In Danger
+              </Text>
               <Text style={styles.tapDescription}>Need emergency alert</Text>
             </Pressable>
           </View>
@@ -197,56 +262,94 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActionsGrid}>
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("EmergencyCall")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#EF4444" }]}>
+              onPress={() => navigation.navigate("EmergencyCall")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#EF4444" },
+                ]}>
                 <MaterialIcons name="phone" size={28} color={COLORS.white} />
               </View>
               <Text style={styles.quickActionLabel}>Help</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("FirstAidInstructions")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#10b981" }]}>
-                <MaterialIcons name="medical-services" size={28} color={COLORS.white} />
+              onPress={() => navigation.navigate("FirstAidInstructions")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#10b981" },
+                ]}>
+                <MaterialIcons
+                  name="medical-services"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>First Aid</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("EmergencyGuidance")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#f59e0b" }]}>
+              onPress={() => navigation.navigate("EmergencyGuidance")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#f59e0b" },
+                ]}>
                 <MaterialIcons name="warning" size={28} color={COLORS.white} />
               </View>
               <Text style={styles.quickActionLabel}>Emergency</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate("EmergencyChecklist")}
-            >
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#8b5cf6" }]}>
-                <MaterialIcons name="checklist" size={28} color={COLORS.white} />
+              onPress={() => navigation.navigate("EmergencyChecklist")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#8b5cf6" },
+                ]}>
+                <MaterialIcons
+                  name="checklist"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Checklist</Text>
             </Pressable>
 
             <Pressable style={styles.quickActionButton}>
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#3b82f6" }]}>
-                <MaterialIcons name="local-police" size={28} color={COLORS.white} />
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#3b82f6" },
+                ]}>
+                <MaterialIcons
+                  name="local-police"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Police</Text>
             </Pressable>
 
-            <Pressable style={styles.quickActionButton}>
-              <View style={[styles.quickActionIconContainer, { backgroundColor: "#06b6d4" }]}>
-                <MaterialIcons name="location-city" size={28} color={COLORS.white} />
+            <Pressable
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate("Evacuation")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#06b6d4" },
+                ]}>
+                <MaterialIcons
+                  name="location-city"
+                  size={28}
+                  color={COLORS.white}
+                />
               </View>
               <Text style={styles.quickActionLabel}>Evacuation</Text>
             </Pressable>
@@ -269,13 +372,18 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
               <View style={styles.locationRow}>
                 <MaterialIcons name="location-on" size={16} color="#800000" />
                 <Text style={styles.locationText}>
-                  {location.coords.latitude.toFixed(4)}, {location.coords.longitude.toFixed(4)}
+                  {location.coords.latitude.toFixed(4)},{" "}
+                  {location.coords.longitude.toFixed(4)}
                 </Text>
               </View>
               {location.coords.accuracy && (
-                <Text style={styles.accuracyText}>Accuracy: {Math.round(location.coords.accuracy)}m</Text>
+                <Text style={styles.accuracyText}>
+                  Accuracy: {Math.round(location.coords.accuracy)}m
+                </Text>
               )}
-              <Pressable style={styles.searchButton} onPress={() => setShowAddressSearch(true)}>
+              <Pressable
+                style={styles.searchButton}
+                onPress={() => setShowAddressSearch(true)}>
                 <MaterialIcons name="search" size={16} color="#800000" />
                 <Text style={styles.searchButtonText}>Search Address</Text>
               </Pressable>
@@ -291,7 +399,10 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
         {/* Weather Panel */}
         {locationEnabled && location && (
-          <WeatherPanel lat={location.coords.latitude} lng={location.coords.longitude} />
+          <WeatherPanel
+            lat={location.coords.latitude}
+            lng={location.coords.longitude}
+          />
         )}
 
         {/* Flood Warning */}
@@ -299,9 +410,15 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
           <View style={styles.floodWarningHeader}>
             <MaterialIcons name="water" size={20} color="#800000" />
             <Text style={styles.floodWarningTitle}>FLOOD WARNING</Text>
-            <MaterialIcons name="chevron-right" size={20} color={COLORS.gray300} />
+            <MaterialIcons
+              name="chevron-right"
+              size={20}
+              color={COLORS.gray300}
+            />
           </View>
-          <Text style={styles.floodWarningText}>Water level is rising in your area. Stay alert for updates.</Text>
+          <Text style={styles.floodWarningText}>
+            Water level is rising in your area. Stay alert for updates.
+          </Text>
         </View>
 
         {/* Status Overview */}
@@ -336,7 +453,10 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
               <View style={styles.sosIconOverview}>
                 <MaterialIcons name="sos" size={20} color={COLORS.white} />
               </View>
-              <Text style={[styles.statusOverviewLabel, { color: COLORS.white }]}>SOS Status</Text>
+              <Text
+                style={[styles.statusOverviewLabel, { color: COLORS.white }]}>
+                SOS Status
+              </Text>
             </View>
           </View>
         </View>
@@ -348,12 +468,17 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
             <Text style={styles.aiBotTitle}>AI Assistant</Text>
           </View>
           <View style={styles.aiBotPlaceholder}>
-            <MaterialIcons name="chat-bubble-outline" size={40} color={COLORS.gray300} />
-            <Text style={styles.aiBotPlaceholderText}>Chat with our AI assistant</Text>
+            <MaterialIcons
+              name="chat-bubble-outline"
+              size={40}
+              color={COLORS.gray300}
+            />
+            <Text style={styles.aiBotPlaceholderText}>
+              Chat with our AI assistant
+            </Text>
             <Text style={styles.aiBotPlaceholderSubtext}>Coming soon</Text>
           </View>
         </View>
-
       </ScrollView>
 
       {/* Address Search Modal */}
@@ -361,8 +486,7 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
         visible={showAddressSearch}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowAddressSearch(false)}
-      >
+        onRequestClose={() => setShowAddressSearch(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -384,44 +508,60 @@ export default function DashboardScreen({ navigation, currentStatus = "safe" }) 
 
 function getStatusColor(status) {
   switch (status) {
-    case "safe":      return COLORS.successText;
-    case "help":      return COLORS.warningText;
-    case "emergency": return COLORS.errorText;
-    default:          return COLORS.shieldPrimary;
+    case "safe":
+      return COLORS.successText;
+    case "help":
+      return COLORS.warningText;
+    case "emergency":
+      return COLORS.errorText;
+    default:
+      return COLORS.shieldPrimary;
   }
 }
 
 function getStatusBgColor(status) {
   switch (status) {
-    case "safe":      return COLORS.successBg;
-    case "help":      return COLORS.warningBg;
-    case "emergency": return COLORS.errorBg;
-    default:          return COLORS.gray50;
+    case "safe":
+      return COLORS.successBg;
+    case "help":
+      return COLORS.warningBg;
+    case "emergency":
+      return COLORS.errorBg;
+    default:
+      return COLORS.gray50;
   }
 }
 
 function getStatusIcon(status) {
   switch (status) {
-    case "safe":      return "check-circle";
-    case "help":      return "error";
-    case "emergency": return "warning";
-    default:          return "info";
+    case "safe":
+      return "check-circle";
+    case "help":
+      return "error";
+    case "emergency":
+      return "warning";
+    default:
+      return "info";
   }
 }
 
 function getStatusTextColor(status) {
   switch (status) {
-    case "safe":      return COLORS.successText;
-    case "help":      return COLORS.warningText;
-    case "emergency": return COLORS.errorText;
-    default:          return COLORS.shieldPrimary;
+    case "safe":
+      return COLORS.successText;
+    case "help":
+      return COLORS.warningText;
+    case "emergency":
+      return COLORS.errorText;
+    default:
+      return COLORS.shieldPrimary;
   }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: "#FAFAFA",
   },
   header: {
     paddingHorizontal: 16,
@@ -477,7 +617,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -511,7 +651,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -549,7 +689,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -578,7 +718,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -595,7 +735,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -660,7 +800,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: "#800000",
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -689,7 +829,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -764,7 +904,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,

@@ -15,6 +15,7 @@ import FirstAidInstructions from "./screens/resources/FirstAidInstructions.jsx";
 import EmergencyGuidance from "./screens/resources/EmergencyGuidance.jsx";
 import EmergencyChecklist from "./screens/resources/EmergencyChecklist.jsx";
 import EmergencyCall from "./screens/resources/EmergencyCall.jsx";
+import EvacuationCentersScreen from "./screens/resources/EvacuationCentersScreen.jsx";
 import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
@@ -28,6 +29,7 @@ import { registerForPushNotificationsAsync } from "./services/notification.js";
 import { supabase } from "./services/supabase.js";
 import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
 import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
+import EvacuationMapScreen from "./screens/resources/EvacuationMap.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -81,11 +83,13 @@ function HomeStack({ currentStatus }) {
           animationEnabled: true,
         }}
       />
-      <Stack.Screen name="FirstAidDetail"
-      component={FirstAidDetail}
-      options={{
-        animationEnabled:true,
-      }}/>
+      <Stack.Screen
+        name="FirstAidDetail"
+        component={FirstAidDetail}
+        options={{
+          animationEnabled: true,
+        }}
+      />
       <Stack.Screen
         name="EmergencyCall"
         component={EmergencyCall}
@@ -93,6 +97,11 @@ function HomeStack({ currentStatus }) {
           animationEnabled: true,
         }}
       />
+      <Stack.Screen
+        name="Evacuation"
+        component={EvacuationCentersScreen}
+      />
+      <Stack.Screen name="EvacuationMap" component={EvacuationMapScreen} />
     </Stack.Navigator>
   );
 }
@@ -172,6 +181,7 @@ function AppTabs() {
             Messages: "mail",
             Family: "people",
             Maps: "map",
+            Evacuation: "local-hospital",
             Profile: "person",
           };
 
