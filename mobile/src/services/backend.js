@@ -1,7 +1,7 @@
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "http://localhost:8000";
+import { getBackendUrl } from "./backendConfig.js";
 
 export async function apiGet(path, params = {}) {
-  const url = new URL(path, BACKEND_URL);
+  const url = new URL(path, getBackendUrl());
   Object.entries(params).forEach(([k, v]) => {
     if (v != null) url.searchParams.set(k, String(v));
   });

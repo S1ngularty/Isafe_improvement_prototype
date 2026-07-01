@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { View, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import { View, StyleSheet, ActivityIndicator, Platform, Text } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -21,6 +21,7 @@ import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
 import FamilyScreen from "./screens/family/FamilyScreen";
 import MessagesScreen from "./screens/messages/MessagesScreen.jsx";
+import ChatScreen from "./screens/messages/ChatScreen.jsx";
 import ToastNotification from "./components/ToastNotification.jsx";
 import SOSButton from "./components/SOSButton.jsx";
 import { updateStatus } from "./services/location.js";
@@ -38,6 +39,34 @@ const COLORS = {
   shieldPrimary: "#991b1b",
   gray300: "#d1d5db",
 };
+const STARTUP_TIMEOUT_MS = 8000;
+
+function withStartupTimeout(promise, label, timeoutMs = STARTUP_TIMEOUT_MS) {
+  let timer;
+  return Promise.race([
+    promise.finally(() => clearTimeout(timer)),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+    }),
+  ]);
+}
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError(error) { return { hasError: true }; }
+  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: COLORS.shieldPrimary, marginBottom: 10}}>Something went wrong.</Text>
+          <Text style={{color: '#6b7280', textAlign: 'center', marginHorizontal: 20}}>Please restart the app. If you need immediate help, call emergency services.</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AuthStack() {
   return (
@@ -47,55 +76,52 @@ function AuthStack() {
   );
 }
 
-function HomeStack({ currentStatus }) {
+function MessagesStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MessagesMain" component={MessagesScreen} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function HomeStack({ currentStatus, onStatusChange }) {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Dashboard">
         {(props) => (
-          <DashboardScreen {...props} currentStatus={currentStatus} />
+          <DashboardScreen {...props} currentStatus={currentStatus} onStatusChange={onStatusChange} />
         )}
       </Stack.Screen>
       <Stack.Screen
         name="FirstAidInstructions"
         component={FirstAidInstructions}
-        options={{
-          animationEnabled: true,
-        }}
+        options={{ animationEnabled: true }}
       />
       <Stack.Screen
         name="EmergencyGuidance"
         component={EmergencyGuidance}
-        options={{
-          animationEnabled: true,
-        }}
+        options={{ animationEnabled: true }}
       />
       <Stack.Screen
         name="EmergencyChecklist"
         component={EmergencyChecklist}
-        options={{
-          animationEnabled: true,
-        }}
+        options={{ animationEnabled: true }}
       />
       <Stack.Screen
         name="ChecklistDetail"
         component={ChecklistDetail}
-        options={{
-          animationEnabled: true,
-        }}
+        options={{ animationEnabled: true }}
       />
       <Stack.Screen
         name="FirstAidDetail"
         component={FirstAidDetail}
-        options={{
-          animationEnabled: true,
-        }}
+        options={{ animationEnabled: true }}
       />
       <Stack.Screen
         name="EmergencyCall"
         component={EmergencyCall}
-        options={{
-          animationEnabled: true,
-        }}
+        options={{ animationEnabled: true }}
       />
       <Stack.Screen
         name="Evacuation"
@@ -111,16 +137,12 @@ function AppTabs() {
   const { showToast } = useToast();
   const [currentStatus, setCurrentStatus] = useState(profile?.status || "safe");
 
-  // Sync when profile loads from server
   useEffect(() => {
     if (profile?.status) setCurrentStatus(profile.status);
   }, [profile?.status]);
 
-  // Returns a promise so SOSButton can catch failures,
-  // but SOSButton no longer awaits it before allowing next tap.
   const handleStatusChange = useCallback(
     async (newStatus) => {
-      // Optimistic local update — already done in SOSButton, mirror here for Dashboard card
       setCurrentStatus(newStatus);
       try {
         await updateStatus(newStatus);
@@ -139,7 +161,6 @@ function AppTabs() {
         showToast(`${emoji} ${message}`, "success");
         refreshProfile().catch((e) => console.error("refreshProfile:", e));
       } catch (error) {
-        // Revert the optimistic update on failure
         setCurrentStatus(profile?.status || "safe");
         showToast(error.message || "Failed to update status", "error");
         throw error;
@@ -181,7 +202,6 @@ function AppTabs() {
             Messages: "mail",
             Family: "people",
             Maps: "map",
-            Evacuation: "local-hospital",
             Profile: "person",
           };
 
@@ -197,7 +217,7 @@ function AppTabs() {
         tabBarInactiveTintColor: COLORS.gray300,
       })}>
       <Tab.Screen name="Home" options={{ title: "Home" }}>
-        {(props) => <HomeStack {...props} currentStatus={currentStatus} />}
+        {(props) => <HomeStack {...props} currentStatus={currentStatus} onStatusChange={handleStatusChange} />}
       </Tab.Screen>
       <Tab.Screen
         name="Alert"
@@ -206,7 +226,7 @@ function AppTabs() {
       />
       <Tab.Screen
         name="Messages"
-        component={MessagesScreen}
+        component={MessagesStack}
         options={{ title: "Messages" }}
       />
       <Tab.Screen
@@ -251,11 +271,15 @@ function RootNavigator() {
     let cancelled = false;
 
     const initNotifications = async () => {
-      const token = await registerForPushNotificationsAsync();
-      console.log("Expo Push Token:", token);
+      try {
+        const token = await registerForPushNotificationsAsync();
+        console.log("Expo Push Token:", token);
 
-      if (!cancelled && token) {
-        setPushToken(token);
+        if (!cancelled && token) {
+          setPushToken(token);
+        }
+      } catch (error) {
+        console.error("init notifications:", error);
       }
     };
 
@@ -319,15 +343,19 @@ function RootNavigator() {
 
     storeToken();
   }, [pushToken, session?.user?.id, platform]);
+
   // Check if welcome was already shown on this device
   useEffect(() => {
     const checkWelcomeStatus = async () => {
       try {
-        const wasWelcomeShown = await AsyncStorage.getItem("welcome_seen");
+        const wasWelcomeShown = await withStartupTimeout(
+          AsyncStorage.getItem("welcome_seen"),
+          "Checking welcome status",
+        );
         setWelcomeShown(wasWelcomeShown === "true");
       } catch (error) {
         console.error("Error checking welcome status:", error);
-        setWelcomeShown(false); // Default to showing welcome if there's an error
+        setWelcomeShown(false);
       }
     };
 
@@ -355,23 +383,21 @@ function RootNavigator() {
   return (
     <View style={styles.container}>
       <NavigationContainer>
-        {!welcomeShown ? (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {!welcomeShown ? (
             <Stack.Screen
               name="WelcomeFlow"
-              options={{
-                animationEnabled: true,
-              }}>
+              options={{ animationEnabled: true }}>
               {(props) => (
                 <WelcomeScreen {...props} onComplete={handleWelcomeComplete} />
               )}
             </Stack.Screen>
-          </Stack.Navigator>
-        ) : session ? (
-          <AppTabs />
-        ) : (
-          <AuthStack />
-        )}
+          ) : session ? (
+            <Stack.Screen name="AppTabs" component={AppTabs} />
+          ) : (
+            <Stack.Screen name="AuthStack" component={AuthStack} />
+          )}
+        </Stack.Navigator>
       </NavigationContainer>
 
       <View style={styles.toastContainer}>
@@ -400,11 +426,13 @@ export default function App() {
   }
 
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <RootNavigator />
-      </ToastProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ToastProvider>
+          <RootNavigator />
+        </ToastProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

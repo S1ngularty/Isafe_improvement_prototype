@@ -7,8 +7,9 @@ import {
   Pressable,
   StatusBar,
   Image,
-  Dimensions,
+  Image,
   Animated,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { 
@@ -17,11 +18,11 @@ import {
   Info
 } from "lucide-react-native";
 
-const { width, height } = Dimensions.get('window');
 
 export default function ChecklistDetail({ route, navigation }) {
   const { checklist, checkedItems: initialCheckedItems, setCheckedItems: setParentCheckedItems } = route.params;
   const [localCheckedItems, setLocalCheckedItems] = useState(initialCheckedItems || {});
+  const { width, height } = useWindowDimensions();
   
   // Animation values for progress bar
   const progressAnim = useRef(new Animated.Value(0)).current;
@@ -51,7 +52,10 @@ export default function ChecklistDetail({ route, navigation }) {
       [key]: !isCurrentlyChecked,
     };
     setLocalCheckedItems(newCheckedState);
-    setParentCheckedItems(newCheckedState);
+    setParentCheckedItems((prev) => ({
+      ...prev,
+      [key]: !isCurrentlyChecked,
+    }));
 
     // Update progress with animation
     const totalItems = checklist.items.length;
@@ -159,7 +163,7 @@ export default function ChecklistDetail({ route, navigation }) {
         bounces={false}
       >
         {/* Hero Image Section */}
-        <View style={styles.heroContainer}>
+        <View style={[styles.heroContainer, { width, height: height * 0.4 }]}>
           <Image 
             source={{ uri: checklist.image }} 
             style={styles.heroImage} 
@@ -328,8 +332,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   heroContainer: {
-    width: width,
-    height: height * 0.4,
     position: 'relative',
   },
   heroImage: {

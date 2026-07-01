@@ -12,9 +12,17 @@ export async function uploadAvatar(uri) {
   if (!user) throw new Error("Not authenticated");
   const ext = uri.split(".").pop() || "jpg";
   const path = `${user.id}/avatar.${ext}`;
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const { error: uploadErr } = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: `image/${ext}` });
+  const mimeType = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
+  const formData = new FormData();
+  formData.append("file", {
+    uri: uri,
+    name: `avatar.${ext}`,
+    type: mimeType,
+  });
+  
+  const { error: uploadErr } = await supabase.storage.from("avatars").upload(path, formData, { 
+    upsert: true,
+  });
   if (uploadErr) throw new Error(uploadErr.message);
   const avatarUrl = getStorageUrl("avatars", path);
   await updateProfile({ avatar_url: avatarUrl });

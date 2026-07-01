@@ -72,6 +72,14 @@ export default function ProfileScreen({ navigation }) {
       return;
     }
 
+    const previousState = {
+      fullName,
+      dateOfBirth,
+      gender,
+      residentialAddress,
+      emergencyContacts
+    };
+
     setLoading(true);
     try {
       const updateData = {};
@@ -103,6 +111,12 @@ export default function ProfileScreen({ navigation }) {
       showToast("Profile updated successfully", "success");
       setEditingField(null);
     } catch (error) {
+      // Rollback on error
+      setFullName(previousState.fullName);
+      setDateOfBirth(previousState.dateOfBirth);
+      setGender(previousState.gender);
+      setResidentialAddress(previousState.residentialAddress);
+      setEmergencyContacts(previousState.emergencyContacts);
       showToast(error.message || "Failed to update profile", "error");
     } finally {
       setLoading(false);

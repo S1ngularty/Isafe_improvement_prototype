@@ -19,7 +19,6 @@ import {
   Info
 } from "lucide-react-native";
 
-const { width } = Dimensions.get('window');
 
 const COLORS = {
   primary: "#800000",
@@ -169,7 +168,7 @@ export default function EmergencyGuidance({ navigation }) {
     Animated.timing(opacity, {
       toValue: isExpanding ? 1 : 0,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -218,6 +217,10 @@ export default function EmergencyGuidance({ navigation }) {
             const isExpanded = expandedId === guide.id;
             const rotation = getRotation(guide.id);
             const opacity = getOpacity(guide.id);
+            const maxHeight = opacity.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 300]
+            });
             
             return (
               <View
@@ -229,7 +232,7 @@ export default function EmergencyGuidance({ navigation }) {
               >
                 <Pressable
                   onPress={() => toggleGuide(guide.id)}
-                  activeOpacity={0.9}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
                 >
                   <Image source={{ uri: guide.image }} style={styles.cardImage} />
                   
@@ -251,8 +254,8 @@ export default function EmergencyGuidance({ navigation }) {
                 <Animated.View style={[
                   styles.expandedContentWrapper,
                   {
-                    opacity: isExpanded ? opacity : 0,
-                    maxHeight: isExpanded ? 300 : 0,
+                    opacity: opacity,
+                    maxHeight: maxHeight,
                     overflow: 'hidden',
                   }
                 ]}>

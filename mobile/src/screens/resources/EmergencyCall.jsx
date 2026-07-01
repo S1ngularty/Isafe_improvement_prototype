@@ -7,6 +7,7 @@ import {
   Pressable,
   Modal,
   Alert,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -104,6 +105,20 @@ export default function EmergencyCall({ navigation }) {
     );
   };
 
+  const handleCall = async (number) => {
+    const url = `tel:${number}`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert("Unavailable", "Your device cannot make phone calls.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to open phone dialer.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -188,20 +203,20 @@ export default function EmergencyCall({ navigation }) {
         {/* Important Numbers */}
         <View style={styles.importantSection}>
           <Text style={styles.importantTitle}>Important Numbers to Remember:</Text>
-          <View style={styles.numberItem}>
+          <Pressable style={styles.numberItem} onPress={() => handleCall("911")}>
             <MaterialIcons name="phone" size={18} color={COLORS.shieldPrimary} />
             <View>
               <Text style={styles.numberLabel}>Emergency Services</Text>
               <Text style={styles.numberValue}>911 or 112</Text>
             </View>
-          </View>
-          <View style={styles.numberItem}>
+          </Pressable>
+          <Pressable style={styles.numberItem} onPress={() => handleCall("112")}>
             <MaterialIcons name="phone" size={18} color={COLORS.shieldPrimary} />
             <View>
               <Text style={styles.numberLabel}>Disaster Response Hotline</Text>
               <Text style={styles.numberValue}>Local Municipality Hotline</Text>
             </View>
-          </View>
+          </Pressable>
         </View>
       </ScrollView>
 
