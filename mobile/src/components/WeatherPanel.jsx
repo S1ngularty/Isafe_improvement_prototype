@@ -81,25 +81,25 @@ export default function WeatherPanel({ lat, lng }) {
       <View style={styles.currentSection}>
         <View style={styles.currentLeft}>
           <MaterialIcons name={current.icon} size={48} color={COLORS.shieldPrimary} />
-          <Text style={styles.temperature}>{Math.round(current.temperature)}°C</Text>
+          <Text style={styles.temperature}>{current.temperature != null ? Math.round(current.temperature) : "--"}°C</Text>
         </View>
 
         <View style={styles.currentRight}>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Rainfall</Text>
-            <Text style={styles.metricValue}>{current.precipitation} mm</Text>
+            <Text style={styles.metricValue}>{current.precipitation ?? 0} mm</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Wind Speed</Text>
-            <Text style={styles.metricValue}>{Math.round(current.windSpeed)} km/h</Text>
+            <Text style={styles.metricValue}>{current.windSpeed != null ? Math.round(current.windSpeed) : 0} km/h</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Sea Level Press</Text>
-            <Text style={styles.metricValue}>{Math.round(current.pressure)} hPa</Text>
+            <Text style={styles.metricValue}>{current.pressure != null ? Math.round(current.pressure) : "--"} hPa</Text>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Gusts</Text>
-            <Text style={styles.metricValue}>{Math.round(current.windGusts)} km/h</Text>
+            <Text style={styles.metricValue}>{current.windGusts != null ? Math.round(current.windGusts) : 0} km/h</Text>
           </View>
         </View>
       </View>
@@ -151,7 +151,7 @@ export default function WeatherPanel({ lat, lng }) {
                 <View style={[styles.legendBox, { backgroundColor: COLORS.gray200 }]} />
                 <Text style={styles.legendText}>Rainfall (mm)</Text>
               </View>
-              <Text style={styles.legendWind}>Wind {Math.round(current.windSpeed)} km/h</Text>
+              <Text style={styles.legendWind}>Wind {current.windSpeed != null ? Math.round(current.windSpeed) : 0} km/h</Text>
             </View>
           )}
         </>

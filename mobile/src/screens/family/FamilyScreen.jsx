@@ -15,6 +15,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useFamilyLocations from "../../hooks/useFamilyLocations.js";
 import { createFamily, joinFamily, leaveFamily } from "../../services/family.js";
+import * as Clipboard from "expo-clipboard";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -67,6 +68,15 @@ export default function FamilyScreen() {
   useEffect(() => {
     if (family) setTab("info");
   }, [family]);
+
+  const handleCopyCode = async (code) => {
+    try {
+      await Clipboard.setStringAsync(code);
+      showToast("Family code copied to clipboard!", "success");
+    } catch (err) {
+      showToast("Failed to copy code", "error");
+    }
+  };
 
   const handleCreate = useCallback(async () => {
     if (!familyName.trim()) return;
@@ -172,7 +182,10 @@ export default function FamilyScreen() {
             {generatedCode && (
               <View style={styles.codeBox}>
                 <Text style={styles.codeLabel}>Share this code:</Text>
-                <Text style={styles.codeValue}>{generatedCode}</Text>
+                <Pressable onPress={() => handleCopyCode(generatedCode)} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={styles.codeValue}>{generatedCode}</Text>
+                  <MaterialIcons name="content-copy" size={24} color={COLORS.green700} />
+                </Pressable>
               </View>
             )}
           </View>
@@ -205,9 +218,11 @@ export default function FamilyScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Family</Text>
         {family?.code && (
-          <Text style={styles.codeDisplay}>
-            Code: <Text style={styles.codeValueInline}>{family.code}</Text>
-          </Text>
+          <Pressable onPress={() => handleCopyCode(family.code)}>
+            <Text style={styles.codeDisplay}>
+              Code: <Text style={styles.codeValueInline}>{family.code}</Text> <MaterialIcons name="content-copy" size={14} color={COLORS.gray500} />
+            </Text>
+          </Pressable>
         )}
         <Text style={styles.memberCount}>
           {members.length} member{members.length !== 1 ? "s" : ""}

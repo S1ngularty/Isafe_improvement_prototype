@@ -81,6 +81,13 @@ export default function SOSButton({ onStatusChange, currentStatus = "safe" }) {
     setPressCount(0);
   }, [currentStatus]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearAllTimers();
+    };
+  }, []);
+
   const clearAllTimers = () => {
     if (commitTimer.current) clearTimeout(commitTimer.current);
     if (countdownInterval.current) clearInterval(countdownInterval.current);

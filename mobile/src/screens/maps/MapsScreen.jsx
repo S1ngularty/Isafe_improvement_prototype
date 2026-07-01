@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, StyleSheet, ActivityIndicator, Text, Pressable, Linking } from "react-native";
+import { View, StyleSheet, ActivityIndicator, Text, Pressable, Linking, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
@@ -203,8 +203,6 @@ export default function MapsScreen() {
         javaScriptEnabled
         domStorageEnabled
         mixedContentMode="always"
-        allowFileAccess
-        allowUniversalAccessFromFileURLs
       />
 
       {/* Floating action buttons - left side */}
@@ -237,7 +235,7 @@ export default function MapsScreen() {
       {membersWithDist.length > 0 && (
         <View style={s.chipBar}>
           {routeLoading && <ActivityIndicator size="small" color={C.red} style={{ marginRight: 8 }} />}
-          <Pressable style={s.chipScroll}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll}>
             {membersWithDist.map((m) => (
               <Pressable key={m.id} style={s.chip} onPress={() => handleRoute(m)}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -247,7 +245,7 @@ export default function MapsScreen() {
                 <Text style={s.chipDist}>{m.dist.toFixed(1)}km {m.dir}</Text>
               </Pressable>
             ))}
-          </Pressable>
+          </ScrollView>
         </View>
       )}
 
@@ -264,7 +262,7 @@ export default function MapsScreen() {
             <MaterialIcons name={showSteps ? "expand-more" : "expand-less"} size={20} color={C.gray500} />
           </Pressable>
           {showSteps && (
-            <View style={s.stepsList}>
+            <ScrollView style={s.stepsList}>
               {route.steps.map((step, i) => (
                 <View key={i} style={[s.step, i === 0 && { backgroundColor: C.gray50 }]}>
                   <View style={[s.stepBar, { backgroundColor: i === 0 ? C.green : i === route.steps.length - 1 ? C.gray400 : C.gray200 }]} />
@@ -273,7 +271,7 @@ export default function MapsScreen() {
                   <Text style={s.stepDist}>{formatDist(step.distance_m)}</Text>
                 </View>
               ))}
-            </View>
+            </ScrollView>
           )}
         </View>
       )}

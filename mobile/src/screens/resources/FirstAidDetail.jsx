@@ -7,7 +7,7 @@ import {
   Pressable,
   StatusBar,
   Image,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { 
@@ -16,7 +16,6 @@ import {
   Info
 } from "lucide-react-native";
 
-const { width } = Dimensions.get('window');
 
 const COLORS = {
   primary: "#800000",
@@ -37,6 +36,7 @@ const COLORS = {
 export default function FirstAidDetail({ route, navigation }) {
   const { tip } = route.params;
   const IconComponent = tip.icon;
+  const { width } = useWindowDimensions();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -56,7 +56,7 @@ export default function FirstAidDetail({ route, navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Image Section */}
-        <View style={styles.heroContainer}>
+        <View style={[styles.heroContainer, { width }]}>
           <Image 
             source={{ uri: tip.image }} 
             style={styles.heroImage} 
@@ -179,7 +179,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   heroContainer: {
-    width: width,
     height: 300,
     position: 'relative',
   },

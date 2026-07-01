@@ -51,14 +51,18 @@ export default function AnnouncementBanner() {
 
   useEffect(() => {
     loadAnnouncements();
+  }, []);
 
+  useEffect(() => {
+    if (announcements.length === 0) return;
+    
     // Auto-rotate every 5 seconds
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % (announcements.length || FALLBACK_ANNOUNCEMENTS.length));
+      setCurrentIndex((prev) => (prev + 1) % announcements.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [announcements.length]);
+  }, [announcements]);
 
   const loadAnnouncements = async () => {
     try {
@@ -88,6 +92,15 @@ export default function AnnouncementBanner() {
 
   return (
     <View style={styles.container}>
+      {/* Background Image if available */}
+      {current.image_url && (
+        <Image 
+          source={{ uri: current.image_url }} 
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover" 
+        />
+      )}
+      
       {/* Gradient overlay */}
       <View style={styles.gradient} />
 

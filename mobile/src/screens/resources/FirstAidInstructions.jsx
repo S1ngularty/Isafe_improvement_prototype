@@ -24,7 +24,6 @@ import {
   Info
 } from "lucide-react-native";
 
-const { width } = Dimensions.get('window');
 
 const COLORS = {
   primary: "#800000",
@@ -228,9 +227,8 @@ export default function FirstAidList({ navigation }) {
             return (
               <Pressable
                 key={tip.id}
-                style={styles.tipCard}
+                style={({ pressed }) => [styles.tipCard, { opacity: pressed ? 0.8 : 1 }]}
                 onPress={() => handleTipPress(tip)}
-                activeOpacity={0.8}
               >
                 <Image source={{ uri: tip.image }} style={styles.cardImage} />
                 

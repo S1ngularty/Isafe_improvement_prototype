@@ -255,9 +255,8 @@ export default function EvacuationCentersScreen({ navigation }) {
             {centers.map((center) => (
               <Pressable
                 key={center.id}
-                style={styles.card}
+                style={({ pressed }) => [styles.card, { opacity: pressed ? 0.8 : 1 }]}
                 onPress={() => handleCenterPress(center)}
-                activeOpacity={0.8}
               >
                 <View style={styles.cardTop}>
                   <View style={styles.iconWrap}>

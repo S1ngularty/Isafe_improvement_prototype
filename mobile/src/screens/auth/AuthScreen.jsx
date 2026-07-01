@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { signIn, signUp, verifyOtp } from "../../services/auth.js";
+import { signIn, signUp, verifyOtp, resendOtp } from "../../services/auth.js";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 
@@ -21,6 +21,7 @@ export default function AuthScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
     if (!email.trim() || !password.trim()) {
       showToast("Please fill in all fields", "error");
       return;
@@ -39,6 +40,7 @@ export default function AuthScreen() {
   };
 
   const handleRegister = async () => {
+    Keyboard.dismiss();
     if (!email.trim() || !password.trim() || !fullName.trim()) {
       showToast("Please fill in required fields", "error");
       return;
@@ -64,6 +66,7 @@ export default function AuthScreen() {
   };
 
   const handleVerifyOtp = async () => {
+    Keyboard.dismiss();
     if (!otp.trim()) {
       showToast("Please enter the verification code", "error");
       return;
@@ -71,7 +74,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       // Verify the OTP token
-      await verifyOtp(otp, "signup");
+      await verifyOtp(otp, "signup", email);
       showToast("Email verified! You can now sign in.", "success");
       setMode("login");
       setOtp("");
@@ -86,16 +89,15 @@ export default function AuthScreen() {
   };
 
   const handleResendCode = async () => {
+    Keyboard.dismiss();
     if (!email.trim()) {
       showToast("Please enter your email first", "error");
       return;
     }
     setLoading(true);
     try {
-      // Note: Supabase doesn't have a built-in resend endpoint in JS client
-      // For now, we'll show a message. In production, you'd need a backend endpoint
+      await resendOtp(email);
       showToast("⏳ Verification link resent! Check your email.", "success");
-      // In production: await resendOtp(email);
     } catch (error) {
       showToast(error.message || "Failed to resend code", "error");
     } finally {
@@ -160,7 +162,7 @@ export default function AuthScreen() {
 
               <View style={styles.switchMode}>
                 <Text style={styles.switchText}>Don't have an account? </Text>
-                <Pressable onPress={() => { setMode("register"); setEmail(""); setPassword(""); }}>
+                <Pressable onPress={() => { setMode("register"); setEmail(""); setPassword(""); setConfirmPassword(""); }}>
                   <Text style={styles.switchLink}>Sign Up</Text>
                 </Pressable>
               </View>
@@ -232,7 +234,7 @@ export default function AuthScreen() {
 
               <View style={styles.switchMode}>
                 <Text style={styles.switchText}>Already have an account? </Text>
-                <Pressable onPress={() => { setMode("login"); setEmail(""); setPassword(""); setFullName(""); }}>
+                <Pressable onPress={() => { setMode("login"); setEmail(""); setPassword(""); setConfirmPassword(""); setFullName(""); }}>
                   <Text style={styles.switchLink}>Sign In</Text>
                 </Pressable>
               </View>
@@ -275,7 +277,7 @@ export default function AuthScreen() {
 
               <View style={styles.switchMode}>
                 <Text style={styles.switchText}>Already verified? </Text>
-                <Pressable onPress={() => { setMode("login"); setOtp(""); }}>
+                <Pressable onPress={() => { setMode("login"); setOtp(""); setPassword(""); setConfirmPassword(""); }}>
                   <Text style={styles.switchLink}>Sign In</Text>
                 </Pressable>
               </View>

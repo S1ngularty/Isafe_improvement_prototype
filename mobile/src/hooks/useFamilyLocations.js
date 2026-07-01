@@ -33,32 +33,25 @@ export default function useFamilyLocations() {
     if (!family?.id) return;
     let cancelled = false;
 
-    async function setupRealtime() {
-      const channel = supabase
-        .channel(`family-${family.id}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "profiles", filter: `family_id=eq.${family.id}` },
-          () => {
-            getFamilyMembers().then((data) => { if (!cancelled) setMembers(data); }).catch(() => {});
-          }
-        );
+    const channel = supabase
+      .channel(`family-${family.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles", filter: `family_id=eq.${family.id}` },
+        () => {
+          getFamilyMembers().then((data) => { if (!cancelled) setMembers(data); }).catch(() => {});
+        }
+      );
 
-      try {
-        await channel.subscribe();
-      } catch (err) {
-        console.warn("[useFamilyLocations] Realtime not configured — enable realtime for profiles table in Supabase dashboard");
+    channel.subscribe(async (status, err) => {
+      if (err) {
+        console.warn("[useFamilyLocations] Realtime not configured:", err);
       }
-
-      return channel;
-    }
-
-    let channelRef = null;
-    setupRealtime().then((ch) => { channelRef = ch; });
+    });
 
     return () => {
       cancelled = true;
-      if (channelRef) supabase.removeChannel(channelRef).catch(() => {});
+      supabase.removeChannel(channel).catch(() => {});
     };
   }, [family?.id]);
 

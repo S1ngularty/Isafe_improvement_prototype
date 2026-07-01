@@ -13,6 +13,14 @@ export function useGeolocation({
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const watchId = useRef(null);
+  
+  const onLocationChangeRef = useRef(onLocationChange);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onLocationChangeRef.current = onLocationChange;
+    onErrorRef.current = onError;
+  }, [onLocationChange, onError]);
 
   useEffect(() => {
     if (!watch) {
@@ -32,7 +40,7 @@ export function useGeolocation({
             setError(permError);
             setLoading(false);
           }
-          onError?.(permError);
+          onErrorRef.current?.(permError);
           return;
         }
 
@@ -50,7 +58,7 @@ export function useGeolocation({
               setLocation(loc);
               setError(null);
               setLoading(false);
-              onLocationChange?.(loc);
+              onLocationChangeRef.current?.(loc);
             }
           }
         );
@@ -60,7 +68,7 @@ export function useGeolocation({
           setError(errorMsg);
           setLoading(false);
         }
-        onError?.(errorMsg);
+        onErrorRef.current?.(errorMsg);
       }
     })();
 
@@ -70,7 +78,7 @@ export function useGeolocation({
         watchId.current.remove();
       }
     };
-  }, [watch, highAccuracy, onLocationChange, onError]);
+  }, [watch, highAccuracy]);
 
   return { location, error, loading };
 }
