@@ -38,8 +38,16 @@ export async function sendFamilyMessage(familyId, senderId, content) {
 }
 
 export function subscribeToFamilyMessages(familyId, callback) {
+  const channelName = `family-messages-${familyId}`;
+
+  // Remove any pre-existing channel to avoid "cannot add callbacks after subscribe()" crash
+  const existing = supabase.getChannels().find((ch) => ch.topic === `realtime:${channelName}`);
+  if (existing) {
+    supabase.removeChannel(existing).catch(() => {});
+  }
+
   return supabase
-    .channel(`public:family_messages:family_id=eq.${familyId}`)
+    .channel(channelName)
     .on(
       "postgres_changes",
       {

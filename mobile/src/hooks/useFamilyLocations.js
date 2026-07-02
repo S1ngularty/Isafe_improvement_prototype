@@ -33,8 +33,16 @@ export default function useFamilyLocations() {
     if (!family?.id) return;
     let cancelled = false;
 
+    // Remove any pre-existing channel with the same name to avoid
+    // "cannot add postgres_changes callbacks after subscribe()" crash.
+    const channelName = `family-${family.id}`;
+    const existing = supabase.getChannels().find((ch) => ch.topic === `realtime:${channelName}`);
+    if (existing) {
+      supabase.removeChannel(existing).catch(() => {});
+    }
+
     const channel = supabase
-      .channel(`family-${family.id}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles", filter: `family_id=eq.${family.id}` },
@@ -43,7 +51,7 @@ export default function useFamilyLocations() {
         }
       );
 
-    channel.subscribe(async (status, err) => {
+    channel.subscribe((status, err) => {
       if (err) {
         console.warn("[useFamilyLocations] Realtime not configured:", err);
       }

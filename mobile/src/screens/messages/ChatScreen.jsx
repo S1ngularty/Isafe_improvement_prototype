@@ -92,7 +92,21 @@ export default function ChatScreen({ navigation }) {
     setNewMessage("");
 
     try {
-      await sendFamilyMessage(family.id, session.user.id, content);
+      const sentMessage = await sendFamilyMessage(family.id, session.user.id, content);
+      // Optimistically add to local state so it appears immediately
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === sentMessage.id)) return prev;
+        return [
+          ...prev,
+          {
+            ...sentMessage,
+            profiles: {
+              full_name: profile?.full_name,
+              avatar_url: profile?.avatar_url,
+            },
+          },
+        ];
+      });
     } catch (error) {
       console.error("Failed to send message", error);
       setNewMessage(content); // restore message on failure
