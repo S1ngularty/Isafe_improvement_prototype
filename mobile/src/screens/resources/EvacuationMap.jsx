@@ -161,7 +161,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         showToast("Route unavailable right now", "error");
       }
     } catch (err) {
-      showToast("Failed to get route", "error");
+      // showToast("Failed to get route", "error");
     } finally {
       setRouteLoading(false);
     }
