@@ -99,12 +99,15 @@ export default function MapsScreen() {
   };
 
   const sendLocations = useCallback((coords, members) => {
-    const slat = coords?.latitude || profile?.lat || 12.5;
-    const slng = coords?.longitude || profile?.lng || 121.5;
-    const locs = [{ id: "self", lat: parseFloat(manualLat ?? slat), lng: parseFloat(manualLng ?? slng), name: session?.user?.email || "You", status: profile?.status || "safe", isSelf: true, avatarUrl: profile?.avatar_url || null }];
-    if (members) members.forEach((m) => { if (m.lat && m.lng) locs.push({ id: m.id, lat: parseFloat(m.lat), lng: parseFloat(m.lng), name: m.full_name || "Member", status: m.status || "safe", isSelf: false, avatarUrl: m.avatar_url || null }); });
+    const locs = [];
+    if (members) members.forEach((m) => {
+      if (m.lat && m.lng) {
+        const isMe = m.id === session?.user?.id;
+        locs.push({ id: m.id, lat: parseFloat(m.lat), lng: parseFloat(m.lng), name: isMe ? "You" : (m.full_name || "Member"), status: m.status || "safe", isSelf: isMe, avatarUrl: m.avatar_url || null });
+      }
+    });
     sendToMap("UPDATE_LOCATIONS", locs);
-  }, [profile, session, manualLat, manualLng]);
+  }, [session]);
 
   useEffect(() => {
     if (mapLoaded) sendLocations(currentLocation, familyMembers);
@@ -119,12 +122,6 @@ export default function MapsScreen() {
     try {
       const d = JSON.parse(event.nativeEvent.data);
       if (d.type === "MAP_LOADED") { setMapLoaded(true); setTimeout(() => sendLocations(currentLocation, familyMembers), 300); }
-      if (d.type === "MAP_CLICK" && d.payload) {
-        setManualLat(d.payload.lat);
-        setManualLng(d.payload.lng);
-        setRoute(null);
-        sendLocations(currentLocation, familyMembers);
-      }
     } catch (e) {}
   };
 

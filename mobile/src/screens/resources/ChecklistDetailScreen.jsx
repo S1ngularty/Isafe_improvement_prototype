@@ -7,7 +7,6 @@ import {
   Pressable,
   StatusBar,
   Image,
-  Image,
   Animated,
   useWindowDimensions,
 } from "react-native";
