@@ -52,17 +52,27 @@ export async function fetchCurrent(lat, lng) {
 export async function fetchHourly(lat, lng) {
   try {
     const data = await apiGet("/api/weather/hourly", { lat, lng });
-    const hourly = data.hourly || [];
+    let hourly = Array.isArray(data) ? data : (data.hourly || []);
 
-    return hourly.map((point) => ({
+    // Handle raw Open-Meteo format: { time: [...], precipitation: [...] }
+    if (hourly && !Array.isArray(hourly) && hourly.time && Array.isArray(hourly.time)) {
+      hourly = hourly.time.map((t, i) => ({
+        time: t,
+        weatherCode: hourly.weather_code?.[i] || 0,
+        precipitation: hourly.precipitation?.[i] || 0,
+        windSpeed: hourly.wind_speed_10m?.[i] || 0,
+      }));
+    }
+
+    return (Array.isArray(hourly) ? hourly : []).map((point) => ({
       time: new Date(point.time).toLocaleTimeString("en-PH", {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      weatherCode: point.weatherCode,
-      icon: WMO_CODES[point.weatherCode]?.icon || "🌡️",
-      precipitation: point.precipitation,
-      windSpeed: point.windSpeed,
+      weatherCode: point.weatherCode || point.weather_code,
+      icon: WMO_CODES[point.weatherCode || point.weather_code]?.icon || "🌡️",
+      precipitation: point.precipitation || 0,
+      windSpeed: point.windSpeed || point.wind_speed || 0,
     }));
   } catch (error) {
     console.error("[fetchHourly] Error:", error);

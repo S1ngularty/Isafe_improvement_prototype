@@ -29,6 +29,7 @@ google-crc32c==1.8.0
 google-resumable-media==2.10.0
 googleapis-common-protos==1.75.0
 gotrue==2.12.4
+geopandas
 greenlet==3.5.2
 grpcio==1.81.1
 grpcio-status==1.81.1

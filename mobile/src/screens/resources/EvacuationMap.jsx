@@ -64,11 +64,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
   const [showSteps, setShowSteps] = useState(false);
   const webViewRef = useRef(null);
 
-  // If no center data, go back
-  if (!center) {
-    navigation.goBack();
-    return null;
-  }
+  // Center will be checked after hooks
 
   const sendToMap = (type, payload) => {
     if (!webViewRef.current) return;
@@ -87,9 +83,9 @@ const EvacuationMapScreen = ({ route, navigation }) => {
       },
       {
         id: "center",
-        lat: parseFloat(center.latitude),
-        lng: parseFloat(center.longitude),
-        name: center.name,
+        lat: parseFloat(center?.latitude || 0),
+        lng: parseFloat(center?.longitude || 0),
+        name: center?.name,
         isSelf: false,
         isDestination: true,
       },
@@ -130,8 +126,8 @@ const EvacuationMapScreen = ({ route, navigation }) => {
   const handleRoute = async () => {
     const slat = userLocation?.lat;
     const slng = userLocation?.lng;
-    const dlat = parseFloat(center.latitude);
-    const dlng = parseFloat(center.longitude);
+    const dlat = parseFloat(center?.latitude || 0);
+    const dlng = parseFloat(center?.longitude || 0);
 
     if (!slat || !slng || !dlat || !dlng) {
       showToast("Location not available", "error");
@@ -144,7 +140,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
     try {
       const result = await fetchRoute(slat, slng, dlat, dlng);
       if (result) {
-        const label = `${result.distance_km} km · ~${result.duration_min} min to ${center.name}`;
+        const label = `${result.distance_km} km · ~${result.duration_min} min to ${center?.name || "Destination"}`;
         sendToMap("SET_ROUTE", {
           coordinates: result.coordinates,
           label,
@@ -155,7 +151,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         }));
         setRouteData({
           ...result,
-          destinationName: center.name,
+          destinationName: center?.name,
           destinationLat: dlat,
           destinationLng: dlng,
           steps: stepsClean,
@@ -165,7 +161,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         showToast("Route unavailable right now", "error");
       }
     } catch (err) {
-      showToast("Failed to get route", "error");
+      // showToast("Failed to get route", "error");
     } finally {
       setRouteLoading(false);
     }
@@ -176,6 +172,14 @@ const EvacuationMapScreen = ({ route, navigation }) => {
     setShowSteps(false);
     sendToMap("CLEAR_ROUTE", {});
   }, []);
+
+  useEffect(() => {
+    if (!center) {
+      navigation.goBack();
+    }
+  }, [center, navigation]);
+
+  if (!center) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -206,8 +210,6 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         javaScriptEnabled
         domStorageEnabled
         mixedContentMode="always"
-        allowFileAccess
-        allowUniversalAccessFromFileURLs
       />
 
       {/* Center Info Card - Bottom Sheet */}

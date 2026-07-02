@@ -1,5 +1,7 @@
 import { supabase } from "./supabase.js";
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { getBackendUrl } from "./backendConfig.js";
+
+const BACKEND_URL = getBackendUrl();
 
 export async function upsertLocation(lat, lng) {
   const user = (await supabase.auth.getUser()).data.user;
@@ -11,48 +13,50 @@ export async function upsertLocation(lat, lng) {
     .eq("id", user.id)
     .select();
 
-  console.log("[upsertLocation] update:", {
-    lat: lat,
-    lng: lng,
-    userId: user.id,
-    data,
-    error,
-  });
   if (error) throw error;
   return data;
 }
 
-async function StatusNotification({ status, userId, data }) {
+async function StatusNotification({ status, userId, profileData }) {
   let message = "";
+  const name = profileData?.full_name || "Someone";
+  const currentStatus = status ? status.trim() : "";
 
-  switch (status.trim()) {
+  switch (currentStatus) {
     case "safe":
-      message = `${data.full_name} wants to remind you that he/she safe!`;
+      message = `${name} wants to remind you that they are safe!`;
       break;
     case "help":
-      message = `${data.full_name} is asking for help, tap the banner to show his/her full status`;
+      message = `${name} is asking for help, tap the banner to show their full status`;
       break;
     case "emergency":
-      message = `${data.full_name} is in emergency, please click the notification banner to show his/her location and make action immediately!`;
+      message = `${name} is in emergency, please click the notification banner to show their location and take action immediately!`;
       break;
   }
 
-  const result = await fetch(`${BACKEND_URL}/api/notify/contacts`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "Application/json",
-    },
-    body: JSON.stringify({
-      status,
-      body:message,
-      payload:data,
-      user_id: userId
-    }),
-  });
+  try {
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    
+    const result = await fetch(`${BACKEND_URL}/api/notify/contacts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        status,
+        body: message,
+        payload: profileData,
+        user_id: userId
+      }),
+    });
 
-  const payload = await result.json();
-  console.log(payload)
+    const responseData = await result.json();
 
+  } catch (err) {
+    console.error("[StatusNotification] error:", err);
+  }
 }
 
 export async function updateStatus(status) {
@@ -65,14 +69,11 @@ export async function updateStatus(status) {
     .eq("id", user.id)
     .select();
 
-  console.log("[updateStatus] update:", {
-    status,
-    userId: user.id,
-    data,
-    error,
-  });
-
-  StatusNotification({ status, userId: user.id, data });
+  if (data && data.length > 0) {
+    StatusNotification({ status, userId: user.id, profileData: data[0] }).catch(
+      (err) => console.error("[updateStatus] StatusNotification failed:", err)
+    );
+  }
   if (error) throw error;
   return data;
 }
@@ -86,11 +87,6 @@ export async function updateLocationSharing(enabled) {
     .update({ location_sharing: enabled })
     .eq("id", user.id);
 
-  console.log("[updateLocationSharing] update:", {
-    enabled,
-    userId: user.id,
-    error,
-  });
   if (error) throw error;
 }
 

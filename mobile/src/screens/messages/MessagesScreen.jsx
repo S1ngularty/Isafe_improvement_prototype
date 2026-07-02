@@ -1,15 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   StyleSheet,
   Text,
   Pressable,
-  ScrollView,
-  TextInput,
-  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import useFamilyLocations from "../../hooks/useFamilyLocations";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -25,121 +23,46 @@ const COLORS = {
   white: "#fff",
 };
 
-// Sample messages
-const SAMPLE_MESSAGES = [
-  {
-    id: "1",
-    name: "Mom",
-    avatar: "M",
-    lastMessage: "Are you safe? I saw the news.",
-    timestamp: "2 hours ago",
-    unread: 2,
-  },
-  {
-    id: "2",
-    name: "Dad",
-    avatar: "D",
-    lastMessage: "Let me know when you're home",
-    timestamp: "5 hours ago",
-    unread: 0,
-  },
-  {
-    id: "3",
-    name: "Sister",
-    avatar: "S",
-    lastMessage: "Thanks for the update!",
-    timestamp: "1 day ago",
-    unread: 0,
-  },
-  {
-    id: "4",
-    name: "Emergency Services",
-    avatar: "E",
-    lastMessage: "Your alert was received",
-    timestamp: "2 days ago",
-    unread: 0,
-  },
-];
-
 export default function MessagesScreen({ navigation }) {
-  const [messages, setMessages] = useState(SAMPLE_MESSAGES);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const filteredMessages = messages.filter((msg) =>
-    msg.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const renderMessage = ({ item }) => (
-    <Pressable style={styles.messageItem}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.avatar}</Text>
-      </View>
-
-      <View style={styles.messageContent}>
-        <View style={styles.messageHeader}>
-          <Text style={styles.messageName}>{item.name}</Text>
-          <Text style={styles.messageTime}>{item.timestamp}</Text>
-        </View>
-        <Text style={styles.messagePreview} numberOfLines={1}>
-          {item.lastMessage}
-        </Text>
-      </View>
-
-      {item.unread > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>{item.unread}</Text>
-        </View>
-      )}
-    </Pressable>
-  );
+  const { family, loading } = useFamilyLocations();
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Messages</Text>
-        <Pressable style={styles.headerIcon}>
-          <MaterialIcons name="add" size={24} color={COLORS.shieldPrimary} />
-        </Pressable>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <MaterialIcons name="search" size={20} color={COLORS.gray400} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search messages"
-          placeholderTextColor={COLORS.gray400}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <Pressable onPress={() => setSearchQuery("")}>
-            <MaterialIcons name="close" size={20} color={COLORS.gray400} />
-          </Pressable>
-        )}
       </View>
 
       {/* Messages List */}
-      {filteredMessages.length > 0 ? (
-        <FlatList
-          data={filteredMessages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          scrollEnabled={false}
-        />
-      ) : (
-        <View style={styles.emptyState}>
-          <MaterialIcons name="mail-outline" size={48} color={COLORS.gray300} />
-          <Text style={styles.emptyTitle}>No messages</Text>
-          <Text style={styles.emptySubtitle}>
-            {searchQuery.length > 0
-              ? "No conversations match your search"
-              : "Start a conversation with family members"}
-          </Text>
-        </View>
-      )}
+      <View style={styles.listContent}>
+        {family?.id ? (
+          <Pressable
+            style={styles.messageItem}
+            onPress={() => navigation.navigate("ChatScreen")}
+          >
+            <View style={styles.avatar}>
+              <MaterialIcons name="group" size={24} color={COLORS.white} />
+            </View>
+
+            <View style={styles.messageContent}>
+              <View style={styles.messageHeader}>
+                <Text style={styles.messageName}>{family.name || "Family Chat"}</Text>
+              </View>
+              <Text style={styles.messagePreview} numberOfLines={1}>
+                Tap to view family messages
+              </Text>
+            </View>
+          </Pressable>
+        ) : !loading ? (
+          <View style={styles.emptyState}>
+            <MaterialIcons name="mail-outline" size={48} color={COLORS.gray300} />
+            <Text style={styles.emptyTitle}>No messages</Text>
+            <Text style={styles.emptySubtitle}>
+              Join or create a family to start chatting with them.
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -163,32 +86,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.gray900,
   },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: COLORS.gray100,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: COLORS.gray100,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLORS.gray900,
-  },
   listContent: {
     paddingHorizontal: 16,
+    paddingTop: 16,
+    flex: 1,
   },
   messageItem: {
     flexDirection: "row",
@@ -208,11 +109,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.white,
-  },
   messageContent: {
     flex: 1,
   },
@@ -223,32 +119,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   messageName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     color: COLORS.gray900,
   },
-  messageTime: {
-    fontSize: 12,
-    color: COLORS.gray500,
-  },
   messagePreview: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.gray600,
-    lineHeight: 16,
-  },
-  unreadBadge: {
-    backgroundColor: COLORS.shieldPrimary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 6,
-  },
-  unreadText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: COLORS.white,
   },
   emptyState: {
     flex: 1,

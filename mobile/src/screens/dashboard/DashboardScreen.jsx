@@ -48,6 +48,7 @@ const COLORS = {
 export default function DashboardScreen({
   navigation,
   currentStatus = "safe",
+  onStatusChange,
 }) {
   const { session, profile } = useAuth();
   const { showToast } = useToast();
@@ -158,7 +159,14 @@ export default function DashboardScreen({
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Good morning,</Text>
+          <Text style={styles.greeting}>
+            {(() => {
+              const hour = new Date().getHours();
+              if (hour < 12) return "Good morning,";
+              if (hour < 18) return "Good afternoon,";
+              return "Good evening,";
+            })()}
+          </Text>
           <Text style={styles.userName}>{profile?.full_name || "User"}</Text>
         </View>
         <Pressable
@@ -217,7 +225,11 @@ export default function DashboardScreen({
 
           <View style={styles.tapOptionsContainer}>
             {/* 1 TAP */}
-            <Pressable style={styles.tapOption}>
+            <Pressable 
+              style={styles.tapOption} 
+              onPress={() => onStatusChange?.('safe')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <View style={[styles.tapCircle, styles.tapSafe]}>
                 <MaterialIcons
                   name="check-circle"
@@ -233,7 +245,11 @@ export default function DashboardScreen({
             </Pressable>
 
             {/* 2 TAPS */}
-            <Pressable style={styles.tapOption}>
+            <Pressable 
+              style={styles.tapOption} 
+              onPress={() => onStatusChange?.('help')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <View style={[styles.tapCircle, styles.tapHelp]}>
                 <MaterialIcons name="error" size={32} color={COLORS.white} />
               </View>
@@ -245,7 +261,11 @@ export default function DashboardScreen({
             </Pressable>
 
             {/* 3 TAPS */}
-            <Pressable style={styles.tapOption}>
+            <Pressable 
+              style={styles.tapOption} 
+              onPress={() => onStatusChange?.('emergency')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <View style={[styles.tapCircle, styles.tapEmergency]}>
                 <MaterialIcons name="warning" size={32} color={COLORS.white} />
               </View>
@@ -405,7 +425,7 @@ export default function DashboardScreen({
           />
         )}
 
-        {/* Flood Warning */}
+        {/* Flood Warning (Hidden for now until real API is connected)
         <View style={styles.floodWarningSection}>
           <View style={styles.floodWarningHeader}>
             <MaterialIcons name="water" size={20} color="#800000" />
@@ -421,7 +441,6 @@ export default function DashboardScreen({
           </Text>
         </View>
 
-        {/* Status Overview */}
         <View style={styles.statusOverviewSection}>
           <View style={styles.statusOverviewHeader}>
             <Text style={styles.sectionTitle}>Status Overview</Text>
@@ -460,6 +479,7 @@ export default function DashboardScreen({
             </View>
           </View>
         </View>
+        */}
 
         {/* AI Assistant */}
         <View style={styles.aiBotSection}>
@@ -504,19 +524,6 @@ export default function DashboardScreen({
       </Modal>
     </SafeAreaView>
   );
-}
-
-function getStatusColor(status) {
-  switch (status) {
-    case "safe":
-      return COLORS.successText;
-    case "help":
-      return COLORS.warningText;
-    case "emergency":
-      return COLORS.errorText;
-    default:
-      return COLORS.shieldPrimary;
-  }
 }
 
 function getStatusBgColor(status) {

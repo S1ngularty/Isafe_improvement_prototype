@@ -74,18 +74,24 @@ export default function WelcomeScreen({ navigation, onComplete }) {
           >
             {/* Decorative dots pattern */}
             <View style={styles.dotsPattern}>
-              {[...Array(12)].map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    {
-                      top: `${Math.random() * 100}%`,
-                      left: `${Math.random() * 100}%`,
-                    },
-                  ]}
-                />
-              ))}
+              {React.useMemo(() => {
+                return [...Array(12)].map((_, i) => {
+                  const top = (i * 37) % 100;
+                  const left = (i * 61) % 100;
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.dot,
+                        {
+                          top: `${top}%`,
+                          left: `${left}%`,
+                        },
+                      ]}
+                    />
+                  );
+                });
+              }, [])}
             </View>
 
             <View style={styles.headerContent}>

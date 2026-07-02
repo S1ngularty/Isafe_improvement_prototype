@@ -21,19 +21,32 @@ export async function signOut() {
   if (error) throw error;
 }
 
-export async function verifyOtp(tokenHash, type = "signup") {
-  const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+export async function verifyOtp(token, type = "signup", email) {
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type });
+  if (error) throw error;
+  return data;
+}
+
+export async function resendOtp(email, type = "signup") {
+  const { data, error } = await supabase.auth.resend({ type, email });
   if (error) throw error;
   return data;
 }
 
 export async function getSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
   return session;
 }
 
 export async function getCurrentUser() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) {
+    if (error.name === "AuthSessionMissingError" || error.status === 401 || error.status === 403) {
+      return null;
+    }
+    throw error;
+  }
   return user;
 }
 
@@ -51,9 +64,9 @@ export async function getUserRole() {
 
 export async function getProfile() {
   const user = await getCurrentUser();
-  console.log("[getProfile] user:", user?.id, user?.email);
+
   if (!user) {
-    console.log("[getProfile] no user found, returning null");
+
     return null;
   }
   const { data, error } = await supabase
@@ -61,25 +74,25 @@ export async function getProfile() {
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
-  console.log("[getProfile] query result:", data, "error:", error);
+
   if (error) {
-    console.log("[getProfile] query error:", error);
+
     return null;
   }
   if (!data) {
-    console.log("[getProfile] no profile row found for user — attempting insert");
+
     const { error: insertErr } = await supabase
       .from("profiles")
       .insert({ id: user.id, role: "user" });
-    console.log("[getProfile] insert result error:", insertErr);
+
     if (insertErr) return null;
     return { id: user.id, role: "user", status: "safe", is_active: true };
   }
-  console.log("[getProfile] profile data:", data);
+
   return data;
 }
 
-export async function updateProfile(updates) {
+export async function updateUserProfile(updates) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Not authenticated");
 

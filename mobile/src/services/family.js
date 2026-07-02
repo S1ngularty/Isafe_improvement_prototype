@@ -2,13 +2,13 @@ import { supabase } from "./supabase.js";
 
 export async function createFamily(name) {
   const { data, error } = await supabase.rpc("create_family", { family_name: name });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message || "Failed to create family");
   return data;
 }
 
 export async function joinFamily(code) {
   const { data, error } = await supabase.rpc("join_family", { family_code: code });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message || "Failed to join family");
   return data;
 }
 
@@ -34,5 +34,5 @@ export async function getFamilyMembers() {
 
 export async function leaveFamily() {
   const { error } = await supabase.rpc("leave_family");
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(error.message || "Failed to leave family");
 }

@@ -43,7 +43,20 @@ export function useWeather(lat, lng) {
         ]);
 
         if (isMounted) {
-          // Update cache
+          // Update cache with LRU eviction
+          const keys = Object.keys(cacheRef.current);
+          if (keys.length >= 5) {
+            let oldestKey = keys[0];
+            let oldestTime = cacheRef.current[oldestKey].timestamp;
+            for (let i = 1; i < keys.length; i++) {
+              if (cacheRef.current[keys[i]].timestamp < oldestTime) {
+                oldestTime = cacheRef.current[keys[i]].timestamp;
+                oldestKey = keys[i];
+              }
+            }
+            delete cacheRef.current[oldestKey];
+          }
+
           cacheRef.current[cacheKey] = {
             current: currentData,
             hourly: hourlyData,
