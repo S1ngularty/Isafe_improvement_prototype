@@ -22,6 +22,8 @@ import {
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
+import TcwsBanner from "../../components/TcwsBanner.jsx";
+import { fetchActiveAlerts } from "../../services/tcws.js";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -68,6 +70,23 @@ export default function DashboardScreen({
       : null,
   );
   const [showAddressSearch, setShowAddressSearch] = useState(false);
+  const [tcwsAlerts, setTcwsAlerts] = useState([]);
+  const [tcwsDismissed, setTcwsDismissed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const alerts = await fetchActiveAlerts();
+        if (!cancelled && Array.isArray(alerts) && alerts.length > 0) {
+          setTcwsAlerts(alerts);
+        }
+      } catch (e) {
+        console.log("[TCWS] Failed to fetch alerts:", e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (profile?.location_sharing !== undefined) {
@@ -211,6 +230,14 @@ export default function DashboardScreen({
           </View>
         </View>
 
+        {/* TCWS Alert Banner */}
+        {!tcwsDismissed && tcwsAlerts.length > 0 && (
+          <TcwsBanner
+            alerts={tcwsAlerts}
+            onDismiss={() => setTcwsDismissed(true)}
+          />
+        )}
+
         {/* Announcement Banner */}
         <AnnouncementBanner />
 
@@ -342,19 +369,21 @@ export default function DashboardScreen({
               <Text style={styles.quickActionLabel}>Checklist</Text>
             </Pressable>
 
-            <Pressable style={styles.quickActionButton}>
+            <Pressable
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate("FloodHazard")}>
               <View
                 style={[
                   styles.quickActionIconContainer,
-                  { backgroundColor: "#3b82f6" },
+                  { backgroundColor: "#0ea5e9" },
                 ]}>
                 <MaterialIcons
-                  name="local-police"
+                  name="water"
                   size={28}
                   color={COLORS.white}
                 />
               </View>
-              <Text style={styles.quickActionLabel}>Police</Text>
+              <Text style={styles.quickActionLabel}>Flood Risk</Text>
             </Pressable>
 
             <Pressable
@@ -372,6 +401,23 @@ export default function DashboardScreen({
                 />
               </View>
               <Text style={styles.quickActionLabel}>Evacuation</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate("RainViewer")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#6366f1" },
+                ]}>
+                <MaterialIcons
+                  name="radar"
+                  size={28}
+                  color={COLORS.white}
+                />
+              </View>
+              <Text style={styles.quickActionLabel}>Radar</Text>
             </Pressable>
           </View>
         </View>

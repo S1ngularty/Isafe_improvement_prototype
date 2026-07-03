@@ -43,9 +43,12 @@ export default function ProfileScreen({ navigation }) {
   const [residentialAddress, setResidentialAddress] = useState(
     profile?.barangay || ""
   );
-  const [emergencyContacts, setEmergencyContacts] = useState(
-    profile?.emergency_contacts || ""
-  );
+  const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
+  const [bloodType, setBloodType] = useState(profile?.blood_type || "");
+  const [medicalNotes, setMedicalNotes] = useState(profile?.medical_notes || "");
+  const [householdSize, setHouseholdSize] = useState(profile?.household_size?.toString() || "");
+  const [specialNeeds, setSpecialNeeds] = useState(profile?.special_needs || "");
+  const [streetAddress, setStreetAddress] = useState(profile?.street_address || "");
 
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState("");
@@ -57,7 +60,12 @@ export default function ProfileScreen({ navigation }) {
       setDateOfBirth(profile.date_of_birth || "");
       setGender(profile.gender || "");
       setResidentialAddress(profile.barangay || "");
-      setEmergencyContacts(profile.emergency_contacts || "");
+      setPhoneNumber(profile.phone_number || "");
+      setBloodType(profile.blood_type || "");
+      setMedicalNotes(profile.medical_notes || "");
+      setHouseholdSize(profile.household_size?.toString() || "");
+      setSpecialNeeds(profile.special_needs || "");
+      setStreetAddress(profile.street_address || "");
     }
   }, [profile]);
 
@@ -77,7 +85,12 @@ export default function ProfileScreen({ navigation }) {
       dateOfBirth,
       gender,
       residentialAddress,
-      emergencyContacts
+      phoneNumber,
+      bloodType,
+      medicalNotes,
+      householdSize,
+      specialNeeds,
+      streetAddress,
     };
 
     setLoading(true);
@@ -100,9 +113,29 @@ export default function ProfileScreen({ navigation }) {
           updateData.barangay = tempValue;
           setResidentialAddress(tempValue);
           break;
-        case "emergencyContacts":
-          updateData.emergency_contacts = tempValue;
-          setEmergencyContacts(tempValue);
+        case "phoneNumber":
+          updateData.phone_number = tempValue;
+          setPhoneNumber(tempValue);
+          break;
+        case "bloodType":
+          updateData.blood_type = tempValue;
+          setBloodType(tempValue);
+          break;
+        case "medicalNotes":
+          updateData.medical_notes = tempValue;
+          setMedicalNotes(tempValue);
+          break;
+        case "householdSize":
+          updateData.household_size = parseInt(tempValue, 10) || null;
+          setHouseholdSize(tempValue);
+          break;
+        case "specialNeeds":
+          updateData.special_needs = tempValue;
+          setSpecialNeeds(tempValue);
+          break;
+        case "streetAddress":
+          updateData.street_address = tempValue;
+          setStreetAddress(tempValue);
           break;
       }
 
@@ -116,7 +149,12 @@ export default function ProfileScreen({ navigation }) {
       setDateOfBirth(previousState.dateOfBirth);
       setGender(previousState.gender);
       setResidentialAddress(previousState.residentialAddress);
-      setEmergencyContacts(previousState.emergencyContacts);
+      setPhoneNumber(previousState.phoneNumber);
+      setBloodType(previousState.bloodType);
+      setMedicalNotes(previousState.medicalNotes);
+      setHouseholdSize(previousState.householdSize);
+      setSpecialNeeds(previousState.specialNeeds);
+      setStreetAddress(previousState.streetAddress);
       showToast(error.message || "Failed to update profile", "error");
     } finally {
       setLoading(false);
@@ -159,12 +197,32 @@ export default function ProfileScreen({ navigation }) {
         icon = "wc";
         break;
       case "residentialAddress":
-        title = "Edit Residential Address";
-        icon = "location-on";
+        title = "Edit Barangay";
+        icon = "location-city";
         break;
-      case "emergencyContacts":
-        title = "Manage Emergency Contacts";
+      case "streetAddress":
+        title = "Edit Street Address";
+        icon = "home";
+        break;
+      case "phoneNumber":
+        title = "Edit Phone Number";
         icon = "phone";
+        break;
+      case "bloodType":
+        title = "Edit Blood Type";
+        icon = "bloodtype";
+        break;
+      case "medicalNotes":
+        title = "Edit Medical Notes";
+        icon = "medical-services";
+        break;
+      case "specialNeeds":
+        title = "Edit Special Needs";
+        icon = "accessible";
+        break;
+      case "householdSize":
+        title = "Edit Household Size";
+        icon = "family-restroom";
         break;
       default:
         return null;
@@ -243,8 +301,9 @@ export default function ProfileScreen({ navigation }) {
                   onChangeText={setTempValue}
                   placeholder={`Enter ${title.toLowerCase()}`}
                   editable={!loading}
-                  multiline={editingField === "emergencyContacts"}
-                  numberOfLines={editingField === "emergencyContacts" ? 4 : 1}
+                  multiline={editingField === "medicalNotes" || editingField === "specialNeeds" || editingField === "streetAddress"}
+                  numberOfLines={(editingField === "medicalNotes" || editingField === "specialNeeds" || editingField === "streetAddress") ? 3 : 1}
+                  keyboardType={editingField === "phoneNumber" || editingField === "householdSize" ? "number-pad" : "default"}
                 />
               </View>
             </View>
@@ -348,13 +407,13 @@ export default function ProfileScreen({ navigation }) {
             </Pressable>
           </View>
 
-          {/* Residential Address Field */}
+          {/* Barangay Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="location-on" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons name="location-city" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
-                <Text style={styles.fieldLabel}>Residential Address</Text>
-                <Text style={styles.fieldValue}>{residentialAddress || "Add address"}</Text>
+                <Text style={styles.fieldLabel}>Barangay</Text>
+                <Text style={styles.fieldValue}>{residentialAddress || "Add barangay"}</Text>
               </View>
             </View>
             <Pressable
@@ -365,25 +424,129 @@ export default function ProfileScreen({ navigation }) {
             </Pressable>
           </View>
 
-          {/* Emergency Contacts Field */}
+          {/* Street Address Field */}
+          <View style={styles.fieldItem}>
+            <View style={styles.fieldContent}>
+              <MaterialIcons name="home" size={24} color={COLORS.shieldPrimary} />
+              <View style={styles.fieldTextContainer}>
+                <Text style={styles.fieldLabel}>Street Address</Text>
+                <Text style={styles.fieldValue}>{streetAddress || "Add street address"}</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => handleEditField("streetAddress", streetAddress)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </Pressable>
+          </View>
+
+          {/* Phone Number Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
               <MaterialIcons name="phone" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
-                <Text style={styles.fieldLabel}>Emergency Contacts</Text>
-                <Text style={styles.fieldValue}>
-                  {emergencyContacts ? `${emergencyContacts.split(",").length} contact(s)` : "Add contacts"}
-                </Text>
+                <Text style={styles.fieldLabel}>Phone Number</Text>
+                <Text style={styles.fieldValue}>{phoneNumber || "Add phone number"}</Text>
               </View>
             </View>
             <Pressable
-              onPress={() => handleEditField("emergencyContacts", emergencyContacts)}
-              style={styles.manageButton}
+              onPress={() => handleEditField("phoneNumber", phoneNumber)}
+              style={styles.editButton}
             >
-              <Text style={styles.manageButtonText}>Manage</Text>
+              <Text style={styles.editButtonText}>Edit</Text>
+            </Pressable>
+          </View>
+          
+          <Text style={[styles.sectionTitle, { marginTop: 16 }]}>MEDICAL & HOUSEHOLD INFO</Text>
+
+          {/* Blood Type Field */}
+          <View style={styles.fieldItem}>
+            <View style={styles.fieldContent}>
+              <MaterialIcons name="bloodtype" size={24} color={COLORS.shieldPrimary} />
+              <View style={styles.fieldTextContainer}>
+                <Text style={styles.fieldLabel}>Blood Type</Text>
+                <Text style={styles.fieldValue}>{bloodType || "Add blood type"}</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => handleEditField("bloodType", bloodType)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </Pressable>
+          </View>
+
+          {/* Medical Notes Field */}
+          <View style={styles.fieldItem}>
+            <View style={styles.fieldContent}>
+              <MaterialIcons name="medical-services" size={24} color={COLORS.shieldPrimary} />
+              <View style={styles.fieldTextContainer}>
+                <Text style={styles.fieldLabel}>Medical Notes</Text>
+                <Text style={styles.fieldValue}>{medicalNotes || "Add medical notes"}</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => handleEditField("medicalNotes", medicalNotes)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </Pressable>
+          </View>
+
+          {/* Special Needs Field */}
+          <View style={styles.fieldItem}>
+            <View style={styles.fieldContent}>
+              <MaterialIcons name="accessible" size={24} color={COLORS.shieldPrimary} />
+              <View style={styles.fieldTextContainer}>
+                <Text style={styles.fieldLabel}>Special Needs</Text>
+                <Text style={styles.fieldValue}>{specialNeeds || "Add special needs"}</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => handleEditField("specialNeeds", specialNeeds)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
+            </Pressable>
+          </View>
+
+          {/* Household Size Field */}
+          <View style={styles.fieldItem}>
+            <View style={styles.fieldContent}>
+              <MaterialIcons name="family-restroom" size={24} color={COLORS.shieldPrimary} />
+              <View style={styles.fieldTextContainer}>
+                <Text style={styles.fieldLabel}>Household Size</Text>
+                <Text style={styles.fieldValue}>{householdSize || "Add household size"}</Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => handleEditField("householdSize", householdSize)}
+              style={styles.editButton}
+            >
+              <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
         </View>
+
+        {/* Emergency Contacts */}
+        <Pressable
+          style={styles.emergencyContactsCard}
+          onPress={() => navigation.navigate("EmergencyContacts")}
+        >
+          <View style={styles.emergencyContactsLeft}>
+            <View style={styles.emergencyContactsIcon}>
+              <MaterialIcons name="contact-phone" size={22} color={COLORS.shieldPrimary} />
+            </View>
+            <View>
+              <Text style={styles.emergencyContactsTitle}>Emergency Contacts</Text>
+              <Text style={styles.emergencyContactsSubtitle}>
+                Manage up to 5 trusted contacts
+              </Text>
+            </View>
+          </View>
+          <MaterialIcons name="chevron-right" size={24} color={COLORS.gray400} />
+        </Pressable>
 
         {/* Security Message */}
         <View style={styles.securityMessage}>
@@ -672,5 +835,40 @@ const styles = StyleSheet.create({
   },
   genderOptionTextSelected: {
     color: COLORS.shieldPrimary,
+  },
+  emergencyContactsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.gray50,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 20,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+  },
+  emergencyContactsLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  emergencyContactsIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(153, 27, 27, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emergencyContactsTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.gray900,
+    marginBottom: 2,
+  },
+  emergencyContactsSubtitle: {
+    fontSize: 12,
+    color: COLORS.gray500,
   },
 });

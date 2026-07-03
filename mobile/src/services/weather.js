@@ -3,7 +3,7 @@ import { apiGet } from "./backend.js";
 const WMO_CODES = {
   0: { icon: "wb-sunny", description: "Clear sky" },
   1: { icon: "wb-sunny", description: "Mainly clear" },
-  2: { icon: "wb-cloud", description: "Partly cloudy" },
+  2: { icon: "wb-cloudy", description: "Partly cloudy" },
   3: { icon: "cloud", description: "Overcast" },
   45: { icon: "cloud", description: "Foggy" },
   48: { icon: "cloud", description: "Depositing rime fog" },
