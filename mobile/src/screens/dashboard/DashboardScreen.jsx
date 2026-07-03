@@ -9,7 +9,6 @@ import {
   Switch,
   Modal,
   StatusBar,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -23,9 +22,6 @@ import {
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
-import TcwsBanner from "../../components/TcwsBanner.jsx";
-import { fetchActiveAlerts } from "../../services/tcws.js";
-import { getDefaultAvatar } from "../../services/profile.js";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -72,23 +68,6 @@ export default function DashboardScreen({
       : null,
   );
   const [showAddressSearch, setShowAddressSearch] = useState(false);
-  const [tcwsAlerts, setTcwsAlerts] = useState([]);
-  const [tcwsDismissed, setTcwsDismissed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const alerts = await fetchActiveAlerts();
-        if (!cancelled && Array.isArray(alerts) && alerts.length > 0) {
-          setTcwsAlerts(alerts);
-        }
-      } catch (e) {
-        console.log("[TCWS] Failed to fetch alerts:", e.message);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (profile?.location_sharing !== undefined) {
@@ -96,7 +75,19 @@ export default function DashboardScreen({
     }
   }, [profile?.location_sharing]);
 
-
+  const handleLocationToggle = async (newValue) => {
+    setLocationEnabled(newValue);
+    try {
+      await updateLocationSharing(newValue);
+      showToast(
+        newValue ? "Location sharing enabled" : "Location sharing disabled",
+        "success",
+      );
+    } catch (error) {
+      setLocationEnabled(!newValue);
+      showToast(error.message || "Failed to update location sharing", "error");
+    }
+  };
 
   useEffect(() => {
     if (!locationEnabled) return;
@@ -181,73 +172,44 @@ export default function DashboardScreen({
         <Pressable
           style={styles.heartButton}
           onPress={() => navigation.navigate("Profile")}>
-          {profile?.avatar_url ? (
-            <Image
-              source={{ uri: profile.avatar_url }}
-              style={styles.avatarImage}
-            />
-          ) : (
-            <Image
-              source={{ uri: getDefaultAvatar(profile?.full_name) }}
-              style={styles.avatarImage}
-            />
-          )}
+          <MaterialIcons
+            name="favorite"
+            size={24}
+            color={COLORS.shieldPrimary}
+          />
         </Pressable>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* Current Status Card */}
-        <View style={styles.statusCardContainer}>
+        {/* Status Indicator */}
+        <View style={styles.statusIndicatorContainer}>
           <View
             style={[
-              styles.statusCard,
-              { 
-                backgroundColor: getStatusBgColor(currentStatus),
-                borderColor: getStatusBorderColor(currentStatus),
-              },
+              styles.statusIndicator,
+              { backgroundColor: getStatusBgColor(currentStatus) },
             ]}>
-            <View style={styles.statusCardHeader}>
-              <View style={[styles.statusIconContainer, { backgroundColor: getStatusIconBgColor(currentStatus) }]}>
-                <MaterialIcons
-                  name={getStatusIcon(currentStatus)}
-                  size={28}
-                  color={getStatusTextColor(currentStatus)}
-                />
-              </View>
-              <View style={styles.statusTextContainer}>
-                <Text style={styles.statusCardTitle}>CURRENT STATUS</Text>
-                <Text
-                  style={[
-                    styles.statusCardValue,
-                    { color: getStatusTextColor(currentStatus) },
-                  ]}>
-                  {currentStatus === "safe"
-                    ? "I'm Safe"
-                    : currentStatus === "help"
-                      ? "I Need Help"
-                      : "Emergency"}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.statusCardDescription}>
-               {currentStatus === "safe"
-                  ? "Your family can see you are safe."
+            <View style={styles.statusIndicatorContent}>
+              <MaterialIcons
+                name={getStatusIcon(currentStatus)}
+                size={20}
+                color={getStatusTextColor(currentStatus)}
+              />
+              <Text
+                style={[
+                  styles.statusIndicatorLabel,
+                  { color: getStatusTextColor(currentStatus) },
+                ]}>
+                {currentStatus === "safe"
+                  ? "I'M SAFE"
                   : currentStatus === "help"
-                    ? "Your family has been notified you feel unsafe."
-                    : "Emergency alerts have been sent to your contacts."}
-            </Text>
+                    ? "I NEED HELP"
+                    : "EMERGENCY"}
+              </Text>
+            </View>
           </View>
         </View>
-
-        {/* TCWS Alert Banner */}
-        {!tcwsDismissed && tcwsAlerts.length > 0 && (
-          <TcwsBanner
-            alerts={tcwsAlerts}
-            onDismiss={() => setTcwsDismissed(true)}
-          />
-        )}
 
         {/* Announcement Banner */}
         <AnnouncementBanner />
@@ -316,14 +278,6 @@ export default function DashboardScreen({
           </View>
         </View>
 
-        {/* Weather Panel */}
-        {locationEnabled && location && (
-          <WeatherPanel
-            lat={location.coords.latitude}
-            lng={location.coords.longitude}
-          />
-        )}
-
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -388,21 +342,19 @@ export default function DashboardScreen({
               <Text style={styles.quickActionLabel}>Checklist</Text>
             </Pressable>
 
-            <Pressable
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate("FloodHazard")}>
+            <Pressable style={styles.quickActionButton}>
               <View
                 style={[
                   styles.quickActionIconContainer,
-                  { backgroundColor: "#0ea5e9" },
+                  { backgroundColor: "#3b82f6" },
                 ]}>
                 <MaterialIcons
-                  name="water"
+                  name="local-police"
                   size={28}
                   color={COLORS.white}
                 />
               </View>
-              <Text style={styles.quickActionLabel}>Flood Risk</Text>
+              <Text style={styles.quickActionLabel}>Police</Text>
             </Pressable>
 
             <Pressable
@@ -421,25 +373,57 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>Evacuation</Text>
             </Pressable>
-
-            <Pressable
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate("RainViewer")}>
-              <View
-                style={[
-                  styles.quickActionIconContainer,
-                  { backgroundColor: "#6366f1" },
-                ]}>
-                <MaterialIcons
-                  name="radar"
-                  size={28}
-                  color={COLORS.white}
-                />
-              </View>
-              <Text style={styles.quickActionLabel}>Radar</Text>
-            </Pressable>
           </View>
         </View>
+
+        {/* Location Tracking */}
+        <View style={styles.locationSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Location Tracking</Text>
+            <Switch
+              value={locationEnabled}
+              onValueChange={handleLocationToggle}
+              trackColor={{ false: COLORS.gray300, true: "#800000" }}
+              thumbColor={locationEnabled ? "#800000" : COLORS.gray500}
+            />
+          </View>
+          {locationEnabled && location && (
+            <View style={styles.locationInfo}>
+              <View style={styles.locationRow}>
+                <MaterialIcons name="location-on" size={16} color="#800000" />
+                <Text style={styles.locationText}>
+                  {location.coords.latitude.toFixed(4)},{" "}
+                  {location.coords.longitude.toFixed(4)}
+                </Text>
+              </View>
+              {location.coords.accuracy && (
+                <Text style={styles.accuracyText}>
+                  Accuracy: {Math.round(location.coords.accuracy)}m
+                </Text>
+              )}
+              <Pressable
+                style={styles.searchButton}
+                onPress={() => setShowAddressSearch(true)}>
+                <MaterialIcons name="search" size={16} color="#800000" />
+                <Text style={styles.searchButtonText}>Search Address</Text>
+              </Pressable>
+            </View>
+          )}
+          {locationEnabled && !location && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#800000" />
+              <Text style={styles.loadingText}>Getting location...</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Weather Panel */}
+        {locationEnabled && location && (
+          <WeatherPanel
+            lat={location.coords.latitude}
+            lng={location.coords.longitude}
+          />
+        )}
 
         {/* Flood Warning (Hidden for now until real API is connected)
         <View style={styles.floodWarningSection}>
@@ -496,8 +480,48 @@ export default function DashboardScreen({
           </View>
         </View>
         */}
+
+        {/* AI Assistant */}
+        <View style={styles.aiBotSection}>
+          <View style={styles.aiBotHeader}>
+            <MaterialIcons name="smart-toy" size={20} color="#800000" />
+            <Text style={styles.aiBotTitle}>AI Assistant</Text>
+          </View>
+          <View style={styles.aiBotPlaceholder}>
+            <MaterialIcons
+              name="chat-bubble-outline"
+              size={40}
+              color={COLORS.gray300}
+            />
+            <Text style={styles.aiBotPlaceholderText}>
+              Chat with our AI assistant
+            </Text>
+            <Text style={styles.aiBotPlaceholderSubtext}>Coming soon</Text>
+          </View>
+        </View>
       </ScrollView>
 
+      {/* Address Search Modal */}
+      <Modal
+        visible={showAddressSearch}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddressSearch(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Search Location</Text>
+              <Pressable onPress={() => setShowAddressSearch(false)}>
+                <MaterialIcons name="close" size={24} color="#800000" />
+              </Pressable>
+            </View>
+            <AddressSearch
+              onAddressSelect={handleAddressSelect}
+              onCancel={() => setShowAddressSearch(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -541,32 +565,6 @@ function getStatusTextColor(status) {
   }
 }
 
-function getStatusBorderColor(status) {
-  switch (status) {
-    case "safe":
-      return "#86efac";
-    case "help":
-      return "#fcd34d";
-    case "emergency":
-      return "#fca5a5";
-    default:
-      return COLORS.gray200;
-  }
-}
-
-function getStatusIconBgColor(status) {
-  switch (status) {
-    case "safe":
-      return "#bbf7d0";
-    case "help":
-      return "#fde68a";
-    case "emergency":
-      return "#fecaca";
-    default:
-      return COLORS.gray200;
-  }
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -598,60 +596,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 20,
   },
-  statusCardContainer: {
+  statusIndicatorContainer: {
     marginBottom: 16,
   },
-  statusCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  statusIndicator: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: "center",
   },
-  statusCardHeader: {
+  statusIndicatorContent: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    gap: 10,
   },
-  statusIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  statusTextContainer: {
-    flex: 1,
-  },
-  statusCardTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.gray600,
-    textTransform: "uppercase",
+  statusIndicatorLabel: {
+    fontSize: 14,
+    fontWeight: "700",
     letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  statusCardValue: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  statusCardDescription: {
-    fontSize: 13,
-    color: COLORS.gray600,
-    lineHeight: 18,
   },
   emergencyAlertSection: {
     backgroundColor: COLORS.white,

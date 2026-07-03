@@ -14,8 +14,6 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [streetAddress, setStreetAddress] = useState("");
   const [barangay, setBarangay] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,12 +55,7 @@ export default function AuthScreen() {
     }
     setLoading(true);
     try {
-      await signUp(email, password, { 
-        full_name: fullName, 
-        barangay,
-        phone_number: phoneNumber,
-        street_address: streetAddress
-      });
+      await signUp(email, password, { full_name: fullName, barangay });
       showToast("📧 Account created! Check your email to verify.", "success");
       setMode("otp");
     } catch (error) {
@@ -87,8 +80,6 @@ export default function AuthScreen() {
       setOtp("");
       // Clear registration fields
       setFullName("");
-      setPhoneNumber("");
-      setStreetAddress("");
       setBarangay("");
     } catch (error) {
       showToast(error.message || "Verification failed. Check your code and try again.", "error");
@@ -189,21 +180,6 @@ export default function AuthScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Phone Number (optional)"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Street Address (optional)"
-                value={streetAddress}
-                onChangeText={setStreetAddress}
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
                 placeholder="Barangay (optional)"
                 value={barangay}
                 onChangeText={setBarangay}
@@ -258,7 +234,7 @@ export default function AuthScreen() {
 
               <View style={styles.switchMode}>
                 <Text style={styles.switchText}>Already have an account? </Text>
-                <Pressable onPress={() => { setMode("login"); setEmail(""); setPassword(""); setConfirmPassword(""); setFullName(""); setPhoneNumber(""); setStreetAddress(""); setBarangay(""); }}>
+                <Pressable onPress={() => { setMode("login"); setEmail(""); setPassword(""); setConfirmPassword(""); setFullName(""); }}>
                   <Text style={styles.switchLink}>Sign In</Text>
                 </Pressable>
               </View>

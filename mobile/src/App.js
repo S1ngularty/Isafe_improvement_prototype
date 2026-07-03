@@ -31,11 +31,6 @@ import { supabase } from "./services/supabase.js";
 import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
 import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
 import EvacuationMapScreen from "./screens/resources/EvacuationMap.jsx";
-import FloodHazardScreen from "./screens/resources/FloodHazardScreen.jsx";
-import RainViewerScreen from "./screens/maps/RainViewerScreen.jsx";
-import EmergencyContactsScreen from "./screens/profile/EmergencyContactsScreen.jsx";
-import SettingsScreen from "./screens/profile/SettingsScreen.jsx";
-import ChatbotWidget from "./components/ChatbotWidget.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -133,26 +128,6 @@ function HomeStack({ currentStatus, onStatusChange }) {
         component={EvacuationCentersScreen}
       />
       <Stack.Screen name="EvacuationMap" component={EvacuationMapScreen} />
-      <Stack.Screen
-        name="FloodHazard"
-        component={FloodHazardScreen}
-        options={{ animationEnabled: true }}
-      />
-      <Stack.Screen
-        name="RainViewer"
-        component={RainViewerScreen}
-        options={{ animationEnabled: true }}
-      />
-      <Stack.Screen
-        name="EmergencyContacts"
-        component={EmergencyContactsScreen}
-        options={{ animationEnabled: true }}
-      />
-      <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ animationEnabled: true }}
-      />
     </Stack.Navigator>
   );
 }
@@ -424,8 +399,6 @@ function RootNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-
-      <ChatbotWidget />
 
       <View style={styles.toastContainer}>
         {toasts.map((toast) => (

@@ -18,13 +18,8 @@ def read_summary():
         return {"data": [], "last_updated": None}
 
     df = pd.read_csv(SUMMARY_CSV)
+    df = df.where(pd.notnull(df), None)
     data = df.to_dict(orient="records")
-    
-    # Clean up NaNs to None for JSON serialization
-    for row in data:
-        for k, v in row.items():
-            if pd.isna(v):
-                row[k] = None
 
     mtime = os.path.getmtime(SUMMARY_CSV)
     last_updated = datetime.fromtimestamp(mtime).isoformat()

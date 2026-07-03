@@ -42,7 +42,3 @@ function extractPath(url) {
   if (!url) return null;
   try { const parts = url.split("/public/avatars/"); return parts[1] || null; } catch { return null; }
 }
-
-export function getDefaultAvatar(name) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=random`;
-}
