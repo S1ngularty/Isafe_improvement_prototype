@@ -260,7 +260,7 @@ export default function EmergencyContactsScreen({ navigation }) {
       )}
 
       {/* Add/Edit Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide">
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>

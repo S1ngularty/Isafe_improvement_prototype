@@ -9,6 +9,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import useFamilyLocations from "../../hooks/useFamilyLocations.js";
 import { upsertLocation } from "../../services/location.js";
 import { fetchRoute } from "../../services/routing.js";
+import { fetchNearestEvacuationAreas } from "../../services/evacuation.js";
 import { haversine, bearing } from "../../utils/geo.js";
 import LEAFLET_HTML from "../../assets/leafletMapHtml.js";
 
@@ -69,7 +70,30 @@ export default function MapsScreen() {
   const [route, setRoute] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
+  const [evacuationCenters, setEvacuationCenters] = useState([]);
   const webViewRef = useRef(null);
+  const hasCenteredInitial = useRef(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const centers = await fetchNearestEvacuationAreas(
+          currentLocation?.latitude || profile?.lat || 14.5995,
+          currentLocation?.longitude || profile?.lng || 120.9842,
+          10
+        );
+        setEvacuationCenters(centers);
+      } catch (e) {
+        console.log("Failed to fetch evacuation centers", e);
+      }
+    })();
+  }, [currentLocation?.latitude, currentLocation?.longitude, profile?.lat, profile?.lng]);
+
+  useEffect(() => {
+    if (mapLoaded && evacuationCenters.length > 0) {
+      sendToMap("UPDATE_EVACUATION", evacuationCenters);
+    }
+  }, [mapLoaded, evacuationCenters]);
 
   const displayLat = manualLat ?? currentLocation?.latitude ?? profile?.lat;
   const displayLng = manualLng ?? currentLocation?.longitude ?? profile?.lng;
@@ -110,18 +134,34 @@ export default function MapsScreen() {
   }, [session]);
 
   useEffect(() => {
-    if (mapLoaded) sendLocations(currentLocation, familyMembers);
+    if (mapLoaded) {
+      sendLocations(currentLocation, familyMembers);
+      if (!hasCenteredInitial.current && (manualLat || currentLocation?.latitude || profile?.lat)) {
+        sendToMap("CENTER_ON", { lat: manualLat || currentLocation?.latitude || profile?.lat, lng: manualLng || currentLocation?.longitude || profile?.lng });
+        hasCenteredInitial.current = true;
+      }
+    }
   }, [mapLoaded, currentLocation, familyMembers, manualLat, manualLng, profile?.status, profile?.avatar_url, sendLocations]);
 
+  const mapLoadedRef = useRef(false);
   useEffect(() => {
-    const t = setTimeout(() => setMapLoaded((p) => { if (!p) showToast("Map failed to load", "error"); return true; }), 15000);
+    const t = setTimeout(() => {
+      if (!mapLoadedRef.current) {
+        showToast("Map failed to load", "error");
+        setMapLoaded(true);
+      }
+    }, 15000);
     return () => clearTimeout(t);
   }, []);
 
   const handleWebViewMessage = (event) => {
     try {
       const d = JSON.parse(event.nativeEvent.data);
-      if (d.type === "MAP_LOADED") { setMapLoaded(true); setTimeout(() => sendLocations(currentLocation, familyMembers), 300); }
+      if (d.type === "MAP_LOADED") { 
+        mapLoadedRef.current = true;
+        setMapLoaded(true); 
+        setTimeout(() => sendLocations(currentLocation, familyMembers), 300); 
+      }
     } catch (e) {}
   };
 
@@ -207,8 +247,21 @@ export default function MapsScreen() {
         <Pressable style={[s.fab, pinning && s.fabDisabled]} onPress={handlePin} disabled={pinning}>
           <MaterialIcons name="push-pin" size={20} color={C.white} />
         </Pressable>
-        {manualLat && (
-          <Pressable style={[s.fab, { backgroundColor: C.gray600 }]} onPress={() => { setManualLat(null); setManualLng(null); sendLocations(currentLocation, familyMembers); }}>
+        {manualLat ? (
+          <Pressable style={[s.fab, { backgroundColor: C.gray600 }]} onPress={() => { 
+            setManualLat(null); 
+            setManualLng(null); 
+            sendLocations(currentLocation, familyMembers); 
+            if (currentLocation) sendToMap("CENTER_ON", { lat: currentLocation.latitude, lng: currentLocation.longitude });
+          }}>
+            <MaterialIcons name="my-location" size={20} color={C.white} />
+          </Pressable>
+        ) : (
+          <Pressable style={[s.fab, { backgroundColor: C.gray600 }]} onPress={() => { 
+            const lat = currentLocation?.latitude || profile?.lat;
+            const lng = currentLocation?.longitude || profile?.lng;
+            if (lat && lng) sendToMap("CENTER_ON", { lat, lng });
+          }}>
             <MaterialIcons name="my-location" size={20} color={C.white} />
           </Pressable>
         )}

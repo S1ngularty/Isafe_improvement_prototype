@@ -10,12 +10,15 @@ import {
   Alert,
   Modal,
   Platform,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { updateProfile } from "../../services/auth.js";
+import * as ImagePicker from "expo-image-picker";
+import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -161,6 +164,34 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const handleUpdateAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showToast("Sorry, we need camera roll permissions to make this work!", "error");
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+      });
+
+      if (!result.canceled) {
+        setLoading(true);
+        await uploadAvatar(result.assets[0].uri);
+        await refreshProfile();
+        showToast("Avatar updated successfully", "success");
+      }
+    } catch (error) {
+      showToast(error.message || "Failed to update avatar", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert("Logout", "Are you sure you want to log out?", [
       { text: "Cancel", onPress: () => {} },
@@ -230,7 +261,7 @@ export default function ProfileScreen({ navigation }) {
 
     if (editingField === "gender") {
       return (
-        <Modal visible={!!editingField} transparent animationType="slide">
+        <Modal visible={!!editingField} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
@@ -281,7 +312,7 @@ export default function ProfileScreen({ navigation }) {
     }
 
     return (
-      <Modal visible={!!editingField} transparent animationType="slide">
+      <Modal visible={!!editingField} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -332,19 +363,24 @@ export default function ProfileScreen({ navigation }) {
           <MaterialIcons name="arrow-back" size={24} color={COLORS.shieldPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>My Profile</Text>
-        <View style={{ width: 24 }} />
+        <Pressable onPress={() => navigation.navigate("Settings")}>
+          <MaterialIcons name="settings" size={24} color={COLORS.shieldPrimary} />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile Picture Section */}
         <View style={styles.profilePictureSection}>
-          <View style={styles.profileAvatar}>
-            <MaterialIcons
-              name="person"
-              size={48}
-              color={COLORS.white}
-            />
-          </View>
+          <Pressable onPress={handleUpdateAvatar} style={styles.profileAvatarContainer}>
+            {profile?.avatar_url ? (
+              <Image source={{ uri: profile.avatar_url }} style={styles.profileAvatarImage} />
+            ) : (
+              <Image source={{ uri: getDefaultAvatar(fullName) }} style={styles.profileAvatarImage} />
+            )}
+            <View style={styles.editAvatarBadge}>
+              <MaterialIcons name="edit" size={16} color={COLORS.white} />
+            </View>
+          </Pressable>
           <Text style={styles.profileName}>{fullName || "User"}</Text>
           <Text style={styles.profileEmail}>{session?.user?.email}</Text>
         </View>
@@ -602,14 +638,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 32,
   },
-  profileAvatar: {
+  profileAvatarContainer: {
+    marginBottom: 12,
+    position: "relative",
+  },
+  profileAvatarImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     backgroundColor: COLORS.shieldPrimary,
+  },
+  editAvatarBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: COLORS.shieldPrimary,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    borderWidth: 3,
+    borderColor: COLORS.white,
   },
   profileName: {
     fontSize: 18,

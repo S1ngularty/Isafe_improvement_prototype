@@ -44,7 +44,7 @@ export async function fetchCurrent(lat, lng) {
       isDanger: isDangerousCondition(data),
     };
   } catch (error) {
-    console.error("[fetchCurrent] Error:", error);
+    console.warn("[fetchCurrent] Warning:", error);
     throw error;
   }
 }
@@ -75,7 +75,7 @@ export async function fetchHourly(lat, lng) {
       windSpeed: point.windSpeed || point.wind_speed || 0,
     }));
   } catch (error) {
-    console.error("[fetchHourly] Error:", error);
+    console.warn("[fetchHourly] Warning:", error);
     throw error;
   }
 }
