@@ -1,7 +1,12 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY_CHAT", os.getenv("GROQ_API_KEY", ""))
 
 APP_NAME = os.getenv("APP_NAME", "cityshield")
 APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
