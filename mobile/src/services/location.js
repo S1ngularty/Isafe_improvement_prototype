@@ -52,8 +52,15 @@ async function StatusNotification({ status, userId, profileData }) {
       }),
     });
 
-    const responseData = await result.json();
+    if (!result.ok) {
+      const errorText = await result.text();
+      throw new Error(`Notification request failed: ${result.status} ${errorText}`);
+    }
 
+    const responseData = await result.json();
+    if (!responseData?.success) {
+      console.warn("[StatusNotification] notification backend responded without success:", responseData);
+    }
   } catch (err) {
     console.error("[StatusNotification] error:", err);
   }
