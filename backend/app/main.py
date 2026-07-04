@@ -12,6 +12,7 @@ from app.api.evacuation import router as evacuation_router
 from app.api.announcements import router as announcements_router
 from app.api.flood_hazard import router as flood_hazard_router
 from app.api.tcws import router as tcws_router
+from app.api.chat import router as chat_router
 from app.mqtt.client import start_mqtt
 
 @asynccontextmanager
@@ -47,6 +48,7 @@ app.include_router(flood_hazard_router)
 app.include_router(evacuation_router)
 app.include_router(announcements_router)
 app.include_router(tcws_router)
+app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 
 @app.get("/")
 async def root() -> dict[str, str]:

@@ -9,12 +9,14 @@ import {
   Switch,
   Modal,
   StatusBar,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { useNetwork } from "../../context/NetworkContext.jsx";
 import {
   upsertLocation,
   updateLocationSharing,
@@ -22,6 +24,9 @@ import {
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
+import TcwsBanner from "../../components/TcwsBanner.jsx";
+import { fetchActiveAlerts } from "../../services/tcws.js";
+import { getDefaultAvatar } from "../../services/profile.js";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -52,6 +57,7 @@ export default function DashboardScreen({
 }) {
   const { session, profile } = useAuth();
   const { showToast } = useToast();
+  const { isOffline } = useNetwork();
 
   const [locationEnabled, setLocationEnabled] = useState(
     profile?.location_sharing ?? false,
@@ -68,6 +74,25 @@ export default function DashboardScreen({
       : null,
   );
   const [showAddressSearch, setShowAddressSearch] = useState(false);
+  const [tcwsAlerts, setTcwsAlerts] = useState([]);
+  const [tcwsDismissed, setTcwsDismissed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const alerts = await fetchActiveAlerts();
+        if (!cancelled && Array.isArray(alerts) && alerts.length > 0) {
+          setTcwsAlerts(alerts);
+        }
+      } catch (e) {
+        console.log("[TCWS] Failed to fetch alerts:", e.message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (profile?.location_sharing !== undefined) {
@@ -76,6 +101,11 @@ export default function DashboardScreen({
   }, [profile?.location_sharing]);
 
   const handleLocationToggle = async (newValue) => {
+    if (isOffline && newValue) {
+      showToast("Location tracking is unavailable offline", "info");
+      return;
+    }
+
     setLocationEnabled(newValue);
     try {
       await updateLocationSharing(newValue);
@@ -90,6 +120,11 @@ export default function DashboardScreen({
   };
 
   useEffect(() => {
+    if (isOffline) {
+      setLocationEnabled(false);
+      return;
+    }
+
     if (!locationEnabled) return;
     (async () => {
       try {
@@ -111,10 +146,10 @@ export default function DashboardScreen({
         setLocationEnabled(false);
       }
     })();
-  }, [locationEnabled]);
+  }, [isOffline, locationEnabled, showToast]);
 
   useEffect(() => {
-    if (!locationEnabled) return;
+    if (isOffline || !locationEnabled) return;
     const interval = setInterval(async () => {
       try {
         const loc = await Location.getCurrentPositionAsync({
@@ -134,7 +169,7 @@ export default function DashboardScreen({
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, [locationEnabled]);
+  }, [isOffline, locationEnabled, showToast]);
 
   const handleAddressSelect = useCallback(
     async (address) => {
@@ -170,46 +205,86 @@ export default function DashboardScreen({
           <Text style={styles.userName}>{profile?.full_name || "User"}</Text>
         </View>
         <Pressable
-          style={styles.heartButton}
-          onPress={() => navigation.navigate("Profile")}>
-          <MaterialIcons
-            name="favorite"
-            size={24}
-            color={COLORS.shieldPrimary}
-          />
+          style={[styles.heartButton, isOffline && styles.heartButtonDisabled]}
+          onPress={() => {
+            if (isOffline) {
+              showToast("Profile is unavailable offline", "info");
+              return;
+            }
+            navigation.navigate("Profile");
+          }}
+          disabled={isOffline}>
+          {profile?.avatar_url ? (
+            <Image
+              source={{ uri: profile.avatar_url }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Image
+              source={{ uri: getDefaultAvatar(profile?.full_name) }}
+              style={styles.avatarImage}
+            />
+          )}
         </Pressable>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* Status Indicator */}
-        <View style={styles.statusIndicatorContainer}>
+        {/* Current Status Card */}
+        <View style={styles.statusCardContainer}>
           <View
             style={[
-              styles.statusIndicator,
-              { backgroundColor: getStatusBgColor(currentStatus) },
+              styles.statusCard,
+              {
+                backgroundColor: getStatusBgColor(currentStatus),
+                borderColor: getStatusBorderColor(currentStatus),
+              },
             ]}>
-            <View style={styles.statusIndicatorContent}>
-              <MaterialIcons
-                name={getStatusIcon(currentStatus)}
-                size={20}
-                color={getStatusTextColor(currentStatus)}
-              />
-              <Text
+            <View style={styles.statusCardHeader}>
+              <View
                 style={[
-                  styles.statusIndicatorLabel,
-                  { color: getStatusTextColor(currentStatus) },
+                  styles.statusIconContainer,
+                  { backgroundColor: getStatusIconBgColor(currentStatus) },
                 ]}>
-                {currentStatus === "safe"
-                  ? "I'M SAFE"
-                  : currentStatus === "help"
-                    ? "I NEED HELP"
-                    : "EMERGENCY"}
-              </Text>
+                <MaterialIcons
+                  name={getStatusIcon(currentStatus)}
+                  size={28}
+                  color={getStatusTextColor(currentStatus)}
+                />
+              </View>
+              <View style={styles.statusTextContainer}>
+                <Text style={styles.statusCardTitle}>CURRENT STATUS</Text>
+                <Text
+                  style={[
+                    styles.statusCardValue,
+                    { color: getStatusTextColor(currentStatus) },
+                  ]}>
+                  {currentStatus === "safe"
+                    ? "I'm Safe"
+                    : currentStatus === "help"
+                      ? "I Need Help"
+                      : "Emergency"}
+                </Text>
+              </View>
             </View>
+            <Text style={styles.statusCardDescription}>
+              {currentStatus === "safe"
+                ? "Your family can see you are safe."
+                : currentStatus === "help"
+                  ? "Your family has been notified you feel unsafe."
+                  : "Emergency alerts have been sent to your contacts."}
+            </Text>
           </View>
         </View>
+
+        {/* TCWS Alert Banner */}
+        {!tcwsDismissed && tcwsAlerts.length > 0 && (
+          <TcwsBanner
+            alerts={tcwsAlerts}
+            onDismiss={() => setTcwsDismissed(true)}
+          />
+        )}
 
         {/* Announcement Banner */}
         <AnnouncementBanner />
@@ -225,11 +300,10 @@ export default function DashboardScreen({
 
           <View style={styles.tapOptionsContainer}>
             {/* 1 TAP */}
-            <Pressable 
-              style={styles.tapOption} 
-              onPress={() => onStatusChange?.('safe')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
+            <Pressable
+              style={styles.tapOption}
+              onPress={() => onStatusChange?.("safe")}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <View style={[styles.tapCircle, styles.tapSafe]}>
                 <MaterialIcons
                   name="check-circle"
@@ -245,11 +319,10 @@ export default function DashboardScreen({
             </Pressable>
 
             {/* 2 TAPS */}
-            <Pressable 
-              style={styles.tapOption} 
-              onPress={() => onStatusChange?.('help')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
+            <Pressable
+              style={styles.tapOption}
+              onPress={() => onStatusChange?.("help")}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <View style={[styles.tapCircle, styles.tapHelp]}>
                 <MaterialIcons name="error" size={32} color={COLORS.white} />
               </View>
@@ -261,11 +334,10 @@ export default function DashboardScreen({
             </Pressable>
 
             {/* 3 TAPS */}
-            <Pressable 
-              style={styles.tapOption} 
-              onPress={() => onStatusChange?.('emergency')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
+            <Pressable
+              style={styles.tapOption}
+              onPress={() => onStatusChange?.("emergency")}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <View style={[styles.tapCircle, styles.tapEmergency]}>
                 <MaterialIcons name="warning" size={32} color={COLORS.white} />
               </View>
@@ -277,6 +349,23 @@ export default function DashboardScreen({
             </Pressable>
           </View>
         </View>
+
+        {isOffline && (
+          <View style={styles.offlineBanner}>
+            <MaterialIcons name="wifi-off" size={18} color="#b45309" />
+            <Text style={styles.offlineBannerText}>
+              Offline mode: you can still use the guidance and safety pages.
+            </Text>
+          </View>
+        )}
+
+        {/* Weather Panel */}
+        {!isOffline && locationEnabled && location && (
+          <WeatherPanel
+            lat={location.coords.latitude}
+            lng={location.coords.longitude}
+          />
+        )}
 
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
@@ -342,28 +431,23 @@ export default function DashboardScreen({
               <Text style={styles.quickActionLabel}>Checklist</Text>
             </Pressable>
 
-            <Pressable style={styles.quickActionButton}>
-              <View
-                style={[
-                  styles.quickActionIconContainer,
-                  { backgroundColor: "#3b82f6" },
-                ]}>
-                <MaterialIcons
-                  name="local-police"
-                  size={28}
-                  color={COLORS.white}
-                />
-              </View>
-              <Text style={styles.quickActionLabel}>Police</Text>
-            </Pressable>
-
             <Pressable
-              style={styles.quickActionButton}
-              onPress={() => navigation.navigate("Evacuation")}>
+              style={[
+                styles.quickActionButton,
+                isOffline && styles.quickActionButtonDisabled,
+              ]}
+              onPress={() => {
+                if (isOffline) {
+                  showToast("Evacuation info is unavailable offline", "info");
+                  return;
+                }
+                navigation.navigate("Evacuation");
+              }}
+              disabled={isOffline}>
               <View
                 style={[
                   styles.quickActionIconContainer,
-                  { backgroundColor: "#06b6d4" },
+                  { backgroundColor: isOffline ? "#64748b" : "#06b6d4" },
                 ]}>
                 <MaterialIcons
                   name="location-city"
@@ -371,58 +455,70 @@ export default function DashboardScreen({
                   color={COLORS.white}
                 />
               </View>
-              <Text style={styles.quickActionLabel}>Evacuation</Text>
+              <Text
+                style={[
+                  styles.quickActionLabel,
+                  isOffline && styles.quickActionLabelDisabled,
+                ]}>
+                {isOffline ? "Evacuation\nOffline" : "Evacuation"}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickActionButton}
+              onPress={() => navigation.navigate("RainViewer")}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: "#6366f1" },
+                ]}>
+                <MaterialIcons name="radar" size={28} color={COLORS.white} />
+              </View>
+              <Text style={styles.quickActionLabel}>Radar</Text>
             </Pressable>
           </View>
         </View>
 
-        {/* Location Tracking */}
-        <View style={styles.locationSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Location Tracking</Text>
-            <Switch
-              value={locationEnabled}
-              onValueChange={handleLocationToggle}
-              trackColor={{ false: COLORS.gray300, true: "#800000" }}
-              thumbColor={locationEnabled ? "#800000" : COLORS.gray500}
-            />
-          </View>
-          {locationEnabled && location && (
-            <View style={styles.locationInfo}>
-              <View style={styles.locationRow}>
-                <MaterialIcons name="location-on" size={16} color="#800000" />
-                <Text style={styles.locationText}>
-                  {location.coords.latitude.toFixed(4)},{" "}
-                  {location.coords.longitude.toFixed(4)}
-                </Text>
+        {!isOffline && (
+          <View style={styles.locationSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Location Tracking</Text>
+              <Switch
+                value={locationEnabled}
+                onValueChange={handleLocationToggle}
+                trackColor={{ false: COLORS.gray300, true: "#800000" }}
+                thumbColor={locationEnabled ? "#800000" : COLORS.gray500}
+              />
+            </View>
+            {locationEnabled && location && (
+              <View style={styles.locationInfo}>
+                <View style={styles.locationRow}>
+                  <MaterialIcons name="location-on" size={16} color="#800000" />
+                  <Text style={styles.locationText}>
+                    {location.coords.latitude.toFixed(4)},{" "}
+                    {location.coords.longitude.toFixed(4)}
+                  </Text>
+                </View>
+                {location.coords.accuracy && (
+                  <Text style={styles.accuracyText}>
+                    Accuracy: {Math.round(location.coords.accuracy)}m
+                  </Text>
+                )}
+                <Pressable
+                  style={styles.searchButton}
+                  onPress={() => setShowAddressSearch(true)}>
+                  <MaterialIcons name="search" size={16} color="#800000" />
+                  <Text style={styles.searchButtonText}>Search Address</Text>
+                </Pressable>
               </View>
-              {location.coords.accuracy && (
-                <Text style={styles.accuracyText}>
-                  Accuracy: {Math.round(location.coords.accuracy)}m
-                </Text>
-              )}
-              <Pressable
-                style={styles.searchButton}
-                onPress={() => setShowAddressSearch(true)}>
-                <MaterialIcons name="search" size={16} color="#800000" />
-                <Text style={styles.searchButtonText}>Search Address</Text>
-              </Pressable>
-            </View>
-          )}
-          {locationEnabled && !location && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#800000" />
-              <Text style={styles.loadingText}>Getting location...</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Weather Panel */}
-        {locationEnabled && location && (
-          <WeatherPanel
-            lat={location.coords.latitude}
-            lng={location.coords.longitude}
-          />
+            )}
+            {locationEnabled && !location && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#800000" />
+                <Text style={styles.loadingText}>Getting location...</Text>
+              </View>
+            )}
+          </View>
         )}
 
         {/* Flood Warning (Hidden for now until real API is connected)
@@ -480,48 +576,26 @@ export default function DashboardScreen({
           </View>
         </View>
         */}
-
-        {/* AI Assistant */}
-        <View style={styles.aiBotSection}>
-          <View style={styles.aiBotHeader}>
-            <MaterialIcons name="smart-toy" size={20} color="#800000" />
-            <Text style={styles.aiBotTitle}>AI Assistant</Text>
-          </View>
-          <View style={styles.aiBotPlaceholder}>
-            <MaterialIcons
-              name="chat-bubble-outline"
-              size={40}
-              color={COLORS.gray300}
-            />
-            <Text style={styles.aiBotPlaceholderText}>
-              Chat with our AI assistant
-            </Text>
-            <Text style={styles.aiBotPlaceholderSubtext}>Coming soon</Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Address Search Modal */}
-      <Modal
-        visible={showAddressSearch}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAddressSearch(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Search Location</Text>
-              <Pressable onPress={() => setShowAddressSearch(false)}>
-                <MaterialIcons name="close" size={24} color="#800000" />
-              </Pressable>
+        {!isOffline && (
+          <View style={styles.aiBotSection}>
+            <View style={styles.aiBotHeader}>
+              <MaterialIcons name="smart-toy" size={20} color="#800000" />
+              <Text style={styles.aiBotTitle}>AI Assistant</Text>
             </View>
-            <AddressSearch
-              onAddressSelect={handleAddressSelect}
-              onCancel={() => setShowAddressSearch(false)}
-            />
+            <View style={styles.aiBotPlaceholder}>
+              <MaterialIcons
+                name="chat-bubble-outline"
+                size={40}
+                color={COLORS.gray300}
+              />
+              <Text style={styles.aiBotPlaceholderText}>
+                Chat with our AI assistant
+              </Text>
+              <Text style={styles.aiBotPlaceholderSubtext}>Coming soon</Text>
+            </View>
           </View>
-        </View>
-      </Modal>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -565,6 +639,32 @@ function getStatusTextColor(status) {
   }
 }
 
+function getStatusBorderColor(status) {
+  switch (status) {
+    case "safe":
+      return "#86efac";
+    case "help":
+      return "#fcd34d";
+    case "emergency":
+      return "#fca5a5";
+    default:
+      return COLORS.gray200;
+  }
+}
+
+function getStatusIconBgColor(status) {
+  switch (status) {
+    case "safe":
+      return "#bbf7d0";
+    case "help":
+      return "#fde68a";
+    case "emergency":
+      return "#fecaca";
+    default:
+      return COLORS.gray200;
+  }
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -596,28 +696,63 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  avatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  heartButtonDisabled: {
+    opacity: 0.6,
+  },
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: 20,
   },
-  statusIndicatorContainer: {
+  statusCardContainer: {
     marginBottom: 16,
   },
-  statusIndicator: {
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignItems: "center",
+  statusCard: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  statusIndicatorContent: {
+  statusCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    marginBottom: 8,
   },
-  statusIndicatorLabel: {
-    fontSize: 14,
-    fontWeight: "700",
+  statusIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  statusTextContainer: {
+    flex: 1,
+  },
+  statusCardTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.gray600,
+    textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  statusCardValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  statusCardDescription: {
+    fontSize: 13,
+    color: COLORS.gray600,
+    lineHeight: 18,
   },
   emergencyAlertSection: {
     backgroundColor: COLORS.white,
@@ -731,11 +866,33 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  quickActionButtonDisabled: {
+    opacity: 0.6,
+  },
   quickActionLabel: {
     fontSize: 11,
     fontWeight: "600",
     color: COLORS.gray900,
     textAlign: "center",
+  },
+  quickActionLabelDisabled: {
+    color: COLORS.gray500,
+  },
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fef3c7",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  offlineBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#92400e",
+    fontWeight: "600",
   },
   locationSection: {
     backgroundColor: COLORS.white,

@@ -79,12 +79,14 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, role, full_name, barangay)
+  INSERT INTO public.profiles (id, role, full_name, barangay, phone_number, street_address)
   VALUES (
     new.id,
     'user',
     new.raw_user_meta_data->>'full_name',
-    new.raw_user_meta_data->>'barangay'
+    new.raw_user_meta_data->>'barangay',
+    new.raw_user_meta_data->>'phone_number',
+    new.raw_user_meta_data->>'street_address'
   );
   RETURN new;
 END;

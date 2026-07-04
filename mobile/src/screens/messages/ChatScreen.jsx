@@ -20,6 +20,7 @@ import {
   sendFamilyMessage,
   subscribeToFamilyMessages,
 } from "../../services/messages";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   primary: "#991b1b",
@@ -154,9 +155,42 @@ export default function ChatScreen({ navigation }) {
 
   if (loading || familyLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+            <MaterialIcons name="arrow-back" size={24} color={COLORS.white} />
+          </Pressable>
+          <View style={styles.headerTitleContainer}>
+            <Skeleton width={100} height={18} />
+            <Skeleton width={60} height={12} style={{ marginTop: 4 }} />
+          </View>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.listContent}>
+          <View style={[styles.messageRow, styles.messageRowThem]}>
+            <View style={styles.avatar}>
+              <Skeleton width={32} height={32} borderRadius={16} />
+            </View>
+            <View style={styles.messageBubbleContainer}>
+              <Skeleton width={60} height={12} style={{ marginBottom: 4 }} />
+              <View style={[styles.messageBubble, styles.bubbleThem]}>
+                <Skeleton width={180} height={20} />
+                <Skeleton width={120} height={20} style={{ marginTop: 4 }} />
+              </View>
+              <Skeleton width={40} height={10} style={{ marginTop: 4 }} />
+            </View>
+          </View>
+
+          <View style={[styles.messageRow, styles.messageRowMe, { marginTop: 16 }]}>
+            <View style={[styles.messageBubbleContainer, { alignItems: "flex-end" }]}>
+              <View style={[styles.messageBubble, styles.bubbleMe]}>
+                <Skeleton width={140} height={20} />
+              </View>
+              <Skeleton width={40} height={10} style={{ marginTop: 4 }} />
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
     );
   }
 

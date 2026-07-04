@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, TextInput, Pressable, FlatList, Text, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { searchAddress } from "../services/geocode.js";
+import Skeleton from "./Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -112,9 +113,16 @@ export default function AddressSearch({ onAddressSelect, onCancel }) {
       {showResults && (
         <View style={styles.dropdown}>
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={COLORS.shieldPrimary} />
-              <Text style={styles.loadingText}>Searching...</Text>
+            <View style={{ paddingVertical: 8 }}>
+              {[1, 2, 3].map((key) => (
+                <View key={key} style={styles.resultItem}>
+                  <Skeleton width={16} height={16} borderRadius={8} />
+                  <View style={styles.resultText}>
+                    <Skeleton width={150} height={13} style={{ marginBottom: 4 }} />
+                    <Skeleton width={100} height={11} />
+                  </View>
+                </View>
+              ))}
             </View>
           ) : error ? (
             <View style={styles.errorContainer}>

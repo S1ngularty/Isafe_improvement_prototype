@@ -70,7 +70,7 @@ export function useWeather(lat, lng) {
         if (isMounted) {
           const errorMsg = err.message || "Failed to fetch weather";
           setError(errorMsg);
-          console.error("[useWeather] Error:", errorMsg);
+          console.warn("[useWeather] Warning:", errorMsg);
         }
       } finally {
         if (isMounted) {
