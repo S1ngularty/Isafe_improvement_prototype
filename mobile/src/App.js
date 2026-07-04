@@ -1,5 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { View, StyleSheet, ActivityIndicator, Platform, Text } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+  Text,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -31,6 +37,7 @@ import { supabase } from "./services/supabase.js";
 import ChecklistDetail from "./screens/resources/ChecklistDetailScreen.jsx";
 import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
 import EvacuationMapScreen from "./screens/resources/EvacuationMap.jsx";
+import { NetworkProvider, useNetwork } from "./context/NetworkContext.jsx";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -46,21 +53,47 @@ function withStartupTimeout(promise, label, timeoutMs = STARTUP_TIMEOUT_MS) {
   return Promise.race([
     promise.finally(() => clearTimeout(timer)),
     new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+      timer = setTimeout(
+        () => reject(new Error(`${label} timed out`)),
+        timeoutMs,
+      );
     }),
   ]);
 }
 
 class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false }; }
-  static getDerivedStateFromError(error) { return { hasError: true }; }
-  componentDidCatch(error, errorInfo) { console.error("App Crash:", error, errorInfo); }
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("App Crash:", error, errorInfo);
+  }
   render() {
     if (this.state.hasError) {
       return (
         <View style={styles.loadingContainer}>
-          <Text style={{fontSize: 18, fontWeight: 'bold', color: COLORS.shieldPrimary, marginBottom: 10}}>Something went wrong.</Text>
-          <Text style={{color: '#6b7280', textAlign: 'center', marginHorizontal: 20}}>Please restart the app. If you need immediate help, call emergency services.</Text>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: "bold",
+              color: COLORS.shieldPrimary,
+              marginBottom: 10,
+            }}>
+            Something went wrong.
+          </Text>
+          <Text
+            style={{
+              color: "#6b7280",
+              textAlign: "center",
+              marginHorizontal: 20,
+            }}>
+            Please restart the app. If you need immediate help, call emergency
+            services.
+          </Text>
         </View>
       );
     }
@@ -90,7 +123,11 @@ function HomeStack({ currentStatus, onStatusChange }) {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Dashboard">
         {(props) => (
-          <DashboardScreen {...props} currentStatus={currentStatus} onStatusChange={onStatusChange} />
+          <DashboardScreen
+            {...props}
+            currentStatus={currentStatus}
+            onStatusChange={onStatusChange}
+          />
         )}
       </Stack.Screen>
       <Stack.Screen
@@ -123,10 +160,7 @@ function HomeStack({ currentStatus, onStatusChange }) {
         component={EmergencyCall}
         options={{ animationEnabled: true }}
       />
-      <Stack.Screen
-        name="Evacuation"
-        component={EvacuationCentersScreen}
-      />
+      <Stack.Screen name="Evacuation" component={EvacuationCentersScreen} />
       <Stack.Screen name="EvacuationMap" component={EvacuationMapScreen} />
     </Stack.Navigator>
   );
@@ -135,6 +169,7 @@ function HomeStack({ currentStatus, onStatusChange }) {
 function AppTabs() {
   const { profile, refreshProfile } = useAuth();
   const { showToast } = useToast();
+  const { isOffline } = useNetwork();
   const [currentStatus, setCurrentStatus] = useState(profile?.status || "safe");
 
   useEffect(() => {
@@ -168,6 +203,56 @@ function AppTabs() {
     },
     [showToast, refreshProfile, profile?.status],
   );
+
+  const tabDefinitions = [
+    {
+      name: "Home",
+      title: "Home",
+      component: HomeStack,
+      render: (props) => (
+        <HomeStack
+          {...props}
+          currentStatus={currentStatus}
+          onStatusChange={handleStatusChange}
+        />
+      ),
+    },
+    ...(isOffline
+      ? []
+      : [
+          {
+            name: "Alert",
+            title: "Alerts",
+            component: EmergencyHistoryScreen,
+          },
+          {
+            name: "Messages",
+            title: "Messages",
+            component: MessagesStack,
+          },
+          {
+            name: "SOS",
+            title: "SOS",
+            component: DummyScreen,
+            listeners: { tabPress: (e) => e.preventDefault() },
+          },
+          {
+            name: "Family",
+            title: "Family",
+            component: FamilyScreen,
+          },
+          {
+            name: "Maps",
+            title: "Maps",
+            component: MapsScreen,
+          },
+          {
+            name: "Profile",
+            title: "Profile",
+            component: ProfileScreen,
+          },
+        ]),
+  ];
 
   return (
     <Tab.Navigator
@@ -216,40 +301,21 @@ function AppTabs() {
         tabBarActiveTintColor: COLORS.shieldPrimary,
         tabBarInactiveTintColor: COLORS.gray300,
       })}>
-      <Tab.Screen name="Home" options={{ title: "Home" }}>
-        {(props) => <HomeStack {...props} currentStatus={currentStatus} onStatusChange={handleStatusChange} />}
-      </Tab.Screen>
-      <Tab.Screen
-        name="Alert"
-        component={EmergencyHistoryScreen}
-        options={{ title: "Alerts" }}
-      />
-      <Tab.Screen
-        name="Messages"
-        component={MessagesStack}
-        options={{ title: "Messages" }}
-      />
-      <Tab.Screen
-        name="SOS"
-        component={DummyScreen}
-        options={{ title: "SOS" }}
-        listeners={{ tabPress: (e) => e.preventDefault() }}
-      />
-      <Tab.Screen
-        name="Family"
-        component={FamilyScreen}
-        options={{ title: "Family" }}
-      />
-      <Tab.Screen
-        name="Maps"
-        component={MapsScreen}
-        options={{ title: "Maps" }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: "Profile" }}
-      />
+      {tabDefinitions.map((tab) => (
+        <Tab.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{ title: tab.title }}
+          listeners={tab.listeners}>
+          {(props) => {
+            if (tab.render) {
+              return tab.render(props);
+            }
+            const Component = tab.component;
+            return <Component {...props} />;
+          }}
+        </Tab.Screen>
+      ))}
     </Tab.Navigator>
   );
 }
@@ -261,6 +327,7 @@ function DummyScreen() {
 function RootNavigator() {
   const { session, loading } = useAuth();
   const { toasts } = useToast();
+  const { isOffline } = useNetwork();
   const [pushToken, setPushToken] = useState(null);
   const storedTokenRef = useRef(null);
   const platform = Platform.OS;
@@ -372,7 +439,9 @@ function RootNavigator() {
     }
   };
 
-  if (loading || welcomeShown === null) {
+  const shouldBlockForAuth = (loading || welcomeShown === null) && !isOffline;
+
+  if (shouldBlockForAuth) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
@@ -380,11 +449,13 @@ function RootNavigator() {
     );
   }
 
+  const effectiveWelcomeShown = welcomeShown === true || isOffline;
+
   return (
     <View style={styles.container}>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {!welcomeShown ? (
+          {!effectiveWelcomeShown ? (
             <Stack.Screen
               name="WelcomeFlow"
               options={{ animationEnabled: true }}>
@@ -392,7 +463,7 @@ function RootNavigator() {
                 <WelcomeScreen {...props} onComplete={handleWelcomeComplete} />
               )}
             </Stack.Screen>
-          ) : session ? (
+          ) : session || isOffline ? (
             <Stack.Screen name="AppTabs" component={AppTabs} />
           ) : (
             <Stack.Screen name="AuthStack" component={AuthStack} />
@@ -427,11 +498,13 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <ToastProvider>
-          <RootNavigator />
-        </ToastProvider>
-      </AuthProvider>
+      <NetworkProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <RootNavigator />
+          </ToastProvider>
+        </AuthProvider>
+      </NetworkProvider>
     </ErrorBoundary>
   );
 }
