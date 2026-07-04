@@ -1,0 +1,17 @@
+name: Fetch Tide Data Daily
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call tide refresh endpoint
+        run: |
+          curl -sS -X POST "${{ secrets.BACKEND_URL }}/api/tide/refresh" \
+            -H "X-API-Key: ${{ secrets.CRON_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --max-time 30

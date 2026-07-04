@@ -39,6 +39,25 @@ export default function UserSidebar({ active, collapsed, onToggle, onNavigate })
       ),
     },
     {
+      id: "tide",
+      label: "Tide Data",
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 16.58A5 5 0 0018 7h-1.26A8 8 0 104 15.25" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 19v2M8 13v2M16 19v2M16 13v2M12 21v2" />
+        </svg>
+      ),
+    },
+    {
+      id: "evacuation",
+      label: "Evacuation Centers",
+      icon: (
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21h18M3 7v1h18V7M3 7l1-4h16l1 4M5 11v8m4-8v8m4-8v8m4-8v8" />
+        </svg>
+      ),
+    },
+    {
       id: "family",
       label: "Family",
       icon: (

@@ -7,11 +7,13 @@ import { useNavigate } from "react-router-dom";
 import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/auth";
 import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
 import { fetchAllAlerts, createAlert, updateAlert, deleteAlert } from "../services/tcws";
+import { fetchAllEvacuationAreas, createEvacuationArea, updateEvacuationArea, deleteEvacuationArea, uploadLandmarkImage } from "../services/evac";
 
 import AdminSidebar from "../components/AdminSidebar";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FloodHazardView from "./floodHazard/FloodHazardView";
 import RainViewerPage from "./RainViewerPage";
+import TideView from "../components/TideView";
 export default function AdminDashboard() {
   const { session, logout } = useAuth();
   const { showToast } = useToast();
@@ -39,6 +41,15 @@ export default function AdminDashboard() {
   const [tcwsDeleteConfirm, setTcwsDeleteConfirm] = useState(null);
   const [tcwsSaving, setTcwsSaving] = useState(false);
 
+  const [evacAreas, setEvacAreas] = useState([]);
+  const [evacLoading, setEvacLoading] = useState(false);
+  const [evacModal, setEvacModal] = useState(false);
+  const [editingEvac, setEditingEvac] = useState(null);
+  const [evacForm, setEvacForm] = useState({ name: "", description: "", latitude: "", longitude: "", capacity: "", status: "active" });
+  const [evacFile, setEvacFile] = useState(null);
+  const [evacPreview, setEvacPreview] = useState(null);
+  const [evacDeleteConfirm, setEvacDeleteConfirm] = useState(null);
+  const [evacSaving, setEvacSaving] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -77,11 +88,24 @@ export default function AdminDashboard() {
     }
   }, [showToast]);
 
+  const loadEvacuationAreas = useCallback(async () => {
+    setEvacLoading(true);
+    try {
+      const data = await fetchAllEvacuationAreas();
+      setEvacAreas(data);
+    } catch (err) {
+      showToast("Failed to load evacuation areas: " + err.message, "error");
+    } finally {
+      setEvacLoading(false);
+    }
+  }, [showToast]);
+
   useEffect(() => {
     if (view === "users") loadUsers();
     if (view === "announcements") loadAnnouncements();
     if (view === "tcws") loadTcws();
-  }, [view, loadUsers, loadAnnouncements]);
+    if (view === "evacuation") loadEvacuationAreas();
+  }, [view, loadUsers, loadAnnouncements, loadTcws, loadEvacuationAreas]);
 
   function openCreateModal() {
     setEditingAnnouncement(null);
@@ -249,6 +273,92 @@ export default function AdminDashboard() {
       showToast("Failed to delete: " + err.message, "error");
     } finally {
       setTcwsDeleteConfirm(null);
+    }
+  }
+
+  function openEvacCreate() {
+    setEditingEvac(null);
+    setEvacForm({ name: "", description: "", latitude: "", longitude: "", capacity: "", status: "active" });
+    setEvacFile(null);
+    setEvacPreview(null);
+    setEvacModal(true);
+  }
+
+  function openEvacEdit(area) {
+    setEditingEvac(area);
+    setEvacForm({
+      name: area.name || "",
+      description: area.description || "",
+      latitude: area.latitude != null ? String(area.latitude) : "",
+      longitude: area.longitude != null ? String(area.longitude) : "",
+      capacity: area.capacity != null ? String(area.capacity) : "",
+      status: area.status || "active",
+    });
+    setEvacFile(null);
+    setEvacPreview(area.landmark_url || null);
+    setEvacModal(true);
+  }
+
+  function closeEvacModal() {
+    setEvacModal(false);
+    setEditingEvac(null);
+    setEvacFile(null);
+    setEvacPreview(null);
+  }
+
+  function handleEvacFileSelect(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    setEvacFile(f);
+    const reader = new FileReader();
+    reader.onload = () => setEvacPreview(reader.result);
+    reader.readAsDataURL(f);
+  }
+
+  async function handleEvacSave(e) {
+    e.preventDefault();
+    if (!evacForm.name.trim() || !evacForm.latitude || !evacForm.longitude) return;
+    setEvacSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("name", evacForm.name.trim());
+      formData.append("description", evacForm.description.trim());
+      formData.append("latitude", evacForm.latitude);
+      formData.append("longitude", evacForm.longitude);
+      formData.append("status", evacForm.status);
+      if (evacForm.capacity) formData.append("capacity", evacForm.capacity);
+
+      if (evacFile) {
+        formData.append("file", evacFile);
+      } else if (evacForm.image_url) {
+        formData.append("landmark_url", evacForm.image_url);
+      }
+
+      if (editingEvac) {
+        await updateEvacuationArea(editingEvac.id, formData);
+        showToast("Evacuation center updated.", "success");
+      } else {
+        await createEvacuationArea(formData);
+        showToast("Evacuation center created.", "success");
+      }
+      closeEvacModal();
+      loadEvacuationAreas();
+    } catch (err) {
+      showToast("Failed to save: " + err.message, "error");
+    } finally {
+      setEvacSaving(false);
+    }
+  }
+
+  async function handleEvacDelete(id) {
+    try {
+      await deleteEvacuationArea(id);
+      setEvacAreas((prev) => prev.filter((a) => a.id !== id));
+      showToast("Evacuation center deleted.", "success");
+    } catch (err) {
+      showToast("Failed to delete: " + err.message, "error");
+    } finally {
+      setEvacDeleteConfirm(null);
     }
   }
 
@@ -882,6 +992,259 @@ export default function AdminDashboard() {
           {view === "hazard" && <FloodHazardView />}
 
           {view === "rainviewer" && <RainViewerPage />}
+
+          {view === "tide" && <TideView isAdmin={true} />}
+
+          {view === "evacuation" && (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Evacuation Centers</h1>
+                  <p className="text-gray-500 text-sm mt-1">Manage evacuation center locations and details.</p>
+                </div>
+                <button onClick={openEvacCreate} className="btn-primary py-2 px-4 text-sm flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Center
+                </button>
+              </div>
+
+              {evacLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : evacAreas.length === 0 ? (
+                <div className="card py-16 text-center text-gray-400">
+                  <svg className="w-14 h-14 mx-auto mb-3 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 21h18M3 7v1h18V7M3 7l1-4h16l1 4M5 11v8m4-8v8m4-8v8m4-8v8" />
+                  </svg>
+                  <p className="text-sm font-medium">No evacuation centers yet</p>
+                  <p className="text-xs mt-1">Click "New Center" to add your first evacuation center.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr className="text-left text-gray-600 font-semibold">
+                          <th className="px-6 py-3 w-20">Landmark</th>
+                          <th className="px-6 py-3">Name</th>
+                          <th className="px-6 py-3 hidden md:table-cell">Capacity</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3 w-28">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {evacAreas.map((a) => (
+                          <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              {a.landmark_url ? (
+                                <img src={a.landmark_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-3">
+                              <p className="font-medium text-gray-900 truncate max-w-[200px]">{a.name}</p>
+                              <p className="text-xs text-gray-400 truncate max-w-[200px] mt-0.5">
+                                {a.latitude?.toFixed(4)}, {a.longitude?.toFixed(4)}
+                              </p>
+                            </td>
+                            <td className="px-6 py-3 hidden md:table-cell text-gray-600">
+                              {a.capacity != null ? a.capacity.toLocaleString() : "—"}
+                            </td>
+                            <td className="px-6 py-3">
+                              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                                a.status === "active" ? "bg-green-100 text-green-700" :
+                                a.status === "inactive" ? "bg-gray-100 text-gray-500" :
+                                "bg-yellow-100 text-yellow-700"
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3">
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => openEvacEdit(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+                                  Edit
+                                </button>
+                                <button onClick={() => setEvacDeleteConfirm(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {evacModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeEvacModal}>
+                  <form
+                    onSubmit={handleEvacSave}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
+                  >
+                    <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+                      <h2 className="text-lg font-bold text-gray-900">
+                        {editingEvac ? "Edit Evacuation Center" : "New Evacuation Center"}
+                      </h2>
+                      <button type="button" onClick={closeEvacModal} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="px-6 py-4 space-y-4">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={evacForm.name}
+                          onChange={(e) => setEvacForm((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="Barangay Hall Evacuation Center"
+                          required
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Description</label>
+                        <textarea
+                          value={evacForm.description}
+                          onChange={(e) => setEvacForm((p) => ({ ...p, description: e.target.value }))}
+                          rows={2}
+                          placeholder="Optional description or location details..."
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none resize-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Latitude</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={evacForm.latitude}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, latitude: e.target.value }))}
+                            placeholder="14.1234"
+                            required
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Longitude</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={evacForm.longitude}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, longitude: e.target.value }))}
+                            placeholder="121.5678"
+                            required
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Capacity</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={evacForm.capacity}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, capacity: e.target.value }))}
+                            placeholder="500"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Status</label>
+                          <select
+                            value={evacForm.status}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, status: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm appearance-none bg-white bg-no-repeat bg-[center_right_0.5rem] focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none cursor-pointer"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundSize: "1.25rem" }}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Landmark Image</label>
+                        <label className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-shield-400 hover:bg-shield-50/30 transition-colors">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className="text-xs text-gray-500 font-medium">Drop a file or click to browse</span>
+                          <span className="text-[10px] text-gray-400">JPG, PNG, WebP up to 5MB</span>
+                          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleEvacFileSelect} className="hidden" />
+                        </label>
+                        {evacFile && (
+                          <p className="text-[11px] text-shield-600 font-medium mt-1.5 ml-1">{evacFile.name} ({(evacFile.size / 1024 / 1024).toFixed(1)} MB)</p>
+                        )}
+                      </div>
+
+                      {!evacFile && (
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Or paste image URL</label>
+                          <input
+                            type="url"
+                            value={evacForm.image_url || ""}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, image_url: e.target.value }))}
+                            placeholder="https://..."
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {evacPreview && (
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Preview</label>
+                          <img src={evacPreview} className="w-full h-40 rounded-lg object-cover bg-gray-100" alt="Preview" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                      <button type="button" onClick={closeEvacModal} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={evacSaving || !evacForm.name.trim() || !evacForm.latitude || !evacForm.longitude}
+                        className="btn-primary py-2 px-5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {evacSaving ? "Saving..." : editingEvac ? "Save Changes" : "Create Center"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {evacDeleteConfirm && (
+                <ConfirmDialog
+                  title="Delete Evacuation Center"
+                  message={`Permanently delete "${evacDeleteConfirm.name}"? This action cannot be undone.`}
+                  confirmLabel="Delete"
+                  confirmClass="bg-red-600 hover:bg-red-700"
+                  onConfirm={() => handleEvacDelete(evacDeleteConfirm.id)}
+                  onCancel={() => setEvacDeleteConfirm(null)}
+                />
+              )}
+            </>
+          )}
 
           {view === "tcws" && (
             <>

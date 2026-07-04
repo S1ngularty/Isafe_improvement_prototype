@@ -24,6 +24,7 @@ async def get_radar_frames() -> dict:
     for item in past + nowcast:
         frames.append({
             "time": item["time"],
+            "path": item["path"],
             "tile_url": f"{host}{item['path']}/256/{{z}}/{{x}}/{{y}}/2/1_1.png",
         })
 
@@ -31,6 +32,8 @@ async def get_radar_frames() -> dict:
         "host": host,
         "generated": body.get("generated", 0),
         "frames": frames,
+        "past_count": len(past),
+        "nowcast_count": len(nowcast),
     }
 
     _cache["ts"] = now

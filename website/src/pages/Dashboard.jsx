@@ -22,6 +22,8 @@ import EvacMarker from "../components/EvacMarker";
 import ForecastPage from "../components/ForecastPage";
 import FloodHazardView from "./floodHazard/FloodHazardView";
 import RainViewerPage from "./RainViewerPage";
+import TideView from "../components/TideView";
+import EvacuationCentersView from "../components/EvacuationCentersView";
 import EmergencyContactsPanel from "../components/EmergencyContactsPanel";
 import useGeolocation from "../hooks/useGeolocation";
 import useFamilyLocations from "../hooks/useFamilyLocations";
@@ -232,6 +234,7 @@ export default function Dashboard() {
                       name={center.name}
                       description={center.description}
                       capacity={center.capacity}
+                      landmark_url={center.landmark_url}
                       onClick={() => handleEvacClick(center)}
                     />
                   ))}
@@ -289,6 +292,12 @@ export default function Dashboard() {
 
           {view === "rainviewer" && <RainViewerPage />}
 
+          {view === "tide" && <TideView isAdmin={false} />}
+
+          {view === "evacuation" && (
+            <EvacuationCentersView onGetDirections={handleEvacClick} />
+          )}
+
           {view === "dashboard" && (
             <>
               <AnnouncementBanner onClick={setDetailAnnouncement} />
@@ -324,6 +333,7 @@ export default function Dashboard() {
                       name={center.name}
                       description={center.description}
                       capacity={center.capacity}
+                      landmark_url={center.landmark_url}
                       onClick={() => handleEvacClick(center)}
                     />
                   ))}
