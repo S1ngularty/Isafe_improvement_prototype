@@ -19,6 +19,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { updateProfile } from "../../services/auth.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
+import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds, formatSpecialNeeds } from "../../utils/medicalOptions";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -50,9 +51,12 @@ export default function ProfileScreen({ navigation }) {
   const [bloodType, setBloodType] = useState(profile?.blood_type || "");
   const [medicalNotes, setMedicalNotes] = useState(profile?.medical_notes || "");
   const [householdSize, setHouseholdSize] = useState(profile?.household_size?.toString() || "");
-  const [specialNeeds, setSpecialNeeds] = useState(profile?.special_needs || "");
+  const [selectedNeeds, setSelectedNeeds] = useState([]);
+  const [needsOther, setNeedsOther] = useState("");
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || "");
 
+  const [needsTempSelected, setNeedsTempSelected] = useState([]);
+  const [needsTempOther, setNeedsTempOther] = useState("");
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,7 +71,9 @@ export default function ProfileScreen({ navigation }) {
       setBloodType(profile.blood_type || "");
       setMedicalNotes(profile.medical_notes || "");
       setHouseholdSize(profile.household_size?.toString() || "");
-      setSpecialNeeds(profile.special_needs || "");
+      const { selected, other } = decodeSpecialNeeds(profile.special_needs || "");
+      setSelectedNeeds(selected);
+      setNeedsOther(other);
       setStreetAddress(profile.street_address || "");
     }
   }, [profile]);
@@ -75,6 +81,10 @@ export default function ProfileScreen({ navigation }) {
   const handleEditField = (field, currentValue) => {
     setEditingField(field);
     setTempValue(currentValue || "");
+    if (field === "specialNeeds") {
+      setNeedsTempSelected([...selectedNeeds]);
+      setNeedsTempOther(needsOther);
+    }
   };
 
   const handleSaveField = async () => {
@@ -92,7 +102,8 @@ export default function ProfileScreen({ navigation }) {
       bloodType,
       medicalNotes,
       householdSize,
-      specialNeeds,
+      selectedNeeds,
+      needsOther,
       streetAddress,
     };
 
@@ -133,8 +144,9 @@ export default function ProfileScreen({ navigation }) {
           setHouseholdSize(tempValue);
           break;
         case "specialNeeds":
-          updateData.special_needs = tempValue;
-          setSpecialNeeds(tempValue);
+          updateData.special_needs = encodeSpecialNeeds(needsTempSelected, needsTempOther);
+          setSelectedNeeds(needsTempSelected);
+          setNeedsOther(needsTempOther);
           break;
         case "streetAddress":
           updateData.street_address = tempValue;
@@ -156,7 +168,8 @@ export default function ProfileScreen({ navigation }) {
       setBloodType(previousState.bloodType);
       setMedicalNotes(previousState.medicalNotes);
       setHouseholdSize(previousState.householdSize);
-      setSpecialNeeds(previousState.specialNeeds);
+      setSelectedNeeds(previousState.selectedNeeds);
+      setNeedsOther(previousState.needsOther);
       setStreetAddress(previousState.streetAddress);
       showToast(error.message || "Failed to update profile", "error");
     } finally {
@@ -293,6 +306,74 @@ export default function ProfileScreen({ navigation }) {
                   </Pressable>
                 ))}
               </View>
+
+              <Pressable
+                style={[styles.modalButton, loading && styles.buttonDisabled]}
+                onPress={handleSaveField}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalButtonText}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    if (editingField === "specialNeeds") {
+      return (
+        <Modal visible={!!editingField} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: "80%" }]}>
+              <View style={styles.modalHeader}>
+                <Pressable onPress={() => setEditingField(null)}>
+                  <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                </Pressable>
+                <Text style={styles.modalTitle}>{title}</Text>
+                <Pressable onPress={() => setEditingField(null)}>
+                  <Text style={{ color: COLORS.shieldPrimary, fontWeight: "600", fontSize: 14 }}>Done</Text>
+                </Pressable>
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                {ALL_GROUPS.map(({ heading, options }) => (
+                  <View key={heading} style={{ marginBottom: 12 }}>
+                    <Text style={styles.needsGroupHeading}>{heading}</Text>
+                    {options.map((opt) => {
+                      const checked = needsTempSelected.includes(opt.id);
+                      return (
+                        <Pressable
+                          key={opt.id}
+                          style={styles.needsOptionRow}
+                          onPress={() => {
+                            setNeedsTempSelected((prev) =>
+                              checked ? prev.filter((id) => id !== opt.id) : [...prev, opt.id]
+                            );
+                          }}
+                        >
+                          <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                            {checked && <MaterialIcons name="check" size={14} color={COLORS.white} />}
+                          </View>
+                          <Text style={styles.needsOptionLabel}>{opt.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+                <View style={{ borderTopWidth: 1, borderTopColor: COLORS.gray200, paddingTop: 12, marginTop: 4 }}>
+                  <Text style={styles.needsGroupHeading}>Other</Text>
+                  <TextInput
+                    style={[styles.modalInput, { marginTop: 6 }]}
+                    value={needsTempOther}
+                    onChangeText={setNeedsTempOther}
+                    placeholder="Please specify any other needs..."
+                  />
+                </View>
+              </ScrollView>
 
               <Pressable
                 style={[styles.modalButton, loading && styles.buttonDisabled]}
@@ -536,7 +617,17 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="accessible" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Special Needs</Text>
-                <Text style={styles.fieldValue}>{specialNeeds || "Add special needs"}</Text>
+                {selectedNeeds.length > 0 || needsOther ? (
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                    {formatSpecialNeeds(encodeSpecialNeeds(selectedNeeds, needsOther)).map((label, i) => (
+                      <View key={i} style={{ backgroundColor: "#fef3c7", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 10, color: "#92400e", fontWeight: "600" }}>{label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.fieldValue}>Add special needs</Text>
+                )}
               </View>
             </View>
             <Pressable
@@ -920,5 +1011,38 @@ const styles = StyleSheet.create({
   emergencyContactsSubtitle: {
     fontSize: 12,
     color: COLORS.gray500,
+  },
+  needsGroupHeading: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.gray500,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  needsOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  needsOptionLabel: {
+    fontSize: 14,
+    color: COLORS.gray700,
+    flex: 1,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: COLORS.gray400,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.shieldPrimary,
+    borderColor: COLORS.shieldPrimary,
   },
 });

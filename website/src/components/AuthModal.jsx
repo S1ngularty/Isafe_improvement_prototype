@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import Modal from "./Modal";
+import { ALL_GROUPS, encodeSpecialNeeds } from "../utils/medicalOptions";
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
@@ -24,7 +25,8 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [bloodType, setBloodType] = useState("");
   const [householdSize, setHouseholdSize] = useState("");
-  const [specialNeeds, setSpecialNeeds] = useState("");
+  const [selectedNeeds, setSelectedNeeds] = useState([]);
+  const [needsOther, setNeedsOther] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -50,7 +52,8 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     setPhoneNumber("");
     setBloodType("");
     setHouseholdSize("");
-    setSpecialNeeds("");
+    setSelectedNeeds([]);
+    setNeedsOther("");
   }
 
   function validate(field, value) {
@@ -177,7 +180,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
           phone_number: phoneNumber.trim(),
           blood_type: bloodType,
           household_size: householdSize || null,
-          special_needs: specialNeeds.trim(),
+          special_needs: encodeSpecialNeeds(selectedNeeds, needsOther),
         });
         onClose();
         if (!data.session) {
@@ -334,15 +337,44 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
                 />
               </div>
               <div>
-                <label htmlFor="auth-needs" className="block text-sm font-medium text-gray-700 mb-1">Special Needs</label>
-                <textarea
-                  id="auth-needs"
-                  className="input-field min-h-[60px] resize-y"
-                  placeholder="Disabilities, medical conditions, or accessibility requirements"
-                  value={specialNeeds}
-                  onChange={(e) => setSpecialNeeds(e.target.value)}
-                  rows={2}
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-2">Special Needs</label>
+                <div className="space-y-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  {ALL_GROUPS.map(({ heading, options }) => (
+                    <div key={heading}>
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">{heading}</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        {options.map((opt) => {
+                          const checked = selectedNeeds.includes(opt.id);
+                          return (
+                            <label key={opt.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-white transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setSelectedNeeds((prev) =>
+                                    checked ? prev.filter((id) => id !== opt.id) : [...prev, opt.id]
+                                  );
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-shield-600 focus:ring-shield-500"
+                              />
+                              <span className="text-xs text-gray-700">{opt.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Other</p>
+                    <input
+                      type="text"
+                      value={needsOther}
+                      onChange={(e) => setNeedsOther(e.target.value)}
+                      placeholder="Please specify any other needs..."
+                      className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                    />
+                  </div>
+                </div>
               </div>
               <div>
                 <label htmlFor="auth-password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>

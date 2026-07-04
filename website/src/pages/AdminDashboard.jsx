@@ -8,6 +8,7 @@ import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/
 import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
 import { fetchAllAlerts, createAlert, updateAlert, deleteAlert } from "../services/tcws";
 import { fetchAllEvacuationAreas, createEvacuationArea, updateEvacuationArea, deleteEvacuationArea, uploadLandmarkImage } from "../services/evac";
+import { formatSpecialNeeds } from "../utils/medicalOptions";
 
 import AdminSidebar from "../components/AdminSidebar";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -711,9 +712,17 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="px-6 py-4 hidden md:table-cell">
-                            <span className={`text-xs ${user.special_needs ? "text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full" : "text-gray-300"}`}>
-                              {user.special_needs ? user.special_needs.slice(0, 30) + (user.special_needs.length > 30 ? "..." : "") : "—"}
-                            </span>
+                            {user.special_needs ? (
+                              <div className="flex flex-wrap gap-1">
+                                {formatSpecialNeeds(user.special_needs).map((label, i) => (
+                                  <span key={i} className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    {label.length > 20 ? label.slice(0, 20) + "…" : label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-300">—</span>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <button

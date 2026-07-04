@@ -25,6 +25,11 @@ import RainViewerPage from "./RainViewerPage";
 import TideView from "../components/TideView";
 import EvacuationCentersView from "../components/EvacuationCentersView";
 import EmergencyContactsPanel from "../components/EmergencyContactsPanel";
+import AlertsView from "../components/AlertsView";
+import AlertPopup from "../components/AlertPopup";
+import MemberInfoModal from "../components/MemberInfoModal";
+import ResourcesHub from "./resources/ResourcesHub.jsx";
+import useAlertNotifications from "../hooks/useAlertNotifications";
 import useGeolocation from "../hooks/useGeolocation";
 import useFamilyLocations from "../hooks/useFamilyLocations";
 import useEvacuationAreas from "../hooks/useEvacuationAreas";
@@ -50,6 +55,8 @@ export default function Dashboard() {
   const { lat, lng, accuracy, error: geoError, tracking } = useGeolocation(locationEnabled);
 
   const { members: familyMembers, family, refresh: refreshFamily } = useFamilyLocations();
+  const { unreadCount, liveAlerts, clearUnread, dismissAlert } = useAlertNotifications(family?.id, session?.user?.id);
+  const [memberNotification, setMemberNotification] = useState(null);
 
   const [route, setRoute] = useState(null);
   const [showProximity, setShowProximity] = useState(false);
@@ -58,6 +65,10 @@ export default function Dashboard() {
 
   const displayLat = manualLat ?? lat;
   const displayLng = manualLng ?? lng;
+
+  useEffect(() => {
+    if (view === "alerts") clearUnread();
+  }, [view, clearUnread]);
 
   const { areas: evacAreas, nearest: nearestEvac, nearestDist } = useEvacuationAreas(displayLat, displayLng);
   const { current: weatherCurrent } = useWeather(displayLat, displayLng);
@@ -180,6 +191,7 @@ export default function Dashboard() {
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((v) => !v)}
           onNavigate={setView}
+          unreadAlerts={unreadCount}
         />
 
 
@@ -190,6 +202,22 @@ export default function Dashboard() {
               onDismiss={dismissTcws}
             />
           )}
+
+          {liveAlerts.map((alert) => {
+            const member = familyMembers?.find((m) => m.id === alert.userId);
+            return (
+              <AlertPopup
+                key={alert.id}
+                alert={alert}
+                memberName={member?.full_name}
+                onDismiss={dismissAlert}
+                onClick={() => {
+                  setMemberNotification(alert.userId);
+                }}
+              />
+            );
+          })}
+
           {view === "profile" && <UserProfile />}
 
           {view === "family" && (
@@ -269,6 +297,10 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {view === "alerts" && <AlertsView />}
+
+          {view === "resources" && <ResourcesHub />}
 
           {view === "contacts" && (
             <div className="h-[calc(100vh-7rem)]">
@@ -501,6 +533,14 @@ export default function Dashboard() {
         <AnnouncementDetail
           announcement={detailAnnouncement}
           onClose={() => setDetailAnnouncement(null)}
+        />
+      )}
+
+      {memberNotification && (
+        <MemberInfoModal
+          memberId={memberNotification}
+          currentUserId={session?.user?.id}
+          onClose={() => setMemberNotification(null)}
         />
       )}
     </div>
