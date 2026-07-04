@@ -19,6 +19,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { updateProfile } from "../../services/auth.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -37,7 +38,7 @@ const COLORS = {
 };
 
 export default function ProfileScreen({ navigation }) {
-  const { profile, session, logout, refreshProfile } = useAuth();
+  const { profile, session, logout, refreshProfile, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
   const [fullName, setFullName] = useState(profile?.full_name || "");
@@ -356,6 +357,11 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  const renderFieldValue = (value, fallback) => {
+    if (authLoading) return <Skeleton width={120} height={16} />;
+    return <Text style={styles.fieldValue}>{value || fallback}</Text>;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -398,7 +404,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="person" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Full Name</Text>
-                <Text style={styles.fieldValue}>{fullName || "Add name"}</Text>
+                {renderFieldValue(fullName, "Add name")}
               </View>
             </View>
             <Pressable
@@ -415,7 +421,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="cake" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Date of Birth</Text>
-                <Text style={styles.fieldValue}>{dateOfBirth || "MM/DD/YYYY"}</Text>
+                {renderFieldValue(dateOfBirth, "MM/DD/YYYY")}
               </View>
             </View>
             <Pressable
@@ -432,7 +438,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="wc" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Gender</Text>
-                <Text style={styles.fieldValue}>{gender || "Select gender"}</Text>
+                {renderFieldValue(gender, "Select gender")}
               </View>
             </View>
             <Pressable
@@ -449,7 +455,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="location-city" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Barangay</Text>
-                <Text style={styles.fieldValue}>{residentialAddress || "Add barangay"}</Text>
+                {renderFieldValue(residentialAddress, "Add barangay")}
               </View>
             </View>
             <Pressable
@@ -466,7 +472,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="home" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Street Address</Text>
-                <Text style={styles.fieldValue}>{streetAddress || "Add street address"}</Text>
+                {renderFieldValue(streetAddress, "Add street address")}
               </View>
             </View>
             <Pressable
@@ -483,7 +489,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="phone" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Phone Number</Text>
-                <Text style={styles.fieldValue}>{phoneNumber || "Add phone number"}</Text>
+                {renderFieldValue(phoneNumber, "Add phone number")}
               </View>
             </View>
             <Pressable
@@ -502,7 +508,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="bloodtype" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Blood Type</Text>
-                <Text style={styles.fieldValue}>{bloodType || "Add blood type"}</Text>
+                {renderFieldValue(bloodType, "Add blood type")}
               </View>
             </View>
             <Pressable
@@ -519,7 +525,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="medical-services" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Medical Notes</Text>
-                <Text style={styles.fieldValue}>{medicalNotes || "Add medical notes"}</Text>
+                {renderFieldValue(medicalNotes, "Add medical notes")}
               </View>
             </View>
             <Pressable
@@ -536,7 +542,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="accessible" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Special Needs</Text>
-                <Text style={styles.fieldValue}>{specialNeeds || "Add special needs"}</Text>
+                {renderFieldValue(specialNeeds, "Add special needs")}
               </View>
             </View>
             <Pressable
@@ -553,7 +559,7 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="family-restroom" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Household Size</Text>
-                <Text style={styles.fieldValue}>{householdSize || "Add household size"}</Text>
+                {renderFieldValue(householdSize, "Add household size")}
               </View>
             </View>
             <Pressable

@@ -12,6 +12,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useToast } from "../../context/ToastContext.jsx";
 import { fetchRadarFrames } from "../../services/rainviewer.js";
 import RAIN_VIEWER_MAP_HTML from "../../assets/rainViewerMapHtml.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -170,9 +171,28 @@ export default function RainViewerScreen({ navigation }) {
           </Pressable>
         </View>
       ) : loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
-          <Text style={styles.loadingText}>Loading radar data...</Text>
+        <View style={styles.contentContainer}>
+          <View style={styles.mapContainer}>
+            <Skeleton width="100%" height="100%" borderRadius={0} />
+          </View>
+          <View style={styles.controlsContainer}>
+            <View style={styles.controlsRow}>
+              <Skeleton width={44} height={44} borderRadius={22} />
+              <Skeleton width={52} height={52} borderRadius={26} />
+              <Skeleton width={44} height={44} borderRadius={22} />
+            </View>
+            <Skeleton width={60} height={14} style={{ marginBottom: 8 }} />
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}>
+                <Skeleton width={10} height={10} borderRadius={2} />
+                <Skeleton width={30} height={11} />
+              </View>
+              <View style={styles.legendItem}>
+                <Skeleton width={10} height={10} borderRadius={2} />
+                <Skeleton width={50} height={11} />
+              </View>
+            </View>
+          </View>
         </View>
       ) : (
         <View style={styles.contentContainer}>

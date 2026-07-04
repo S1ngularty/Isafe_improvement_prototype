@@ -12,6 +12,7 @@ import { fetchRoute } from "../../services/routing.js";
 import { fetchNearestEvacuationAreas } from "../../services/evacuation.js";
 import { haversine, bearing } from "../../utils/geo.js";
 import LEAFLET_HTML from "../../assets/leafletMapHtml.js";
+import Skeleton from "../../components/Skeleton";
 
 const C = {
   red: "#991b1b",
@@ -229,7 +230,7 @@ export default function MapsScreen() {
 
       {/* Map */}
       {!mapLoaded && (
-        <View style={s.loading}><ActivityIndicator size="large" color={C.red} /></View>
+        <View style={s.loading}><Skeleton width="100%" height="100%" borderRadius={0} /></View>
       )}
       <WebView
         ref={webViewRef}

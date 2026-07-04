@@ -13,6 +13,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useToast } from "../../context/ToastContext.jsx";
 import { fetchAll } from "../../services/floodHazard.js";
 import FLOOD_HAZARD_MAP_HTML from "../../assets/floodHazardMapHtml.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -141,9 +142,32 @@ export default function FloodHazardScreen({ navigation }) {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
-          <Text style={styles.loadingText}>Loading flood data...</Text>
+        <View style={styles.contentContainer}>
+          <View style={styles.mapContainer}>
+            <Skeleton width="100%" height="100%" borderRadius={0} />
+          </View>
+          <View style={styles.legendRow}>
+            {[1, 2, 3, 4, 5].map((key) => (
+              <View key={key} style={styles.legendItem}>
+                <Skeleton width={10} height={10} borderRadius={2} />
+                <Skeleton width={30} height={10} />
+              </View>
+            ))}
+          </View>
+          <View style={styles.listHeader}>
+            <Skeleton width={100} height={16} />
+          </View>
+          <View style={styles.listContent}>
+            {[1, 2, 3, 4].map((key) => (
+              <View key={key} style={styles.barangayRow}>
+                <View style={styles.barangayInfo}>
+                  <Skeleton width={120} height={16} style={{ marginBottom: 4 }} />
+                  <Skeleton width={80} height={12} />
+                </View>
+                <Skeleton width={60} height={20} borderRadius={12} />
+              </View>
+            ))}
+          </View>
         </View>
       ) : (
         <View style={styles.contentContainer}>

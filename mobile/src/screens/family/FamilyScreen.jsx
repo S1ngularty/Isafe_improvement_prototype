@@ -16,6 +16,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 import useFamilyLocations from "../../hooks/useFamilyLocations.js";
 import { createFamily, joinFamily, leaveFamily } from "../../services/family.js";
 import * as Clipboard from "expo-clipboard";
+import Skeleton from "../../components/Skeleton.jsx";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -132,9 +133,22 @@ export default function FamilyScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
+        <View style={styles.header}>
+          <Skeleton width={100} height={26} style={{ marginBottom: 4 }} />
+          <Skeleton width={80} height={16} />
         </View>
+        <ScrollView style={styles.memberList} contentContainerStyle={styles.memberListContent}>
+          {[1, 2, 3].map((key) => (
+            <View key={key} style={styles.memberRow}>
+              <Skeleton width={10} height={10} borderRadius={5} />
+              <View style={styles.memberInfo}>
+                <Skeleton width={120} height={18} />
+                <Skeleton width={60} height={13} style={{ marginTop: 4 }} />
+              </View>
+              <Skeleton width={40} height={14} />
+            </View>
+          ))}
+        </ScrollView>
       </SafeAreaView>
     );
   }
