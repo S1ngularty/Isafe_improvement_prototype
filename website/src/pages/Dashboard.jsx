@@ -29,6 +29,7 @@ import AlertsView from "../components/AlertsView";
 import AlertPopup from "../components/AlertPopup";
 import MemberInfoModal from "../components/MemberInfoModal";
 import ResourcesHub from "./resources/ResourcesHub.jsx";
+import HotlinesView from "../components/HotlinesView";
 import useAlertNotifications from "../hooks/useAlertNotifications";
 import useGeolocation from "../hooks/useGeolocation";
 import useFamilyLocations from "../hooks/useFamilyLocations";
@@ -302,6 +303,8 @@ export default function Dashboard() {
 
           {view === "resources" && <ResourcesHub />}
 
+          {view === "hotlines" && <HotlinesView />}
+
           {view === "contacts" && (
             <div className="h-[calc(100vh-7rem)]">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden p-5">
@@ -508,6 +511,8 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
+
+
 
               {family && familyMembers && familyMembers.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">

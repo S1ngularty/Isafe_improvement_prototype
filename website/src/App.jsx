@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -12,6 +12,7 @@ export default function App() {
       <StatusWidget />
       <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/hotlines" element={<Navigate to="/dashboard" replace />} />
       <Route path="/confirm" element={<ConfirmEmail />} />
       <Route
         path="/dashboard"

@@ -10,21 +10,47 @@ const STATUS_CONFIG = {
   emergency: { dot: "bg-red-500", bg: "bg-red-50", border: "border-red-300", text: "text-red-800", label: "Emergency" },
 };
 
+const STATUS_COLORS = {
+  safe: "#22c55e",
+  help: "#eab308",
+  emergency: "#ef4444",
+};
+
 const ROLE_BADGES = {
   head: "bg-shield-600 text-white",
   co_head: "bg-green-600 text-white",
   member: null,
 };
 
+function AvatarCircle({ person, status, size = 32 }) {
+  const color = STATUS_COLORS[status] || STATUS_COLORS.safe;
+  const initial = (person.full_name || "?")[0].toUpperCase();
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (person.avatar_url && !imgFailed) {
+    return (
+      <div className="shrink-0 rounded-full overflow-hidden" style={{ width: size, height: size, border: "2px solid " + color }}>
+        <img src={person.avatar_url} alt="" className="w-full h-full object-cover" onError={() => setImgFailed(true)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0 rounded-full overflow-hidden flex items-center justify-center" style={{ width: size, height: size, border: "2px solid " + color, backgroundColor: color }}>
+      <span className="font-bold text-white leading-none select-none" style={{ fontSize: size * 0.4 + "px" }}>{initial}</span>
+    </div>
+  );
+}
+
 const PERIOD_TABS = [
-  { value: 7, label: "7 days" },
-  { value: 15, label: "15 days" },
-  { value: 30, label: "30 days" },
+  { value: 7, label: "7d" },
+  { value: 15, label: "15d" },
+  { value: 30, label: "30d" },
 ];
 
 function ShieldCheck() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
     </svg>
   );
@@ -32,7 +58,7 @@ function ShieldCheck() {
 
 function ExclamationIcon() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
@@ -40,7 +66,7 @@ function ExclamationIcon() {
 
 function BellAlert() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
     </svg>
   );
@@ -48,7 +74,7 @@ function BellAlert() {
 
 function UsersIcon() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   );
@@ -56,25 +82,8 @@ function UsersIcon() {
 
 function ClockIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
-function LocationIcon() {
-  return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
     </svg>
   );
 }
@@ -177,7 +186,7 @@ export default function AlertsView() {
 
   if (!session) {
     return (
-      <div className="flex items-center justify-center h-64 text-sm text-gray-400">
+      <div className="w-full border border-gray-200 rounded-lg py-10 text-center text-sm text-gray-400">
         Sign in to view alerts
       </div>
     );
@@ -185,13 +194,13 @@ export default function AlertsView() {
 
   if (!currentStatus?.family_id) {
     return (
-      <div className="max-w-md mx-auto mt-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+      <div className="w-full">
+        <div className="border border-gray-200 rounded-lg p-5 text-center">
+          <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center">
             <UsersIcon />
           </div>
-          <p className="text-sm font-semibold text-gray-900 mb-1">No Family Yet</p>
-          <p className="text-xs text-gray-400 mb-4">Create or join a family to see member alerts</p>
+          <p className="text-sm font-semibold text-gray-900 mb-0.5">No Family Yet</p>
+          <p className="text-xs text-gray-400 mb-3">Create or join a family to see member alerts</p>
           <FamilySetup onDone={() => { refreshProfile(); refresh(); }} />
         </div>
       </div>
@@ -199,25 +208,23 @@ export default function AlertsView() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-shield-50 flex items-center justify-center">
+    <div className="w-full space-y-4">
+      <div className="flex items-center justify-between gap-3 pb-4 border-b border-gray-200">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-md bg-shield-50 flex items-center justify-center shrink-0">
             <BellAlert />
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Alerts</h2>
-            <p className="text-xs text-gray-400">{currentStatus.family_name} &middot; {members.length} member{members.length !== 1 ? "s" : ""}</p>
-          </div>
+          <h2 className="text-base font-bold text-gray-900 truncate">Alerts</h2>
+          <span className="text-xs text-gray-400 truncate">&middot; {currentStatus.family_name} &middot; {members.length} member{members.length !== 1 ? "s" : ""}</span>
         </div>
-        <div className="flex bg-gray-100 rounded-lg p-0.5 gap-0.5 self-start sm:self-auto" role="tablist" aria-label="Time period">
+        <div className="flex bg-gray-100 rounded-md p-0.5 gap-0.5 shrink-0" role="tablist" aria-label="Time period">
           {PERIOD_TABS.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => changePeriod(value)}
               role="tab"
               aria-selected={period === value}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded transition-all ${
                 period === value
                   ? "bg-white text-shield-700 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
@@ -229,15 +236,13 @@ export default function AlertsView() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-4 pt-4 pb-0">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Family Status Overview</p>
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-4 pt-3 pb-2 border-b border-gray-100">
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Family Status Overview</p>
+        </div>
 
-          <div
-            className="flex gap-2 flex-wrap"
-            role="tablist"
-            aria-label="Filter by status"
-          >
+        <div className="px-4 py-2.5 border-b border-gray-50">
+          <div className="flex gap-1.5 flex-wrap" role="tablist" aria-label="Filter by status">
             {STATUS_TABS.map(({ key, label, icon: Icon, activeBg, activeText, inactiveBg, inactiveText }, idx) => {
               const isActive = statusFilter === key;
               const count = counts[key];
@@ -252,18 +257,15 @@ export default function AlertsView() {
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => setStatusFilter(key)}
                   onKeyDown={(e) => handleKeyDown(e, idx)}
-                  className={`
-                    flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold
-                    transition-all duration-150
-                    ${isActive ? `${activeBg} ${activeText} shadow-sm` : `${inactiveBg} ${inactiveText} hover:opacity-80`}
-                  `}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-150 ${
+                    isActive ? `${activeBg} ${activeText} shadow-sm` : `${inactiveBg} ${inactiveText} hover:opacity-80`
+                  }`}
                 >
-                  <span className="w-4 h-4 shrink-0"><Icon /></span>
+                  <span className="w-3.5 h-3.5 shrink-0"><Icon /></span>
                   <span>{label}</span>
-                  <span className={`
-                    text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center
-                    ${isActive ? "bg-white/20" : "bg-white/70"}
-                  `}>
+                  <span className={`text-[10px] font-bold px-1 py-0.5 rounded-full min-w-[18px] text-center ${
+                    isActive ? "bg-white/20" : "bg-white/70"
+                  }`}>
                     {count}
                   </span>
                 </button>
@@ -272,10 +274,10 @@ export default function AlertsView() {
           </div>
         </div>
 
-        <div className="mt-3 divide-y divide-gray-100" role="tabpanel" id={`status-panel-${statusFilter}`} aria-labelledby={`status-tab-${statusFilter}`}>
+        <div className="divide-y divide-gray-50" role="tabpanel" id={`status-panel-${statusFilter}`} aria-labelledby={`status-tab-${statusFilter}`}>
           {filteredMembers.length === 0 ? (
-            <div className="px-4 py-10 text-center">
-              <p className="text-sm text-gray-400">No members with this status</p>
+            <div className="px-4 py-8 text-center">
+              <p className="text-xs text-gray-400">No members with this status</p>
             </div>
           ) : (
             filteredMembers.map((m) => {
@@ -288,42 +290,32 @@ export default function AlertsView() {
                 <button
                   key={m.id}
                   onClick={() => setSelectedMember(m)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left group"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors text-left group"
                   aria-label={`${m.full_name || "Unnamed"} - ${cfg.label}`}
                 >
-                  <span className={`w-3 h-3 rounded-full shrink-0 ring-2 ring-offset-1 ${cfg.dot} ring-${cfg.dot} ${cfg.dot.includes("green") ? "ring-green-300" : cfg.dot.includes("yellow") ? "ring-yellow-300" : "ring-red-300"}`} />
+                  <AvatarCircle person={m} status={m.status} size={32} />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{m.full_name || "Unnamed"}</p>
-                      {isSelf && <span className="text-[10px] text-gray-400 font-medium">(you)</span>}
-                      {roleLabel && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${badgeClass}`}>
-                          {roleLabel}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <ClockIcon />
-                        {timeAgo(m.last_seen_at) || "Never"}
+                  <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{m.full_name || "Unnamed"}</p>
+                    {isSelf && <span className="text-[10px] text-gray-400 font-medium shrink-0">(you)</span>}
+                    {roleLabel && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 leading-none ${badgeClass}`}>
+                        {roleLabel}
                       </span>
-                      {m.lat != null && m.lng != null && (
-                        <span className="flex items-center gap-1 text-gray-300">
-                          <LocationIcon />
-                          {`${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}`}
-                        </span>
-                      )}
-                    </div>
+                    )}
+                    <span className="hidden sm:inline text-[11px] text-gray-400 truncate">
+                      &middot; {timeAgo(m.last_seen_at) || "never"}
+                      {m.lat != null && m.lng != null && ` · ${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}`}
+                    </span>
                   </div>
 
-                  <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-md ${cfg.bg} ${cfg.text}`}>
+                  <span className={`shrink-0 text-[11px] font-bold px-2 py-0.5 rounded ${cfg.bg} ${cfg.text}`}>
                     {cfg.label}
                   </span>
 
-                  <span className="shrink-0 text-gray-300 group-hover:text-gray-500 transition-colors">
-                    <ChevronRight />
-                  </span>
+                  <svg className="w-3.5 h-3.5 shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               );
             })
@@ -331,35 +323,35 @@ export default function AlertsView() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-1.5">
           <ClockIcon />
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Recent Activity</p>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Recent Activity</p>
         </div>
 
         {loading ? (
-          <div className="px-4 py-12 flex flex-col items-center gap-3" role="status">
-            <svg className="w-6 h-6 animate-spin text-shield-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="px-4 py-8 flex flex-col items-center gap-2" role="status">
+            <svg className="w-5 h-5 animate-spin text-shield-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <p className="text-xs text-gray-400">Loading activity...</p>
           </div>
         ) : error ? (
-          <div className="px-4 py-8 text-center">
+          <div className="px-4 py-6 text-center">
             <p className="text-xs text-red-500">{error}</p>
-            <button onClick={refresh} className="mt-2 text-xs text-shield-600 font-semibold hover:underline">Retry</button>
+            <button onClick={refresh} className="mt-1.5 text-xs text-shield-600 font-semibold hover:underline">Retry</button>
           </div>
         ) : history.length === 0 ? (
-          <div className="px-4 py-12 flex flex-col items-center gap-2">
+          <div className="px-4 py-8 flex flex-col items-center gap-1.5">
             <ClockIcon />
-            <p className="text-sm text-gray-400">No recent activity</p>
-            <p className="text-xs text-gray-300">Status changes will appear here</p>
+            <p className="text-xs text-gray-400">No recent activity</p>
+            <p className="text-[11px] text-gray-400">Status changes will appear here</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-50" role="list" aria-label="Status change activity">
             {historyGroups.map((group) => (
               <div key={group.dateLabel}>
-                <div className="px-4 py-2 bg-gray-50/50">
+                <div className="px-4 py-1.5 bg-gray-50/50 border-b border-gray-50">
                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{group.dateLabel}</p>
                 </div>
                 {group.items.map((item) => {
@@ -370,39 +362,35 @@ export default function AlertsView() {
                     <button
                       key={item.id}
                       onClick={() => setSelectedMember(members.find((m) => m.id === item.user_id) || { id: item.user_id })}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left group"
+                      className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors text-left group"
                       role="listitem"
                       aria-label={`${item.full_name || "Someone"} changed to ${toCfg.label}`}
                     >
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${toCfg.bg} ${toCfg.border} border-2`} aria-hidden="true">
-                        {item.previous_status ? (
-                          <span className={`w-2.5 h-2.5 rounded-full border-2 border-white ${fromCfg ? fromCfg.dot : "bg-gray-400"}`} />
-                        ) : (
-                          <span className={`w-2.5 h-2.5 rounded-full ${toCfg.dot}`} />
-                        )}
-                      </div>
+                      <AvatarCircle person={item} status={item.new_status} size={32} />
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm text-gray-900 truncate">
                           <span className="font-semibold">{item.full_name || "Someone"}</span>
                           {item.previous_status ? (
-                            <span> changed from <span className={`font-semibold ${fromCfg ? fromCfg.text : "text-gray-500"}`}>{fromCfg ? fromCfg.label : item.previous_status}</span> to </span>
+                            <span>
+                              {" "}
+                              <span className={`font-semibold ${fromCfg ? fromCfg.text : "text-gray-500"}`}>{fromCfg ? fromCfg.label : item.previous_status}</span>
+                              <span className="text-gray-500 mx-0.5">&rarr;</span>
+                              <span className={`font-semibold ${toCfg.text}`}>{toCfg.label}</span>
+                            </span>
                           ) : (
-                            <span> set status to </span>
+                            <span>
+                              {" "}
+                              <span className={`font-semibold ${toCfg.text}`}>{toCfg.label}</span>
+                            </span>
                           )}
-                          <span className={`font-semibold ${toCfg.text}`}>{toCfg.label}</span>
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-gray-400">{formatDateTime(item.created_at)}</span>
-                          {item.lat != null && item.lng != null && (
-                            <span className="text-xs text-gray-300">{`${item.lat.toFixed(4)}, ${item.lng.toFixed(4)}`}</span>
-                          )}
-                        </div>
+                        <span className="text-[11px] text-gray-400">{formatDateTime(item.created_at)}</span>
                       </div>
 
-                      <span className="shrink-0 text-gray-300 group-hover:text-gray-500 transition-colors">
-                        <ChevronRight />
-                      </span>
+                      <svg className="w-3.5 h-3.5 shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
                     </button>
                   );
                 })}

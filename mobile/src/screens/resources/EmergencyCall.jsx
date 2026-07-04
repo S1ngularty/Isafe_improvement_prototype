@@ -200,24 +200,18 @@ export default function EmergencyCall({ navigation }) {
           </View>
         </View>
 
-        {/* Important Numbers */}
-        <View style={styles.importantSection}>
-          <Text style={styles.importantTitle}>Important Numbers to Remember:</Text>
-          <Pressable style={styles.numberItem} onPress={() => handleCall("911")}>
-            <MaterialIcons name="phone" size={18} color={COLORS.shieldPrimary} />
-            <View>
-              <Text style={styles.numberLabel}>Emergency Services</Text>
-              <Text style={styles.numberValue}>911 or 112</Text>
-            </View>
-          </Pressable>
-          <Pressable style={styles.numberItem} onPress={() => handleCall("112")}>
-            <MaterialIcons name="phone" size={18} color={COLORS.shieldPrimary} />
-            <View>
-              <Text style={styles.numberLabel}>Disaster Response Hotline</Text>
-              <Text style={styles.numberValue}>Local Municipality Hotline</Text>
-            </View>
-          </Pressable>
-        </View>
+        {/* View All Hotlines Button */}
+        <Pressable
+          style={styles.hotlinesButton}
+          onPress={() => navigation.navigate("EmergencyHotlines")}
+        >
+          <MaterialIcons name="phone" size={22} color={COLORS.white} />
+          <View style={styles.hotlinesButtonText}>
+            <Text style={styles.hotlinesButtonTitle}>View All Emergency Hotlines</Text>
+            <Text style={styles.hotlinesButtonSub}>MDRRMO, Police, Fire, Medical & more</Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color="rgba(255,255,255,0.7)" />
+        </Pressable>
       </ScrollView>
 
       {/* Request Modal */}
@@ -579,5 +573,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.gray600,
     textAlign: "center",
+  },
+  hotlinesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.shieldPrimary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  hotlinesButtonText: {
+    flex: 1,
+  },
+  hotlinesButtonTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.white,
+  },
+  hotlinesButtonSub: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
   },
 });
