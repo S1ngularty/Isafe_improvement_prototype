@@ -1,6 +1,20 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
-import { getSession, getCurrentUser, getUserRole, getProfile, signOut } from "../services/auth.js";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import {
+  getSession,
+  getCurrentUser,
+  getUserRole,
+  getProfile,
+  signOut,
+} from "../services/auth.js";
 import { supabase } from "../services/supabase.js";
+import { useNetwork } from "./NetworkContext.jsx";
 
 const AuthContext = createContext();
 const PROFILE_TIMEOUT_MS = 8000;
@@ -10,22 +24,28 @@ function withTimeout(promise, label, timeoutMs = PROFILE_TIMEOUT_MS) {
   return Promise.race([
     promise.finally(() => clearTimeout(timer)),
     new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+      timer = setTimeout(
+        () => reject(new Error(`${label} timed out`)),
+        timeoutMs,
+      );
     }),
   ]);
 }
 
 async function hydrateUserData() {
-  const [currentUserResult, roleResult, profileResult] = await Promise.allSettled([
-    withTimeout(getCurrentUser(), "Loading current user"),
-    withTimeout(getUserRole(), "Loading user role"),
-    withTimeout(getProfile(), "Loading user profile"),
-  ]);
+  const [currentUserResult, roleResult, profileResult] =
+    await Promise.allSettled([
+      withTimeout(getCurrentUser(), "Loading current user"),
+      withTimeout(getUserRole(), "Loading user role"),
+      withTimeout(getProfile(), "Loading user profile"),
+    ]);
 
   return {
-    currentUser: currentUserResult.status === "fulfilled" ? currentUserResult.value : null,
+    currentUser:
+      currentUserResult.status === "fulfilled" ? currentUserResult.value : null,
     userRole: roleResult.status === "fulfilled" ? roleResult.value : null,
-    userProfile: profileResult.status === "fulfilled" ? profileResult.value : null,
+    userProfile:
+      profileResult.status === "fulfilled" ? profileResult.value : null,
   };
 }
 
@@ -35,8 +55,17 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { isOffline } = useNetwork();
 
   const refreshSession = useCallback(async () => {
+    if (isOffline) {
+      setSession(null);
+      setUser(null);
+      setRole(null);
+      setProfile(null);
+      return;
+    }
+
     try {
       const sess = await getSession();
       if (sess?.user) {
@@ -54,48 +83,62 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error("[AuthContext] Error refreshing session:", error);
     }
-  }, []);
+  }, [isOffline]);
 
   useEffect(() => {
+    let isMounted = true;
+
     (async () => {
       try {
         await refreshSession();
       } catch (error) {
         console.error("[AuthContext] Error loading session:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     })();
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        console.log("[AuthContext] Auth state changed:", event);
-        
-        if (newSession?.user) {
-          try {
-            const { currentUser, userRole, userProfile } = await hydrateUserData();
-            setUser(currentUser);
-            setRole(userRole);
-            setProfile(userProfile);
-            setSession(newSession);
-          } catch (error) {
-            console.error("[AuthContext] Error updating user data:", error);
-            setSession(newSession);
-          }
-        } else {
-          setSession(null);
-          setUser(null);
-          setRole(null);
-          setProfile(null);
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("[AuthContext] Auth state changed:", event);
+
+      if (isOffline) {
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setProfile(null);
+        return;
       }
-    );
+
+      if (newSession?.user) {
+        try {
+          const { currentUser, userRole, userProfile } =
+            await hydrateUserData();
+          setUser(currentUser);
+          setRole(userRole);
+          setProfile(userProfile);
+          setSession(newSession);
+        } catch (error) {
+          console.error("[AuthContext] Error updating user data:", error);
+          setSession(newSession);
+        }
+      } else {
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setProfile(null);
+      }
+    });
 
     return () => {
+      isMounted = false;
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [isOffline, refreshSession]);
 
   const logout = useCallback(async () => {
     try {
@@ -111,21 +154,42 @@ export function AuthProvider({ children }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
+    if (isOffline) {
+      return;
+    }
+
     const { data } = await supabase.auth.getSession();
     if (data?.session?.user) {
       const userProfile = await getProfile();
       setProfile(userProfile);
     }
-  }, []);
+  }, [isOffline]);
 
-  const contextValue = useMemo(() => ({
-    session, user, role, profile, loading, logout, refreshProfile, refreshSession
-  }), [session, user, role, profile, loading, logout, refreshProfile, refreshSession]);
+  const contextValue = useMemo(
+    () => ({
+      session,
+      user,
+      role,
+      profile,
+      loading,
+      logout,
+      refreshProfile,
+      refreshSession,
+    }),
+    [
+      session,
+      user,
+      role,
+      profile,
+      loading,
+      logout,
+      refreshProfile,
+      refreshSession,
+    ],
+  );
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
 

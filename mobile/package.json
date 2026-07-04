@@ -4,6 +4,7 @@
   "main": "index.js",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/netinfo": "11.4.1",
     "@react-native-firebase/app": "^24.1.1",
     "@react-native-firebase/messaging": "^24.1.1",
     "@react-navigation/bottom-tabs": "^6.5.20",
