@@ -21,6 +21,7 @@ import {
   deleteEmergencyContact,
   MAX_EMERGENCY_CONTACTS,
 } from "../../services/contacts.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -190,9 +191,28 @@ export default function EmergencyContactsScreen({ navigation }) {
 
       {/* Contact List */}
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {[1, 2, 3].map((key) => (
+            <View key={key} style={styles.contactCard}>
+              <View style={styles.contactLeft}>
+                <Skeleton width={40} height={40} borderRadius={20} />
+                <View style={styles.contactInfo}>
+                  <Skeleton width={120} height={15} style={{ marginBottom: 4 }} />
+                  <Skeleton width={90} height={13} />
+                </View>
+              </View>
+              <View style={styles.contactActions}>
+                <Skeleton width={34} height={34} borderRadius={17} />
+                <Skeleton width={34} height={34} borderRadius={17} />
+                <Skeleton width={34} height={34} borderRadius={17} />
+                <Skeleton width={34} height={34} borderRadius={17} />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       ) : contacts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="contact-phone" size={56} color={COLORS.gray300} />

@@ -25,6 +25,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { fetchNearestEvacuationAreas } from "../../services/evacuation.js";
 import { fetchRoute } from "../../services/routing.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   primary: "#800000",
@@ -238,9 +239,28 @@ export default function EvacuationCentersScreen({ navigation }) {
 
         {/* Loading State */}
         {loadingLocation || loadingCenters ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.emptyText}>Finding nearby centers…</Text>
+          <View style={styles.list}>
+            {[1, 2, 3].map((key) => (
+              <View key={key} style={styles.card}>
+                <View style={styles.cardTop}>
+                  <Skeleton width={44} height={44} borderRadius={12} />
+                  <View style={styles.cardHeader}>
+                    <Skeleton width={150} height={18} style={{ marginBottom: 4 }} />
+                    <Skeleton width={80} height={14} />
+                  </View>
+                  <Skeleton width={20} height={20} />
+                </View>
+                <Skeleton width={200} height={14} style={{ marginTop: 10, marginLeft: 56 }} />
+                <View style={[styles.cardMeta, { marginTop: 10 }]}>
+                  <Skeleton width={80} height={14} />
+                  <Skeleton width={60} height={20} borderRadius={12} />
+                </View>
+                <View style={styles.cardFooter}>
+                  <Skeleton width={100} height={14} />
+                  <Skeleton width={18} height={18} />
+                </View>
+              </View>
+            ))}
           </View>
         ) : centers.length === 0 ? (
           <View style={styles.centered}>
