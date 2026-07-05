@@ -7,17 +7,25 @@ import { useNavigate } from "react-router-dom";
 import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/auth";
 import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
 import { fetchAllAlerts, createAlert, updateAlert, deleteAlert } from "../services/tcws";
+import { fetchAllEvacuationAreas, createEvacuationArea, updateEvacuationArea, deleteEvacuationArea, uploadLandmarkImage } from "../services/evac";
+import { fetchAllHotlines, createHotline, updateHotline, deleteHotline } from "../services/hotlines";
+import { formatSpecialNeeds } from "../utils/medicalOptions";
 
 import AdminSidebar from "../components/AdminSidebar";
 import ConfirmDialog from "../components/ConfirmDialog";
 import FloodHazardView from "./floodHazard/FloodHazardView";
 import RainViewerPage from "./RainViewerPage";
+import TideView from "../components/TideView";
+import AdminAlertsView from "../components/AdminAlertsView";
+import AdminAlertDetail from "../components/AdminAlertDetail";
+import AdminRescuersView from "../components/AdminRescuersView";
 export default function AdminDashboard() {
   const { session, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [view, setView] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [statusView, setStatusView] = useState(null);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
@@ -39,6 +47,23 @@ export default function AdminDashboard() {
   const [tcwsDeleteConfirm, setTcwsDeleteConfirm] = useState(null);
   const [tcwsSaving, setTcwsSaving] = useState(false);
 
+  const [evacAreas, setEvacAreas] = useState([]);
+  const [evacLoading, setEvacLoading] = useState(false);
+  const [evacModal, setEvacModal] = useState(false);
+  const [editingEvac, setEditingEvac] = useState(null);
+  const [evacForm, setEvacForm] = useState({ name: "", description: "", latitude: "", longitude: "", capacity: "", status: "active" });
+  const [evacFile, setEvacFile] = useState(null);
+  const [evacPreview, setEvacPreview] = useState(null);
+  const [evacDeleteConfirm, setEvacDeleteConfirm] = useState(null);
+  const [evacSaving, setEvacSaving] = useState(false);
+
+  const [hotlines, setHotlines] = useState([]);
+  const [hotlinesLoading, setHotlinesLoading] = useState(false);
+  const [hotlineModal, setHotlineModal] = useState(false);
+  const [editingHotline, setEditingHotline] = useState(null);
+  const [hotlineForm, setHotlineForm] = useState({ name: "", phoneNumbers: [{ type: "", number: "" }], email: "", website: "", category: "general", is_active: true, sort_order: 0 });
+  const [hotlineDeleteConfirm, setHotlineDeleteConfirm] = useState(null);
+  const [hotlineSaving, setHotlineSaving] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -77,11 +102,38 @@ export default function AdminDashboard() {
     }
   }, [showToast]);
 
+  const loadEvacuationAreas = useCallback(async () => {
+    setEvacLoading(true);
+    try {
+      const data = await fetchAllEvacuationAreas();
+      setEvacAreas(data);
+    } catch (err) {
+      showToast("Failed to load evacuation areas: " + err.message, "error");
+    } finally {
+      setEvacLoading(false);
+    }
+  }, [showToast]);
+
+  const loadHotlines = useCallback(async () => {
+    setHotlinesLoading(true);
+    try {
+      const data = await fetchAllHotlines();
+      setHotlines(data);
+    } catch (err) {
+      showToast("Failed to load hotlines: " + err.message, "error");
+    } finally {
+      setHotlinesLoading(false);
+    }
+  }, [showToast]);
+
   useEffect(() => {
     if (view === "users") loadUsers();
     if (view === "announcements") loadAnnouncements();
     if (view === "tcws") loadTcws();
-  }, [view, loadUsers, loadAnnouncements]);
+    if (view === "evacuation") loadEvacuationAreas();
+    if (view === "hotlines") loadHotlines();
+    if (view !== "alerts") setStatusView(null);
+  }, [view, loadUsers, loadAnnouncements, loadTcws, loadEvacuationAreas, loadHotlines]);
 
   function openCreateModal() {
     setEditingAnnouncement(null);
@@ -252,6 +304,195 @@ export default function AdminDashboard() {
     }
   }
 
+  function openEvacCreate() {
+    setEditingEvac(null);
+    setEvacForm({ name: "", description: "", latitude: "", longitude: "", capacity: "", status: "active" });
+    setEvacFile(null);
+    setEvacPreview(null);
+    setEvacModal(true);
+  }
+
+  function openEvacEdit(area) {
+    setEditingEvac(area);
+    setEvacForm({
+      name: area.name || "",
+      description: area.description || "",
+      latitude: area.latitude != null ? String(area.latitude) : "",
+      longitude: area.longitude != null ? String(area.longitude) : "",
+      capacity: area.capacity != null ? String(area.capacity) : "",
+      status: area.status || "active",
+    });
+    setEvacFile(null);
+    setEvacPreview(area.landmark_url || null);
+    setEvacModal(true);
+  }
+
+  function closeEvacModal() {
+    setEvacModal(false);
+    setEditingEvac(null);
+    setEvacFile(null);
+    setEvacPreview(null);
+  }
+
+  function handleEvacFileSelect(e) {
+    const f = e.target.files[0];
+    if (!f) return;
+    setEvacFile(f);
+    const reader = new FileReader();
+    reader.onload = () => setEvacPreview(reader.result);
+    reader.readAsDataURL(f);
+  }
+
+  async function handleEvacSave(e) {
+    e.preventDefault();
+    if (!evacForm.name.trim() || !evacForm.latitude || !evacForm.longitude) return;
+    setEvacSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("name", evacForm.name.trim());
+      formData.append("description", evacForm.description.trim());
+      formData.append("latitude", evacForm.latitude);
+      formData.append("longitude", evacForm.longitude);
+      formData.append("status", evacForm.status);
+      if (evacForm.capacity) formData.append("capacity", evacForm.capacity);
+
+      if (evacFile) {
+        formData.append("file", evacFile);
+      } else if (evacForm.image_url) {
+        formData.append("landmark_url", evacForm.image_url);
+      }
+
+      if (editingEvac) {
+        await updateEvacuationArea(editingEvac.id, formData);
+        showToast("Evacuation center updated.", "success");
+      } else {
+        await createEvacuationArea(formData);
+        showToast("Evacuation center created.", "success");
+      }
+      closeEvacModal();
+      loadEvacuationAreas();
+    } catch (err) {
+      showToast("Failed to save: " + err.message, "error");
+    } finally {
+      setEvacSaving(false);
+    }
+  }
+
+  async function handleEvacDelete(id) {
+    try {
+      await deleteEvacuationArea(id);
+      setEvacAreas((prev) => prev.filter((a) => a.id !== id));
+      showToast("Evacuation center deleted.", "success");
+    } catch (err) {
+      showToast("Failed to delete: " + err.message, "error");
+    } finally {
+      setEvacDeleteConfirm(null);
+    }
+  }
+
+  const HOTLINE_CATEGORIES = ["general", "police", "fire", "medical", "rescue"];
+
+  function openHotlineCreate() {
+    setEditingHotline(null);
+    setHotlineForm({ name: "", phoneNumbers: [{ type: "", number: "" }], email: "", website: "", category: "general", is_active: true, sort_order: 0 });
+    setHotlineModal(true);
+  }
+
+  function openHotlineEdit(hotline) {
+    setEditingHotline(hotline);
+    setHotlineForm({
+      name: hotline.name || "",
+      phoneNumbers: (hotline.phone_numbers || []).length > 0
+        ? (hotline.phone_numbers || []).map((p) => ({ type: p.type || "", number: p.number || "" }))
+        : [{ type: "", number: "" }],
+      email: hotline.email || "",
+      website: hotline.website || "",
+      category: hotline.category || "general",
+      is_active: hotline.is_active !== false,
+      sort_order: hotline.sort_order || 0,
+    });
+    setHotlineModal(true);
+  }
+
+  function closeHotlineModal() {
+    setHotlineModal(false);
+    setEditingHotline(null);
+  }
+
+  function addPhoneRow() {
+    setHotlineForm((prev) => ({ ...prev, phoneNumbers: [...prev.phoneNumbers, { type: "", number: "" }] }));
+  }
+
+  function removePhoneRow(index) {
+    setHotlineForm((prev) => ({
+      ...prev,
+      phoneNumbers: prev.phoneNumbers.filter((_, i) => i !== index),
+    }));
+  }
+
+  function updatePhoneRow(index, field, value) {
+    setHotlineForm((prev) => {
+      const updated = [...prev.phoneNumbers];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, phoneNumbers: updated };
+    });
+  }
+
+  async function handleHotlineSave(e) {
+    e.preventDefault();
+    if (!hotlineForm.name.trim()) return;
+    setHotlineSaving(true);
+    try {
+      const validPhones = hotlineForm.phoneNumbers.filter((p) => p.number.trim());
+      const formData = new FormData();
+      formData.append("name", hotlineForm.name.trim());
+      formData.append("phones", JSON.stringify(validPhones));
+      formData.append("email", hotlineForm.email.trim());
+      formData.append("website", hotlineForm.website.trim());
+      formData.append("category", hotlineForm.category);
+      formData.append("is_active", String(hotlineForm.is_active));
+      formData.append("sort_order", String(hotlineForm.sort_order));
+
+      if (editingHotline) {
+        await updateHotline(editingHotline.id, formData);
+        showToast("Hotline updated.", "success");
+      } else {
+        await createHotline(formData);
+        showToast("Hotline created.", "success");
+      }
+      closeHotlineModal();
+      loadHotlines();
+    } catch (err) {
+      showToast("Failed to save: " + err.message, "error");
+    } finally {
+      setHotlineSaving(false);
+    }
+  }
+
+  async function handleHotlineToggle(hotline) {
+    try {
+      const formData = new FormData();
+      formData.append("is_active", String(!hotline.is_active));
+      await updateHotline(hotline.id, formData);
+      setHotlines((prev) => prev.map((h) => (h.id === hotline.id ? { ...h, is_active: !h.is_active } : h)));
+      showToast(hotline.is_active ? "Hotline hidden." : "Hotline published.", "success");
+    } catch (err) {
+      showToast("Failed to update: " + err.message, "error");
+    }
+  }
+
+  async function handleHotlineDelete(id) {
+    try {
+      await deleteHotline(id);
+      setHotlines((prev) => prev.filter((h) => h.id !== id));
+      showToast("Hotline deleted.", "success");
+    } catch (err) {
+      showToast("Failed to delete: " + err.message, "error");
+    } finally {
+      setHotlineDeleteConfirm(null);
+    }
+  }
+
   const TITLE_MAX = 100;
   const SHORT_MAX = 200;
   const LONG_MAX = 2000;
@@ -260,9 +501,8 @@ export default function AdminDashboard() {
   const longLen = announceForm.long_description.length;
 
 
-  async function handleRoleToggle(user) {
+  async function handleRoleChange(user, newRole) {
     if (user.id === session.user.id) return;
-    const newRole = user.role === "admin" ? "user" : "admin";
     try {
       await updateUserRole(user.id, newRole);
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)));
@@ -601,25 +841,40 @@ export default function AdminDashboard() {
                             </span>
                           </td>
                           <td className="px-6 py-4 hidden md:table-cell">
-                            <span className={`text-xs ${user.special_needs ? "text-amber-700 font-medium bg-amber-50 px-2 py-0.5 rounded-full" : "text-gray-300"}`}>
-                              {user.special_needs ? user.special_needs.slice(0, 30) + (user.special_needs.length > 30 ? "..." : "") : "—"}
-                            </span>
+                            {user.special_needs ? (
+                              <div className="flex flex-wrap gap-1">
+                                {formatSpecialNeeds(user.special_needs).map((label, i) => (
+                                  <span key={i} className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                    {label.length > 20 ? label.slice(0, 20) + "…" : label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-300">—</span>
+                            )}
                           </td>
                           <td className="px-6 py-4">
-                            <button
-                              onClick={() => handleRoleToggle(user)}
-                              disabled={isSelf}
-                              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                                isSelf
-                                  ? "bg-alert-100 text-alert-600 cursor-not-allowed"
-                                  : user.role === "admin"
-                                    ? "bg-alert-100 text-alert-600 hover:bg-alert-200"
-                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                              }`}
-                              title={isSelf ? "You cannot change your own role" : `Toggle to ${user.role === "admin" ? "user" : "admin"}`}
-                            >
-                              {user.role}
-                            </button>
+                            {isSelf ? (
+                              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-alert-100 text-alert-600">
+                                {user.role}
+                              </span>
+                            ) : (
+                              <select
+                                value={user.role}
+                                onChange={(e) => handleRoleChange(user, e.target.value)}
+                                className={`px-2 py-1 text-xs font-semibold rounded-full border cursor-pointer ${
+                                  user.role === "admin"
+                                    ? "bg-alert-100 text-alert-600 border-alert-200"
+                                    : user.role === "rescuer"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                                      : "bg-gray-100 text-gray-600 border-gray-200"
+                                }`}
+                              >
+                                <option value="user">user</option>
+                                <option value="rescuer">rescuer</option>
+                                <option value="admin">admin</option>
+                              </select>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <button
@@ -882,6 +1137,501 @@ export default function AdminDashboard() {
           {view === "hazard" && <FloodHazardView />}
 
           {view === "rainviewer" && <RainViewerPage />}
+
+          {view === "tide" && <TideView isAdmin={true} />}
+
+          {view === "rescuers" && <AdminRescuersView />}
+
+          {view === "alerts" && !statusView && (
+            <AdminAlertsView onSelectUser={(userId) => setStatusView(userId)} />
+          )}
+
+          {view === "alerts" && statusView && (
+            <AdminAlertDetail userId={statusView} onBack={() => setStatusView(null)} />
+          )}
+
+          {view === "hotlines" && (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Emergency Hotlines</h1>
+                  <p className="text-gray-500 text-sm mt-1">Manage emergency hotline numbers shown to all users.</p>
+                </div>
+                <button onClick={openHotlineCreate} className="btn-primary py-2 px-4 text-sm flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Hotline
+                </button>
+              </div>
+
+              {hotlinesLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : hotlines.length === 0 ? (
+                <div className="card py-16 text-center text-gray-400">
+                  <svg className="w-14 h-14 mx-auto mb-3 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <p className="text-sm font-medium">No hotlines yet</p>
+                  <p className="text-xs mt-1">Click "New Hotline" to add your first emergency hotline.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr className="text-left text-gray-600 font-semibold">
+                          <th className="px-6 py-3">Name</th>
+                          <th className="px-6 py-3 hidden md:table-cell">Category</th>
+                          <th className="px-6 py-3 hidden md:table-cell">Phone Numbers</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3 w-28">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {hotlines.map((h) => (
+                          <tr key={h.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              <p className="font-medium text-gray-900 truncate max-w-[240px]">{h.name}</p>
+                              {h.email && <p className="text-xs text-gray-400 truncate max-w-[240px] mt-0.5">{h.email}</p>}
+                            </td>
+                            <td className="px-6 py-3 hidden md:table-cell">
+                              <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize bg-gray-100 text-gray-600">
+                                {h.category}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3 hidden md:table-cell">
+                              <span className="text-xs text-gray-500">{(h.phone_numbers || []).length} number(s)</span>
+                            </td>
+                            <td className="px-6 py-3">
+                              <button
+                                onClick={() => handleHotlineToggle(h)}
+                                className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+                                  h.is_active ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                }`}
+                              >
+                                {h.is_active ? "Active" : "Hidden"}
+                              </button>
+                            </td>
+                            <td className="px-6 py-3">
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => openHotlineEdit(h)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+                                  Edit
+                                </button>
+                                <button onClick={() => setHotlineDeleteConfirm(h)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {hotlineModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeHotlineModal}>
+                  <form
+                    onSubmit={handleHotlineSave}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
+                  >
+                    <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+                      <h2 className="text-lg font-bold text-gray-900">
+                        {editingHotline ? "Edit Hotline" : "New Hotline"}
+                      </h2>
+                      <button type="button" onClick={closeHotlineModal} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="px-6 py-4 space-y-4">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={hotlineForm.name}
+                          onChange={(e) => setHotlineForm((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="MDRRMO Tagkawayan"
+                          required
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Category</label>
+                          <select
+                            value={hotlineForm.category}
+                            onChange={(e) => setHotlineForm((p) => ({ ...p, category: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm appearance-none bg-white bg-no-repeat bg-[center_right_0.5rem] focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none cursor-pointer"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundSize: "1.25rem" }}
+                          >
+                            {HOTLINE_CATEGORIES.map((c) => (
+                              <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Sort Order</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={hotlineForm.sort_order}
+                            onChange={(e) => setHotlineForm((p) => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
+                            placeholder="1"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Phone Numbers</label>
+                          <button type="button" onClick={addPhoneRow} className="text-[10px] text-shield-600 font-semibold hover:underline flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Number
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {hotlineForm.phoneNumbers.map((ph, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={ph.type}
+                                onChange={(e) => updatePhoneRow(i, "type", e.target.value)}
+                                placeholder="Label (e.g. Globe)"
+                                className="w-28 rounded-lg border border-gray-200 px-2.5 py-2 text-xs focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                              />
+                              <input
+                                type="text"
+                                value={ph.number}
+                                onChange={(e) => updatePhoneRow(i, "number", e.target.value)}
+                                placeholder="0917-827-4878"
+                                className="flex-1 rounded-lg border border-gray-200 px-2.5 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                              />
+                              {hotlineForm.phoneNumbers.length > 1 && (
+                                <button type="button" onClick={() => removePhoneRow(i)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={hotlineForm.email}
+                          onChange={(e) => setHotlineForm((p) => ({ ...p, email: e.target.value }))}
+                          placeholder="tkqoperationsandwarningsection@gmail.com"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Website / Social Media</label>
+                        <input
+                          type="text"
+                          value={hotlineForm.website}
+                          onChange={(e) => setHotlineForm((p) => ({ ...p, website: e.target.value }))}
+                          placeholder="fb.com/TagkawayanFireStation"
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                      <button type="button" onClick={closeHotlineModal} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={hotlineSaving || !hotlineForm.name.trim()}
+                        className="btn-primary py-2 px-5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {hotlineSaving ? "Saving..." : editingHotline ? "Save Changes" : "Create Hotline"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {hotlineDeleteConfirm && (
+                <ConfirmDialog
+                  title="Delete Hotline"
+                  message={`Permanently delete "${hotlineDeleteConfirm.name}"? This action cannot be undone.`}
+                  confirmLabel="Delete"
+                  confirmClass="bg-red-600 hover:bg-red-700"
+                  onConfirm={() => handleHotlineDelete(hotlineDeleteConfirm.id)}
+                  onCancel={() => setHotlineDeleteConfirm(null)}
+                />
+              )}
+            </>
+          )}
+
+          {view === "evacuation" && (
+            <>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Evacuation Centers</h1>
+                  <p className="text-gray-500 text-sm mt-1">Manage evacuation center locations and details.</p>
+                </div>
+                <button onClick={openEvacCreate} className="btn-primary py-2 px-4 text-sm flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Center
+                </button>
+              </div>
+
+              {evacLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : evacAreas.length === 0 ? (
+                <div className="card py-16 text-center text-gray-400">
+                  <svg className="w-14 h-14 mx-auto mb-3 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 21h18M3 7v1h18V7M3 7l1-4h16l1 4M5 11v8m4-8v8m4-8v8m4-8v8" />
+                  </svg>
+                  <p className="text-sm font-medium">No evacuation centers yet</p>
+                  <p className="text-xs mt-1">Click "New Center" to add your first evacuation center.</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr className="text-left text-gray-600 font-semibold">
+                          <th className="px-6 py-3 w-20">Landmark</th>
+                          <th className="px-6 py-3">Name</th>
+                          <th className="px-6 py-3 hidden md:table-cell">Capacity</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3 w-28">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {evacAreas.map((a) => (
+                          <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-3">
+                              {a.landmark_url ? (
+                                <img src={a.landmark_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-3">
+                              <p className="font-medium text-gray-900 truncate max-w-[200px]">{a.name}</p>
+                              <p className="text-xs text-gray-400 truncate max-w-[200px] mt-0.5">
+                                {a.latitude?.toFixed(4)}, {a.longitude?.toFixed(4)}
+                              </p>
+                            </td>
+                            <td className="px-6 py-3 hidden md:table-cell text-gray-600">
+                              {a.capacity != null ? a.capacity.toLocaleString() : "—"}
+                            </td>
+                            <td className="px-6 py-3">
+                              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                                a.status === "active" ? "bg-green-100 text-green-700" :
+                                a.status === "inactive" ? "bg-gray-100 text-gray-500" :
+                                "bg-yellow-100 text-yellow-700"
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3">
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => openEvacEdit(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+                                  Edit
+                                </button>
+                                <button onClick={() => setEvacDeleteConfirm(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {evacModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeEvacModal}>
+                  <form
+                    onSubmit={handleEvacSave}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto"
+                  >
+                    <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+                      <h2 className="text-lg font-bold text-gray-900">
+                        {editingEvac ? "Edit Evacuation Center" : "New Evacuation Center"}
+                      </h2>
+                      <button type="button" onClick={closeEvacModal} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="px-6 py-4 space-y-4">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={evacForm.name}
+                          onChange={(e) => setEvacForm((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="Barangay Hall Evacuation Center"
+                          required
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Description</label>
+                        <textarea
+                          value={evacForm.description}
+                          onChange={(e) => setEvacForm((p) => ({ ...p, description: e.target.value }))}
+                          rows={2}
+                          placeholder="Optional description or location details..."
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none resize-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Latitude</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={evacForm.latitude}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, latitude: e.target.value }))}
+                            placeholder="14.1234"
+                            required
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Longitude</label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={evacForm.longitude}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, longitude: e.target.value }))}
+                            placeholder="121.5678"
+                            required
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Capacity</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={evacForm.capacity}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, capacity: e.target.value }))}
+                            placeholder="500"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Status</label>
+                          <select
+                            value={evacForm.status}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, status: e.target.value }))}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 pr-10 text-sm appearance-none bg-white bg-no-repeat bg-[center_right_0.5rem] focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none cursor-pointer"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`, backgroundSize: "1.25rem" }}
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Landmark Image</label>
+                        <label className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-shield-400 hover:bg-shield-50/30 transition-colors">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className="text-xs text-gray-500 font-medium">Drop a file or click to browse</span>
+                          <span className="text-[10px] text-gray-400">JPG, PNG, WebP up to 5MB</span>
+                          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleEvacFileSelect} className="hidden" />
+                        </label>
+                        {evacFile && (
+                          <p className="text-[11px] text-shield-600 font-medium mt-1.5 ml-1">{evacFile.name} ({(evacFile.size / 1024 / 1024).toFixed(1)} MB)</p>
+                        )}
+                      </div>
+
+                      {!evacFile && (
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Or paste image URL</label>
+                          <input
+                            type="url"
+                            value={evacForm.image_url || ""}
+                            onChange={(e) => setEvacForm((p) => ({ ...p, image_url: e.target.value }))}
+                            placeholder="https://..."
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {evacPreview && (
+                        <div>
+                          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-1">Preview</label>
+                          <img src={evacPreview} className="w-full h-40 rounded-lg object-cover bg-gray-100" alt="Preview" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                      <button type="button" onClick={closeEvacModal} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={evacSaving || !evacForm.name.trim() || !evacForm.latitude || !evacForm.longitude}
+                        className="btn-primary py-2 px-5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {evacSaving ? "Saving..." : editingEvac ? "Save Changes" : "Create Center"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {evacDeleteConfirm && (
+                <ConfirmDialog
+                  title="Delete Evacuation Center"
+                  message={`Permanently delete "${evacDeleteConfirm.name}"? This action cannot be undone.`}
+                  confirmLabel="Delete"
+                  confirmClass="bg-red-600 hover:bg-red-700"
+                  onConfirm={() => handleEvacDelete(evacDeleteConfirm.id)}
+                  onCancel={() => setEvacDeleteConfirm(null)}
+                />
+              )}
+            </>
+          )}
 
           {view === "tcws" && (
             <>

@@ -17,11 +17,17 @@ import { ToastProvider, useToast } from "./context/ToastContext.jsx";
 import AuthScreen from "./screens/auth/AuthScreen";
 import WelcomeScreen from "./screens/welcome/WelcomeScreen.jsx";
 import DashboardScreen from "./screens/dashboard/DashboardScreen";
+import RescuerDashboardScreen from "./screens/rescuer/RescuerDashboardScreen.jsx";
+import RescuerOverviewMapScreen from "./screens/rescuer/RescuerOverviewMapScreen.jsx";
+import RescuerActiveScreen from "./screens/rescuer/RescuerActiveScreen.jsx";
+import RescuerAssignmentDetailScreen from "./screens/rescuer/RescuerAssignmentDetailScreen.jsx";
+import RescuerProfileScreen from "./screens/rescuer/RescuerProfileScreen.jsx";
 import FirstAidInstructions from "./screens/resources/FirstAidInstructions.jsx";
 import EmergencyGuidance from "./screens/resources/EmergencyGuidance.jsx";
 import EmergencyChecklist from "./screens/resources/EmergencyChecklist.jsx";
 import EmergencyCall from "./screens/resources/EmergencyCall.jsx";
 import EvacuationCentersScreen from "./screens/resources/EvacuationCentersScreen.jsx";
+import EmergencyHotlinesScreen from "./screens/resources/EmergencyHotlinesScreen.jsx";
 import MapsScreen from "./screens/maps/MapsScreen.jsx";
 import ProfileScreen from "./screens/profile/ProfileScreen";
 import EmergencyHistoryScreen from "./screens/emergency/EmergencyHistoryScreen";
@@ -166,6 +172,11 @@ function HomeStack({ currentStatus, onStatusChange }) {
         options={{ animationEnabled: true }}
       />
       <Stack.Screen name="Evacuation" component={EvacuationCentersScreen} />
+      <Stack.Screen
+        name="EmergencyHotlines"
+        component={EmergencyHotlinesScreen}
+        options={{ animationEnabled: true }}
+      />
       <Stack.Screen name="EvacuationMap" component={EvacuationMapScreen} />
       <Stack.Screen
         name="FloodHazard"
@@ -349,8 +360,83 @@ function DummyScreen() {
   return null;
 }
 
+function RescuerActiveStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ActiveList" component={RescuerActiveScreen} />
+      <Stack.Screen
+        name="RescuerAssignmentDetail"
+        component={RescuerAssignmentDetailScreen}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function RescuerTabs() {
+  const { profile } = useAuth();
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          backgroundColor: "#fff",
+          borderTopWidth: 1,
+          borderTopColor: "#e5e7eb",
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 70,
+        },
+        tabBarItemStyle: {
+          justifyContent: "center",
+          alignItems: "center",
+        },
+        tabBarIcon: ({ focused }) => {
+          const icons = {
+            RescuerDashboard: "dashboard",
+            RescuerOverviewMap: "map",
+            RescuerActiveStack: "assignment",
+            RescuerProfile: "person",
+          };
+
+          return (
+            <MaterialIcons
+              name={icons[route.name] || "home"}
+              size={28}
+              color={focused ? COLORS.shieldPrimary : COLORS.gray300}
+            />
+          );
+        },
+        tabBarActiveTintColor: COLORS.shieldPrimary,
+        tabBarInactiveTintColor: COLORS.gray300,
+      })}>
+      <Tab.Screen
+        name="RescuerDashboard"
+        component={RescuerDashboardScreen}
+        options={{ title: "Incidents" }}
+      />
+      <Tab.Screen
+        name="RescuerOverviewMap"
+        component={RescuerOverviewMapScreen}
+        options={{ title: "Map" }}
+      />
+      <Tab.Screen
+        name="RescuerActiveStack"
+        component={RescuerActiveStack}
+        options={{ title: "Active" }}
+      />
+      <Tab.Screen
+        name="RescuerProfile"
+        component={RescuerProfileScreen}
+        options={{ title: "Profile" }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 function RootNavigator() {
-  const { session, loading } = useAuth();
+  const { session, role, loading } = useAuth();
   const { toasts } = useToast();
   const { isOffline } = useNetwork();
   const [pushToken, setPushToken] = useState(null);
@@ -489,7 +575,11 @@ function RootNavigator() {
               )}
             </Stack.Screen>
           ) : session || isOffline ? (
-            <Stack.Screen name="AppTabs" component={AppTabs} />
+            role === "rescuer" ? (
+              <Stack.Screen name="RescuerTabs" component={RescuerTabs} />
+            ) : (
+              <Stack.Screen name="AppTabs" component={AppTabs} />
+            )
           ) : (
             <Stack.Screen name="AuthStack" component={AuthStack} />
           )}

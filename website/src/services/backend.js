@@ -1,12 +1,24 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
 
+async function getAuthHeaders() {
+  try {
+    const { supabase } = await import("./supabase.js");
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch {}
+  return {};
+}
+
 export async function apiGet(path, params = {}) {
   const url = new URL(path, BACKEND_URL);
   Object.entries(params).forEach(([k, v]) => {
     if (v != null) url.searchParams.set(k, v);
   });
 
-  const res = await fetch(url.toString());
+  const headers = await getAuthHeaders();
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `Request failed: ${res.status}`);
@@ -22,9 +34,11 @@ export async function apiGet(path, params = {}) {
 
 export async function apiPost(path, body) {
   const isFormData = body instanceof FormData;
+  const headers = await getAuthHeaders();
+  if (!isFormData) headers["Content-Type"] = "application/json";
   const res = await fetch(`${BACKEND_URL}${path}`, {
     method: "POST",
-    headers: isFormData ? {} : { "Content-Type": "application/json" },
+    headers,
     body: isFormData ? body : JSON.stringify(body),
   });
   if (!res.ok) {
@@ -40,9 +54,11 @@ export async function apiPost(path, body) {
 
 export async function apiPut(path, body) {
   const isFormData = body instanceof FormData;
+  const headers = await getAuthHeaders();
+  if (!isFormData) headers["Content-Type"] = "application/json";
   const res = await fetch(`${BACKEND_URL}${path}`, {
     method: "PUT",
-    headers: isFormData ? {} : { "Content-Type": "application/json" },
+    headers,
     body: isFormData ? body : JSON.stringify(body),
   });
   if (!res.ok) {
@@ -57,7 +73,8 @@ export async function apiPut(path, body) {
 }
 
 export async function apiDelete(path) {
-  const res = await fetch(`${BACKEND_URL}${path}`, { method: "DELETE" });
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${BACKEND_URL}${path}`, { method: "DELETE", headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || `Request failed: ${res.status}`);

@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { uploadAvatar, removeAvatar, updateProfile } from "../services/profile.js";
 import { getMyFamily, getFamilyMembers } from "../services/family.js";
+import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds } from "../utils/medicalOptions";
 
 const BLOOD_TYPES = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -27,7 +28,8 @@ export default function UserProfile() {
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
   const [bloodType, setBloodType] = useState(profile?.blood_type || "");
   const [householdSize, setHouseholdSize] = useState(profile?.household_size || "");
-  const [specialNeeds, setSpecialNeeds] = useState(profile?.special_needs || "");
+  const [selectedNeeds, setSelectedNeeds] = useState([]);
+  const [needsOther, setNeedsOther] = useState("");
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || "");
   const [medicalNotes, setMedicalNotes] = useState(profile?.medical_notes || "");
   const [externalName, setExternalName] = useState(profile?.external_name || "");
@@ -60,6 +62,14 @@ export default function UserProfile() {
     } catch {}
   }
 
+  useEffect(() => {
+    if (profile?.special_needs != null) {
+      const { selected, other } = decodeSpecialNeeds(profile.special_needs);
+      setSelectedNeeds(selected);
+      setNeedsOther(other);
+    }
+  }, [profile?.special_needs]);
+
   if (!familyLoaded && profile) { loadFamily(); }
 
   async function handleRemoveAvatar() {
@@ -74,7 +84,7 @@ export default function UserProfile() {
       await updateProfile({
         full_name: fullName.trim(), barangay: barangay.trim(), phone_number: phoneNumber.trim(),
         blood_type: bloodType, household_size: householdSize || null,
-        special_needs: specialNeeds.trim(), street_address: streetAddress.trim(),
+        special_needs: encodeSpecialNeeds(selectedNeeds, needsOther), street_address: streetAddress.trim(),
         medical_notes: medicalNotes.trim(), external_name: externalName.trim(),
         external_phone: externalPhone.trim(), relationship: relationship.trim(),
       });
@@ -191,7 +201,43 @@ export default function UserProfile() {
           >
             <div className="space-y-2.5">
               <textarea value={medicalNotes} onChange={(e) => setMedicalNotes(e.target.value)} className={`${inputCls} resize-y`} placeholder="Allergies, conditions, medications" rows={2} />
-              <textarea value={specialNeeds} onChange={(e) => setSpecialNeeds(e.target.value)} className={`${inputCls} resize-y`} placeholder="Disabilities, mobility or vision needs" rows={2} />
+              <div>
+                <p className="text-[11px] font-bold text-gray-500 mb-1.5">Disabilities & Medical Conditions</p>
+                <div className="space-y-2 bg-gray-50 rounded-lg p-2.5 border border-gray-200 max-h-56 overflow-y-auto">
+                  {ALL_GROUPS.map(({ heading, options }) => (
+                    <div key={heading}>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{heading}</p>
+                      <div className="grid grid-cols-1 gap-0.5">
+                        {options.map((opt) => {
+                          const checked = selectedNeeds.includes(opt.id);
+                          return (
+                            <label key={opt.id} className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-white transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setSelectedNeeds((prev) =>
+                                    checked ? prev.filter((id) => id !== opt.id) : [...prev, opt.id]
+                                  );
+                                }}
+                                className="w-3.5 h-3.5 rounded border-gray-300 text-shield-600 focus:ring-shield-500"
+                              />
+                              <span className="text-xs text-gray-700">{opt.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={needsOther}
+                  onChange={(e) => setNeedsOther(e.target.value)}
+                  placeholder="Other needs..."
+                  className={`${inputCls} mt-1.5`}
+                />
+              </div>
             </div>
           </SectionCard>
         </div>

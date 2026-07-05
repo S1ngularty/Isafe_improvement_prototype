@@ -1,4 +1,5 @@
 import time
+import httpx
 from app.core.config import WEATHER_CACHE_TTL
 
 CACHE = {}
@@ -11,8 +12,6 @@ async def fetch_weather(lat, lng, include_hourly=False):
 
     if key in CACHE and now - CACHE[key]["ts"] < WEATHER_CACHE_TTL:
         return CACHE[key]["data"]
-
-    import httpx
 
     params = {
         "latitude": lat,

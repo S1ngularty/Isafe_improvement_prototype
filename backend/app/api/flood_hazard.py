@@ -1,5 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
 from app.services.flood_hazard_service import read_summary, read_geojson, read_hazard_polygons, run_analysis
+from app.services.groq import analyze_flood_hazard
 
 router = APIRouter(prefix="/api/flood-hazard", tags=["flood-hazard"])
 
@@ -61,3 +63,18 @@ async def rerun_analysis(background_tasks: BackgroundTasks):
 @router.get("/rerun/status")
 async def get_rerun_status():
     return _last_run_status
+
+
+class AnalyzeFloodRequest(BaseModel):
+    barangay: str = Field(..., min_length=1)
+    data: dict
+    language: str = Field(default="en", pattern=r"^(en|fil)$")
+
+
+@router.post("/analyze", response_model=dict)
+async def analyze_flood(body: AnalyzeFloodRequest):
+    try:
+        text = await analyze_flood_hazard(body.barangay, body.data, body.language)
+        return {"data": text, "error": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
