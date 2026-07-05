@@ -25,6 +25,8 @@ import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
 import TcwsBanner from "../../components/TcwsBanner.jsx";
+import { fetchActiveForTarget } from "../../services/rescue.js";
+import useRealtimeRefresh from "../../hooks/useRealtimeRefresh.js";
 import { fetchActiveAlerts } from "../../services/tcws.js";
 import { getDefaultAvatar } from "../../services/profile.js";
 
@@ -76,6 +78,7 @@ export default function DashboardScreen({
   const [showAddressSearch, setShowAddressSearch] = useState(false);
   const [tcwsAlerts, setTcwsAlerts] = useState([]);
   const [tcwsDismissed, setTcwsDismissed] = useState(false);
+  const [rescueEnRoute, setRescueEnRoute] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +96,35 @@ export default function DashboardScreen({
       cancelled = true;
     };
   }, []);
+
+  const rescueActive = currentStatus === "help" || currentStatus === "emergency";
+
+  const checkRescue = useCallback(async () => {
+    if (!rescueActive || !session?.user?.id) {
+      setRescueEnRoute(null);
+      return;
+    }
+    try {
+      const data = await fetchActiveForTarget(session.user.id);
+      setRescueEnRoute(data);
+    } catch (_) {}
+  }, [rescueActive, session?.user?.id]);
+
+  useEffect(() => {
+    checkRescue();
+  }, [checkRescue]);
+
+  useRealtimeRefresh(
+    rescueActive && session?.user?.id
+      ? {
+          table: "rescue_assignments",
+          event: "*",
+          filter: `target_user_id=eq.${session.user.id}`,
+          channelName: `victim-rescue-${session.user.id}`,
+        }
+      : null,
+    checkRescue,
+  );
 
   useEffect(() => {
     if (profile?.location_sharing !== undefined) {
@@ -277,6 +309,22 @@ export default function DashboardScreen({
             </Text>
           </View>
         </View>
+
+        {/* Rescue En Route Banner */}
+        {rescueEnRoute && (
+          <View style={{ backgroundColor: "#166534", borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialIcons name="emergency" size={24} color="#fff" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>
+                Help is on the way!
+              </Text>
+              <Text style={{ color: "#bbf7d0", fontSize: 12, marginTop: 2 }}>
+                {rescueEnRoute.rescuer?.full_name || "A rescuer"}
+                {rescueEnRoute.eta_seconds ? ` · ETA ~${Math.round(rescueEnRoute.eta_seconds / 60)} min` : ""}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* TCWS Alert Banner */}
         {!tcwsDismissed && tcwsAlerts.length > 0 && (

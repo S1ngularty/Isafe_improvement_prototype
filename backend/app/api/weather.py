@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
+import httpx
 from app.services.weather import fetch_weather
 from app.services.rainviewer import get_radar_frames
 from app.services.groq import analyze_weather
@@ -47,7 +48,7 @@ async def current_weather(
         data = await fetch_weather(lat, lng, include_hourly=False)
         return {"data": data, "error": None}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Weather service unavailable: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Weather service unavailable: {repr(e)}")
 
 
 @router.get("/hourly", response_model=dict)
@@ -59,7 +60,7 @@ async def hourly_weather(
         data = await fetch_weather(lat, lng, include_hourly=True)
         return {"data": data, "error": None}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Weather service unavailable: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Weather service unavailable: {repr(e)}")
 
 
 @router.get("/radar", response_model=dict)
@@ -68,7 +69,7 @@ async def radar_frames():
         data = await get_radar_frames()
         return {"data": data, "error": None}
     except Exception as e:
-        return {"data": None, "error": {"code": "RADAR_ERROR", "message": str(e)}}
+        return {"data": None, "error": {"code": "RADAR_ERROR", "message": repr(e)}}
 
 
 class AnalyzeRequest(BaseModel):
@@ -83,4 +84,4 @@ async def analyze(body: AnalyzeRequest):
         data = await analyze_weather(body.current, body.hourly, body.language)
         return {"data": data, "error": None}
     except Exception as e:
-        return {"data": None, "error": {"code": "ANALYSIS_ERROR", "message": str(e)}}
+        return {"data": None, "error": {"code": "ANALYSIS_ERROR", "message": repr(e)}}
