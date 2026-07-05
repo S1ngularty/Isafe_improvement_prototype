@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from app.core.supabase import client
+from app.db.pagination import paginate_query
 
 
 PROFILE_FIELDS = (
     "id, full_name, status, family_role, lat, lng, last_seen_at, "
     "phone_number, blood_type, medical_notes, special_needs, special_needs_other, "
-    "barangay, street_address, gender, date_of_birth, household_size, "
+    "barangay_id, barangays(name), street_address, gender, date_of_birth, household_size, "
     "external_name, external_phone, relationship, avatar_url"
 )
 
@@ -45,23 +46,31 @@ async def get_current_status(user_id: str) -> dict:
         .execute()
     )
 
+    members = members_result.data or []
+    for m in members:
+        brgy_info = m.pop("barangays", None) or {}
+        m["barangay"] = brgy_info.get("name")
+
     return {
         "family_id": family_id,
         "family_name": family_name,
-        "members": members_result.data or [],
+        "members": members,
     }
 
 
-async def get_status_history(user_id: str, period: int, since: str | None = None) -> dict:
+async def get_status_history(
+    user_id: str, period: int, since: str | None = None,
+    page: int = 1, limit: int = 20,
+) -> dict:
     profile = _get_user_family(user_id)
     if not profile or not profile.get("family_id"):
-        return {"items": [], "total": 0, "period": period}
+        return {"data": [], "total": 0, "period": period, "page": page, "limit": limit, "total_pages": 1, "has_next": False, "has_prev": False}
 
     family_id = profile["family_id"]
 
     query = (
         client.table("status_history")
-        .select("id, user_id, previous_status, new_status, lat, lng, created_at")
+        .select("id, user_id, previous_status, new_status, lat, lng, created_at", count="exact")
         .eq("family_id", family_id)
         .order("created_at", desc=True)
     )
@@ -72,8 +81,8 @@ async def get_status_history(user_id: str, period: int, since: str | None = None
         cutoff = datetime.now(timezone.utc) - timedelta(days=period)
         query = query.gte("created_at", cutoff.isoformat())
 
-    result = query.execute()
-    raw = result.data or []
+    result = await paginate_query(query, page=page, limit=limit)
+    raw = result["data"]
 
     if raw:
         user_ids = list({r["user_id"] for r in raw})
@@ -97,11 +106,9 @@ async def get_status_history(user_id: str, period: int, since: str | None = None
             r["full_name"] = info.get("full_name")
             r["avatar_url"] = info.get("avatar_url")
 
-    return {
-        "items": raw,
-        "total": len(raw),
-        "period": period,
-    }
+    result["data"] = raw
+    result["period"] = period
+    return result
 
 
 async def get_member_profile(user_id: str, target_user_id: str) -> dict | None:
@@ -117,4 +124,9 @@ async def get_member_profile(user_id: str, target_user_id: str) -> dict | None:
         .single()
         .execute()
     )
-    return result.data if result.data else None
+    if result.data:
+        data = dict(result.data)
+        brgy_info = data.pop("barangays", None) or {}
+        data["barangay"] = brgy_info.get("name")
+        return data
+    return None

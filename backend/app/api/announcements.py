@@ -1,6 +1,8 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Query
+from typing import Optional
 from app.models.announcement import AnnouncementCreate, AnnouncementUpdate
 from app.services import announcements as service
+from app.core.auth import require_admin_only
 
 router = APIRouter(prefix="/api/announcements", tags=["announcements"])
 
@@ -12,8 +14,18 @@ async def list_active():
 
 
 @router.get("/admin", response_model=dict)
-async def list_all():
-    data = await service.get_all_announcements()
+async def list_all(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    order_by: str = Query("created_at"),
+    order_dir: str = Query("DESC"),
+    current_user: dict = Depends(require_admin_only),
+):
+    data = await service.get_all_announcements_paginated(
+        page=page, limit=limit, search=search,
+        order_by=order_by, order_dir=order_dir,
+    )
     return {"data": data, "error": None}
 
 
@@ -24,6 +36,7 @@ async def create(
     long_description: str | None = Form(default=None),
     image_url: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
+    current_user: dict = Depends(require_admin_only),
 ):
     body = AnnouncementCreate(title=title, short_description=short_description, long_description=long_description)
 
@@ -72,6 +85,7 @@ async def update(
     image_url: str | None = Form(default=None),
     is_active: bool | None = Form(default=None),
     file: UploadFile | None = File(default=None),
+    current_user: dict = Depends(require_admin_only),
 ):
     body = AnnouncementUpdate(
         title=title,
@@ -117,7 +131,10 @@ async def update(
 
 
 @router.delete("/{announcement_id}", response_model=dict)
-async def delete(announcement_id: str):
+async def delete(
+    announcement_id: str,
+    current_user: dict = Depends(require_admin_only),
+):
     try:
         await service.soft_delete_announcement(announcement_id)
         return {"data": None, "error": None}

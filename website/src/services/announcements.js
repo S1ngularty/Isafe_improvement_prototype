@@ -8,9 +8,13 @@ export async function fetchActiveAnnouncements() {
   }
 }
 
-export async function fetchAllAnnouncements() {
+export async function fetchAllAnnouncements(page = 1, limit = 10, search = "", orderBy = null, orderDir = null) {
   try {
-    return await apiGet("/api/announcements/admin");
+    const params = { page, limit };
+    if (search) params.search = search;
+    if (orderBy) params.order_by = orderBy;
+    if (orderDir) params.order_dir = orderDir;
+    return await apiGet("/api/announcements/admin", params);
   } catch {
     return [];
   }

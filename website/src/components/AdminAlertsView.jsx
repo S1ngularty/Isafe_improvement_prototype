@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { fetchStatusOverview, fetchStatusUsers } from "../services/adminStatus";
 import useRealtimeRefresh from "../hooks/useRealtimeRefresh";
+import DataTable from "./DataTable";
 
 const STATUS_COLORS = {
   safe: { hex: "#22c55e", bg: "bg-green-50", text: "text-green-700", dot: "bg-green-500" },
@@ -58,6 +59,11 @@ export default function AdminAlertsView({ onSelectUser }) {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [sortColumn, setSortColumn] = useState("last_seen_at");
+  const [sortDirection, setSortDirection] = useState("DESC");
+  const LIMIT = 10;
 
   const loadOverview = async () => {
     try {
@@ -68,13 +74,16 @@ export default function AdminAlertsView({ onSelectUser }) {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = async (p = 1, sortBy = sortColumn, sortDir = sortDirection) => {
     setLoading(true);
+    setPage(p);
     try {
-      const data = await fetchStatusUsers(statusFilter, search);
-      setUsers(Array.isArray(data?.users) ? data.users : []);
+      const data = await fetchStatusUsers(statusFilter, search, p, LIMIT, sortBy, sortDir);
+      setUsers(Array.isArray(data?.data) ? data.data : []);
+      setTotal(data?.total || 0);
     } catch {
       setUsers([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -82,11 +91,11 @@ export default function AdminAlertsView({ onSelectUser }) {
 
   useEffect(() => {
     loadOverview();
-    loadUsers();
+    loadUsers(1);
   }, [statusFilter, session]);
 
   useEffect(() => {
-    const timer = setTimeout(() => { loadUsers(); }, 300);
+    const timer = setTimeout(() => { loadUsers(1); }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -101,7 +110,92 @@ export default function AdminAlertsView({ onSelectUser }) {
     refreshAll,
   );
 
-  const visibleUsers = useMemo(() => users, [users]);
+  const SORT_FIELD_MAP = {
+    user: "full_name",
+    location: "barangay",
+    lastSeen: "last_seen_at",
+    status: "status",
+  };
+
+  function handleSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = SORT_FIELD_MAP[sorting[0].id] || "last_seen_at";
+      setSortColumn(field);
+      setSortDirection(sorting[0].desc ? "DESC" : "ASC");
+      loadUsers(1, field, sorting[0].desc ? "DESC" : "ASC");
+    } else {
+      setSortColumn("last_seen_at");
+      setSortDirection("DESC");
+      loadUsers(1, "last_seen_at", "DESC");
+    }
+  }
+
+  const columns = useMemo(() => [
+    {
+      id: "user",
+      header: "User",
+      accessorKey: "full_name",
+      cell: ({ row }) => {
+        const user = row.original;
+        const colors = STATUS_COLORS[user.status] || STATUS_COLORS.safe;
+        return (
+          <button
+            onClick={() => onSelectUser(user.id)}
+            className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-shield-500 rounded"
+            aria-label={`View details for ${user.full_name || "Unnamed"}`}
+          >
+            <AvatarCircle user={user} size={32} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name || "Unnamed"}</p>
+              {user.email && <p className="text-[11px] text-gray-500 truncate">{user.email}</p>}
+            </div>
+          </button>
+        );
+      },
+    },
+    {
+      id: "location",
+      header: "Location",
+      accessorKey: "barangay",
+      meta: { responsive: true },
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <div className="text-sm text-gray-600">
+            {user.barangay && (
+              <>
+                {user.barangay}
+                {user.family_name && <span className="text-[11px] text-gray-500 ml-1">&middot; {user.family_name}</span>}
+              </>
+            )}
+            {!user.barangay && user.family_name && <span className="text-sm text-gray-500">{user.family_name}</span>}
+          </div>
+        );
+      },
+    },
+    {
+      id: "lastSeen",
+      header: "Last Seen",
+      accessorKey: "last_seen_at",
+      meta: { responsive: true },
+      cell: ({ row }) => (
+        <span className="text-sm text-gray-500">{timeAgo(row.original.last_seen_at)}</span>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
+      cell: ({ row }) => {
+        const colors = STATUS_COLORS[row.original.status] || STATUS_COLORS.safe;
+        return (
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${colors.bg} ${colors.text}`}>
+            {row.original.status}
+          </span>
+        );
+      },
+    },
+  ], [onSelectUser]);
 
   return (
     <div className="w-full space-y-4">
@@ -164,54 +258,18 @@ export default function AdminAlertsView({ onSelectUser }) {
         </div>
       </div>
 
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="px-4 py-12 flex flex-col items-center gap-2" role="status">
-            <svg className="w-5 h-5 animate-spin text-shield-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <p className="text-xs text-gray-400">Loading users...</p>
-          </div>
-        ) : visibleUsers.length === 0 ? (
-          <div className="px-4 py-10 text-center">
-            <p className="text-xs text-gray-500">No users found</p>
-            {search && <p className="text-[11px] text-gray-500 mt-0.5">Try a different search term</p>}
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {visibleUsers.map((u) => {
-              const colors = STATUS_COLORS[u.status] || STATUS_COLORS.safe;
-              return (
-                <button
-                  key={u.id}
-                  onClick={() => onSelectUser(u.id)}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-shield-500"
-                  aria-label={`View details for ${u.full_name || "Unnamed"}`}
-                >
-                  <AvatarCircle user={u} size={32} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-1.5">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{u.full_name || "Unnamed"}</p>
-                      {u.email && <span className="hidden sm:inline text-[11px] text-gray-500 truncate">&middot; {u.email}</span>}
-                    </div>
-                    <div className="flex items-baseline gap-1.5 text-[11px] text-gray-500 mt-0.5">
-                      {u.barangay && <span>{u.barangay}</span>}
-                      {u.family_name && <span>&middot; {u.family_name}</span>}
-                      <span>&middot; {timeAgo(u.last_seen_at)}</span>
-                    </div>
-                  </div>
-                  <span className={`shrink-0 text-[11px] font-bold px-2 py-0.5 rounded ${colors.bg} ${colors.text}`}>
-                    {u.status}
-                  </span>
-                  <svg className="w-3.5 h-3.5 shrink-0 text-gray-500 group-hover:text-gray-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        data={users}
+        totalCount={total}
+        pageIndex={page - 1}
+        pageSize={LIMIT}
+        isLoading={loading}
+        serverSide
+        onPageChange={(p) => loadUsers(p)}
+        onSortChange={handleSortChange}
+        emptyMessage="No users found"
+      />
     </div>
   );
 }

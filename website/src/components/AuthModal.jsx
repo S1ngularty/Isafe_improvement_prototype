@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import Modal from "./Modal";
 import { ALL_GROUPS, encodeSpecialNeeds } from "../utils/medicalOptions";
+import { BARANGAY_OPTIONS } from "../utils/barangayOptions";
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
@@ -23,6 +24,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
   const [fullName, setFullName] = useState("");
   const [barangay, setBarangay] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [bloodType, setBloodType] = useState("");
   const [householdSize, setHouseholdSize] = useState("");
   const [selectedNeeds, setSelectedNeeds] = useState([]);
@@ -51,6 +53,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     setBarangay("");
     setPhoneNumber("");
     setBloodType("");
+    setDateOfBirth("");
     setHouseholdSize("");
     setSelectedNeeds([]);
     setNeedsOther("");
@@ -176,8 +179,9 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
       } else {
         const data = await signup(email, password, {
           full_name: fullName.trim(),
-          barangay: barangay.trim(),
+          barangay_id: parseInt(barangay, 10),
           phone_number: phoneNumber.trim(),
+          date_of_birth: dateOfBirth || null,
           blood_type: bloodType,
           household_size: householdSize || null,
           special_needs: encodeSpecialNeeds(selectedNeeds, needsOther),
@@ -283,17 +287,29 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
               </div>
               <div>
                 <label htmlFor="auth-barangay" className="block text-sm font-medium text-gray-700 mb-1">Barangay</label>
-                <input
+                <select
                   id="auth-barangay"
-                  type="text"
                   className={inputClass("barangay")}
-                  placeholder="Barangay San Isidro"
                   value={barangay}
                   onChange={(e) => handleBarangayChange(e.target.value)}
                   onBlur={() => handleBlur("barangay")}
-                  autoComplete="address-level3"
-                />
+                >
+                  {BARANGAY_OPTIONS.map((b) => (
+                    <option key={b.id} value={b.id}>{b.label}</option>
+                  ))}
+                </select>
                 {errors.barangay && touched.barangay && <p className="field-error">{errors.barangay}</p>}
+              </div>
+              <div>
+                <label htmlFor="auth-dob" className="block text-sm font-medium text-gray-700 mb-1">Date of Birth (optional)</label>
+                <input
+                  id="auth-dob"
+                  type="date"
+                  className="input-field"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                />
               </div>
               <div>
                 <label htmlFor="auth-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>

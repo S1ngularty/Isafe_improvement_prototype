@@ -1,5 +1,12 @@
 from app.core.supabase import client
 
+ALLOWED_SORT_COLUMNS = {
+    "name": "name",
+    "category": "category",
+    "is_active": "is_active",
+    "sort_order": "sort_order",
+    "created_at": "created_at",
+}
 
 PHONE_NUMBER_FIELDS = "id, hotline_id, type, number, sort_order"
 
@@ -65,6 +72,43 @@ async def get_all_hotlines() -> list[dict]:
     )
     rows = result.data or []
     return [_assemble_hotline(r, _fetch_phones(r["id"])) for r in rows]
+
+
+async def get_all_hotlines_paginated(
+    page: int = 1,
+    limit: int = 10,
+    search: str | None = None,
+    order_by: str = "sort_order",
+    order_dir: str = "ASC",
+) -> dict:
+    query = client.table("hotlines").select("*", count="exact").is_("deleted_at", "null")
+
+    if search and search.strip():
+        q = search.strip()
+        query = query.or_(f"name.ilike.%{q}%,email.ilike.%{q}%,category.ilike.%{q}%")
+
+    sort_col = ALLOWED_SORT_COLUMNS.get(order_by, "sort_order")
+    sort_desc = order_dir.upper() == "DESC"
+    query = query.order(sort_col, desc=sort_desc)
+
+    page = max(1, page)
+    limit = max(1, min(100, limit))
+    offset = (page - 1) * limit
+    end = offset + limit - 1
+    query = query.range(offset, end)
+    result = query.execute()
+
+    rows = result.data or []
+    total = result.count if hasattr(result, "count") else len(rows)
+
+    hotlines = [_assemble_hotline(r, _fetch_phones(r["id"])) for r in rows]
+
+    return {
+        "hotlines": hotlines,
+        "total": total,
+        "page": page,
+        "limit": limit,
+    }
 
 
 async def create_hotline(

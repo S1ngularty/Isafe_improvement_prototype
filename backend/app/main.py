@@ -19,6 +19,8 @@ from app.api.hotlines import router as hotlines_router
 from app.api.admin_alerts import router as admin_alerts_router
 from app.api.rescue import router as rescue_router
 from app.api.admin_rescuers import router as admin_rescuers_router
+from app.api.analytics import router as analytics_router
+from app.core.scheduler import start as start_scheduler, stop as stop_scheduler
 from app.mqtt.client import start_mqtt
 
 @asynccontextmanager
@@ -29,8 +31,13 @@ async def lifespan(app:FastAPI):
 
     print("MQTT successfully started")
 
+    await start_scheduler()
+    print("Analytics scheduler started")
+
     yield
 
+    await stop_scheduler()
+    print("Analytics scheduler stopped")
     print("MQTT shutdown")
 
 
@@ -60,6 +67,7 @@ app.include_router(hotlines_router)
 app.include_router(admin_alerts_router)
 app.include_router(rescue_router)
 app.include_router(admin_rescuers_router)
+app.include_router(analytics_router)
 
 @app.get("/")
 async def root() -> dict[str, str]:

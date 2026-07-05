@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from typing import Optional
 from app.models.evacuation import EvacuationAreaCreate, EvacuationAreaUpdate
 from app.services import evacuation as service
+from app.core.auth import require_admin_only
 
 router = APIRouter(prefix="/api/evacuation-areas", tags=["evacuation"])
 
@@ -25,8 +27,18 @@ async def list_evacuation_areas():
 
 
 @router.get("/admin", response_model=dict)
-async def list_all_evacuation_areas():
-    data = await service.get_all_evacuation_areas()
+async def list_all_evacuation_areas(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    order_by: str = Query("created_at"),
+    order_dir: str = Query("DESC"),
+    current_user: dict = Depends(require_admin_only),
+):
+    data = await service.get_all_areas_paginated(
+        page=page, limit=limit, search=search,
+        order_by=order_by, order_dir=order_dir,
+    )
     return {"data": data, "error": None}
 
 
@@ -40,6 +52,7 @@ async def create_evacuation_area(
     status: str = Form("active"),
     landmark_url: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
+    current_user: dict = Depends(require_admin_only),
 ):
     body = EvacuationAreaCreate(
         name=name,
@@ -97,6 +110,7 @@ async def update_evacuation_area(
     status: str | None = Form(default=None),
     landmark_url: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
+    current_user: dict = Depends(require_admin_only),
 ):
     file_content = None
     file_name = None
@@ -135,7 +149,10 @@ async def update_evacuation_area(
 
 
 @router.delete("/{area_id}", response_model=dict)
-async def delete_evacuation_area(area_id: int):
+async def delete_evacuation_area(
+    area_id: int,
+    current_user: dict = Depends(require_admin_only),
+):
     try:
         await service.soft_delete_evacuation_area(area_id)
         return {"data": None, "error": None}

@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
 import { updateProfile } from "../../services/auth.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
@@ -45,7 +46,7 @@ export default function ProfileScreen({ navigation }) {
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || "");
   const [gender, setGender] = useState(profile?.gender || "");
   const [residentialAddress, setResidentialAddress] = useState(
-    profile?.barangay || ""
+    profile?.barangay_id != null ? String(profile.barangay_id) : ""
   );
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
   const [bloodType, setBloodType] = useState(profile?.blood_type || "");
@@ -66,7 +67,7 @@ export default function ProfileScreen({ navigation }) {
       setFullName(profile.full_name || "");
       setDateOfBirth(profile.date_of_birth || "");
       setGender(profile.gender || "");
-      setResidentialAddress(profile.barangay || "");
+      setResidentialAddress(profile.barangay_id != null ? String(profile.barangay_id) : "");
       setPhoneNumber(profile.phone_number || "");
       setBloodType(profile.blood_type || "");
       setMedicalNotes(profile.medical_notes || "");
@@ -124,7 +125,7 @@ export default function ProfileScreen({ navigation }) {
           setGender(tempValue);
           break;
         case "residentialAddress":
-          updateData.barangay = tempValue;
+          updateData.barangay_id = Number(tempValue);
           setResidentialAddress(tempValue);
           break;
         case "phoneNumber":
@@ -373,6 +374,53 @@ export default function ProfileScreen({ navigation }) {
                     placeholder="Please specify any other needs..."
                   />
                 </View>
+              </ScrollView>
+
+              <Pressable
+                style={[styles.modalButton, loading && styles.buttonDisabled]}
+                onPress={handleSaveField}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalButtonText}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    if (editingField === "residentialAddress") {
+      return (
+        <Modal visible={!!editingField} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Pressable onPress={() => setEditingField(null)}>
+                  <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                </Pressable>
+                <Text style={styles.modalTitle}>{title}</Text>
+                <View style={{ width: 24 }} />
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                {BARANGAY_OPTIONS.map((b) => (
+                  <Pressable
+                    key={b.id}
+                    style={[styles.barangayOptionRow, tempValue === b.id && styles.barangayOptionSelected]}
+                    onPress={() => setTempValue(b.id)}
+                  >
+                    <Text style={[styles.barangayOptionText, tempValue === b.id && styles.barangayOptionTextSelected]}>
+                      {b.label}
+                    </Text>
+                    {tempValue === b.id && (
+                      <MaterialIcons name="check" size={20} color={COLORS.shieldPrimary} />
+                    )}
+                  </Pressable>
+                ))}
               </ScrollView>
 
               <Pressable
@@ -1044,5 +1092,27 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: COLORS.shieldPrimary,
     borderColor: COLORS.shieldPrimary,
+  },
+  barangayOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+  },
+  barangayOptionSelected: {
+    backgroundColor: COLORS.gray100,
+    borderRadius: 8,
+  },
+  barangayOptionText: {
+    fontSize: 16,
+    color: COLORS.gray900,
+    flex: 1,
+  },
+  barangayOptionTextSelected: {
+    color: COLORS.shieldPrimary,
+    fontWeight: "600",
   },
 });

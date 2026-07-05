@@ -3,6 +3,7 @@ import MapView from "./MapView";
 import UserMarker from "./UserMarker";
 import { fetchUserProfile, fetchStatusHistory, updateUserStatus } from "../services/adminStatus";
 import useRealtimeRefresh from "../hooks/useRealtimeRefresh";
+import DataTable from "./DataTable";
 
 const STATUS_COLORS = {
   safe: { hex: "#22c55e", bg: "bg-green-50", text: "text-green-700", border: "border-green-200", dot: "bg-green-500" },
@@ -104,6 +105,20 @@ export default function AdminAlertDetail({ userId, onBack }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const HISTORY_LIMIT = 10;
+
+  const loadHistory = useCallback(async (p = 1) => {
+    setHistoryPage(p);
+    try {
+      const data = await fetchStatusHistory(userId, p, HISTORY_LIMIT);
+      setHistory(data?.data || []);
+      setHistoryTotal(data?.total || 0);
+    } catch {
+      // ignore
+    }
+  }, [userId]);
 
   useEffect(() => {
     let active = true;
@@ -113,29 +128,28 @@ export default function AdminAlertDetail({ userId, onBack }) {
 
     Promise.allSettled([
       fetchUserProfile(userId),
-      fetchStatusHistory(userId),
-    ]).then(([profileRes, historyRes]) => {
+      loadHistory(1),
+    ]).then(([profileRes]) => {
       if (!active) return;
       if (profileRes.status === "fulfilled") setProfile(profileRes.value);
-      if (historyRes.status === "fulfilled") setHistory(historyRes.value?.items || []);
       setLoading(false);
     });
 
     return () => { active = false; };
-  }, [userId]);
+  }, [userId, loadHistory]);
 
   const refreshLive = useCallback(async () => {
     try {
       const [profileRes, historyRes] = await Promise.allSettled([
         fetchUserProfile(userId),
-        fetchStatusHistory(userId),
+        fetchStatusHistory(userId, historyPage, HISTORY_LIMIT),
       ]);
       if (profileRes.status === "fulfilled") setProfile(profileRes.value);
-      if (historyRes.status === "fulfilled") setHistory(historyRes.value?.items || []);
+      if (historyRes.status === "fulfilled") setHistory(historyRes.value?.data || []);
     } catch {
       // ignore
     }
-  }, [userId]);
+  }, [userId, historyPage]);
 
   useRealtimeRefresh(
     { table: "status_history", event: "*", filter: `user_id=eq.${userId}`, channelName: `admin-detail-status-${userId}` },
@@ -155,8 +169,9 @@ export default function AdminAlertDetail({ userId, onBack }) {
       await updateUserStatus(userId, newStatus, note.trim() || null);
       setSavedMsg({ type: "success", text: "Status updated successfully." });
       setProfile((prev) => ({ ...prev, status: newStatus }));
-      const histRes = await fetchStatusHistory(userId);
-      setHistory(histRes?.items || []);
+      const histRes = await fetchStatusHistory(userId, 1, HISTORY_LIMIT);
+      setHistory(histRes?.data || []);
+      setHistoryPage(1);
       setNote("");
     } catch (err) {
       setSavedMsg({ type: "error", text: err.message || "Failed to update status." });
@@ -165,31 +180,60 @@ export default function AdminAlertDetail({ userId, onBack }) {
     }
   };
 
-  const groupedHistory = useMemo(() => {
-    const groups = [];
-    let currentKey = null;
-    let currentGroup = null;
-    for (const item of history) {
-      const d = new Date(item.created_at);
-      const key = d.toLocaleDateString();
-      if (key !== currentKey) {
-        currentKey = key;
-        const today = new Date();
-        const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const yesterday = new Date(todayStr);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        let label;
-        if (itemDate.getTime() === todayStr.getTime()) label = "Today";
-        else if (itemDate.getTime() === yesterday.getTime()) label = "Yesterday";
-        else label = d.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-        currentGroup = { label, items: [] };
-        groups.push(currentGroup);
-      }
-      currentGroup.items.push(item);
-    }
-    return groups;
-  }, [history]);
+  const historyColumns = useMemo(() => [
+    {
+      id: "date",
+      header: "Date",
+      accessorKey: "created_at",
+      cell: ({ row }) => (
+        <span className="text-sm text-gray-600">{formatDateTime(row.original.created_at)}</span>
+      ),
+    },
+    {
+      id: "previous",
+      header: "Previous",
+      accessorKey: "previous_status",
+      cell: ({ row }) => {
+        const status = row.original.previous_status;
+        if (!status) return <span className="text-sm text-gray-400">&mdash;</span>;
+        const colors = STATUS_COLORS[status];
+        return (
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors.dot}`} />
+            <span className={`text-sm font-medium ${colors.text} capitalize`}>{status}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "newStatus",
+      header: "New Status",
+      accessorKey: "new_status",
+      cell: ({ row }) => {
+        const status = row.original.new_status;
+        const colors = STATUS_COLORS[status] || STATUS_COLORS.safe;
+        return (
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${colors.dot}`} />
+            <span className={`text-sm font-medium ${colors.text} capitalize`}>{status}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "note",
+      header: "Note",
+      accessorKey: "resolution_note",
+      cell: ({ row }) => {
+        const note = row.original.resolution_note;
+        return note ? (
+          <span className="text-sm text-gray-600 truncate max-w-[200px] block">{note}</span>
+        ) : (
+          <span className="text-sm text-gray-400">&mdash;</span>
+        );
+      },
+    },
+  ], []);
 
   if (loading) {
     return (
@@ -302,53 +346,17 @@ export default function AdminAlertDetail({ userId, onBack }) {
 
         <div className="border-t border-gray-200 px-5 py-4">
           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">Status History</p>
-          {history.length === 0 ? (
-            <p className="text-xs text-gray-500">No status history recorded</p>
-          ) : (
-            <div className="space-y-2">
-              {groupedHistory.map((group) => (
-                <div key={group.label}>
-                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider px-2 py-1">{group.label}</p>
-                  {group.items.map((item) => {
-                    const fromColors = item.previous_status ? STATUS_COLORS[item.previous_status] : null;
-                    const toColors = STATUS_COLORS[item.new_status] || STATUS_COLORS.safe;
-                    return (
-                      <div key={item.id} className="flex items-start gap-2.5 px-2 py-1.5 rounded-md hover:bg-gray-50 transition-colors">
-                        {item.previous_status ? (
-                          <div className="flex items-center gap-1 mt-1 shrink-0">
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${fromColors ? fromColors.dot : "bg-gray-300"}`} />
-                            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${toColors.dot}`} />
-                          </div>
-                        ) : (
-                          <div className={`w-2.5 h-2.5 mt-1.5 rounded-full shrink-0 ${toColors.dot}`} />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-900">
-                            {item.previous_status ? (
-                              <span>
-                                <span className={`font-semibold ${fromColors ? fromColors.text : "text-gray-500"}`}>{fromColors ? fromColors.label : item.previous_status}</span>
-                                <span className="text-gray-500 mx-0.5">&rarr;</span>
-                                <span className={`font-semibold ${toColors.text}`}>{toColors.label}</span>
-                              </span>
-                            ) : (
-                              <span className={`font-semibold ${toColors.text}`}>{toColors.label}</span>
-                            )}
-                          </p>
-                          {item.resolution_note && (
-                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">{item.resolution_note}</p>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-gray-500 shrink-0">{formatDateTime(item.created_at)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
+          <DataTable
+            columns={historyColumns}
+            data={history}
+            totalCount={historyTotal}
+            pageIndex={historyPage - 1}
+            pageSize={HISTORY_LIMIT}
+            isLoading={false}
+            serverSide
+            onPageChange={(p) => loadHistory(p)}
+            emptyMessage="No status history recorded"
+          />
         </div>
 
         <div className="border-t border-gray-200 px-5 py-4 space-y-3">
