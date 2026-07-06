@@ -263,7 +263,7 @@ async def update_user_status(
 
     try:
         status_label = new_status.replace("_", " ").title()
-        NotificationService.send_alert_notification(
+        await NotificationService.send_alert_notification(
             NotifyContactUserModel(
                 user_id=user_id,
                 status=new_status,

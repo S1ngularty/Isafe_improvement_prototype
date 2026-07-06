@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 import threading
 
@@ -43,9 +45,11 @@ async def lifespan(app:FastAPI):
 
 app = FastAPI(title="CityShield API", version="0.1.0", lifespan=lifespan)
 
+from app.core.config import CORS_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,6 +72,20 @@ app.include_router(admin_alerts_router)
 app.include_router(rescue_router)
 app.include_router(admin_rescuers_router)
 app.include_router(analytics_router)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, StarletteHTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"data": None, "error": {"code": "HTTP_ERROR", "message": exc.detail}},
+        )
+    return JSONResponse(
+        status_code=500,
+        content={"data": None, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+    )
+
 
 @app.get("/")
 async def root() -> dict[str, str]:

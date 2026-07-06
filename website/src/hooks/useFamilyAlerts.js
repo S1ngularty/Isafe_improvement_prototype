@@ -35,9 +35,9 @@ export default function useFamilyAlerts(userId) {
     try {
       const data = await getStatusHistory(userId, period, page, HISTORY_LIMIT);
       if (append) {
-        setHistory((prev) => [...prev, ...(data.items || [])]);
+        setHistory((prev) => [...prev, ...(data.data || [])]);
       } else {
-        setHistory(data.items || []);
+        setHistory(data.data || []);
       }
       setHistoryTotal(data.total || 0);
       setHistoryPage(page);

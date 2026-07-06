@@ -9,7 +9,7 @@ async def paginate_query(query, page: int = 1, limit: int = 20) -> dict:
 
     result = query.range(offset, end).execute()
     rows = result.data or []
-    total = result.count if hasattr(result, "count") else len(rows)
+    total = result.count if (hasattr(result, "count") and result.count is not None) else len(rows)
 
     total_pages = max(1, (total + limit - 1) // limit)
 

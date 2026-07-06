@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from app.core.supabase import client
 
 ALLOWED_SORT_COLUMNS = {
@@ -190,7 +191,7 @@ async def update_announcement(
         updates["type"] = "video" if content_type.startswith("video/") else "image"
 
     if updates:
-        updates["updated_at"] = "now()"
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
         client.table("announcements").update(updates).eq("id", announcement_id).execute()
 
     result = (
@@ -204,4 +205,6 @@ async def update_announcement(
 
 
 async def soft_delete_announcement(announcement_id: str) -> None:
-    client.table("announcements").update({"deleted_at": "now()"}).eq("id", announcement_id).execute()
+    client.table("announcements").update(
+        {"deleted_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", announcement_id).execute()
