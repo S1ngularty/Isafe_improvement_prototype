@@ -20,17 +20,7 @@ import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
 import { updateProfile } from "../../services/auth.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
-<<<<<<< HEAD
 import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds, formatSpecialNeeds } from "../../utils/medicalOptions";
-=======
-import Skeleton from "../../components/Skeleton";
-import {
-  ALL_GROUPS,
-  encodeSpecialNeeds,
-  decodeSpecialNeeds,
-  formatSpecialNeeds,
-} from "../../utils/medicalOptions";
->>>>>>> origin/master
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -62,7 +52,6 @@ export default function ProfileScreen({ navigation }) {
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || "");
   const [gender, setGender] = useState(profile?.gender || "");
   const [residentialAddress, setResidentialAddress] = useState(
-<<<<<<< HEAD
     profile?.barangay_id != null ? String(profile.barangay_id) : ""
   );
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
@@ -72,23 +61,6 @@ export default function ProfileScreen({ navigation }) {
   const [selectedNeeds, setSelectedNeeds] = useState([]);
   const [needsOther, setNeedsOther] = useState("");
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || "");
-=======
-    profile?.barangay || "",
-  );
-  const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
-  const [bloodType, setBloodType] = useState(profile?.blood_type || "");
-  const [medicalNotes, setMedicalNotes] = useState(
-    profile?.medical_notes || "",
-  );
-  const [householdSize, setHouseholdSize] = useState(
-    profile?.household_size?.toString() || "",
-  );
-  const [selectedNeeds, setSelectedNeeds] = useState([]);
-  const [needsOther, setNeedsOther] = useState("");
-  const [streetAddress, setStreetAddress] = useState(
-    profile?.street_address || "",
-  );
->>>>>>> origin/master
 
   const [needsTempSelected, setNeedsTempSelected] = useState([]);
   const [needsTempOther, setNeedsTempOther] = useState("");
@@ -106,13 +78,7 @@ export default function ProfileScreen({ navigation }) {
       setBloodType(profile.blood_type || "");
       setMedicalNotes(profile.medical_notes || "");
       setHouseholdSize(profile.household_size?.toString() || "");
-<<<<<<< HEAD
       const { selected, other } = decodeSpecialNeeds(profile.special_needs || "");
-=======
-      const { selected, other } = decodeSpecialNeeds(
-        profile.special_needs || "",
-      );
->>>>>>> origin/master
       setSelectedNeeds(selected);
       setNeedsOther(other);
       setStreetAddress(profile.street_address || "");
@@ -185,14 +151,7 @@ export default function ProfileScreen({ navigation }) {
           setHouseholdSize(tempValue);
           break;
         case "specialNeeds":
-<<<<<<< HEAD
           updateData.special_needs = encodeSpecialNeeds(needsTempSelected, needsTempOther);
-=======
-          updateData.special_needs = encodeSpecialNeeds(
-            needsTempSelected,
-            needsTempOther,
-          );
->>>>>>> origin/master
           setSelectedNeeds(needsTempSelected);
           setNeedsOther(needsTempOther);
           break;
@@ -891,39 +850,10 @@ export default function ProfileScreen({ navigation }) {
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Special Needs</Text>
                 {selectedNeeds.length > 0 || needsOther ? (
-<<<<<<< HEAD
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                     {formatSpecialNeeds(encodeSpecialNeeds(selectedNeeds, needsOther)).map((label, i) => (
                       <View key={i} style={{ backgroundColor: "#fef3c7", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
                         <Text style={{ fontSize: 10, color: "#92400e", fontWeight: "600" }}>{label}</Text>
-=======
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      flexWrap: "wrap",
-                      gap: 4,
-                      marginTop: 4,
-                    }}>
-                    {formatSpecialNeeds(
-                      encodeSpecialNeeds(selectedNeeds, needsOther),
-                    ).map((label, i) => (
-                      <View
-                        key={i}
-                        style={{
-                          backgroundColor: "#fef3c7",
-                          borderRadius: 8,
-                          paddingHorizontal: 8,
-                          paddingVertical: 2,
-                        }}>
-                        <Text
-                          style={{
-                            fontSize: 10,
-                            color: "#92400e",
-                            fontWeight: "600",
-                          }}>
-                          {label}
-                        </Text>
->>>>>>> origin/master
                       </View>
                     ))}
                   </View>
@@ -1364,7 +1294,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.shieldPrimary,
     borderColor: COLORS.shieldPrimary,
   },
-<<<<<<< HEAD
   barangayOptionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1387,6 +1316,4 @@ const styles = StyleSheet.create({
     color: COLORS.shieldPrimary,
     fontWeight: "600",
   },
-=======
->>>>>>> origin/master
 });
