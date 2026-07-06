@@ -18,8 +18,10 @@ import {
   fetchDemographics,
   fetchEvacuationStatus,
   fetchRecentActivity,
+  fetchAnalyticsAnalysis,
   triggerBackfill,
 } from "../services/analytics.js";
+import exportAnalyticsPdf from "../utils/exportPdf.js";
 
 const DARK_RED = "#991b1b";
 const RED = "#ef4444";
@@ -50,6 +52,18 @@ function KpiCard({ label, value, sub, color }) {
       {sub != null && (
         <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
       )}
+    </div>
+  );
+}
+
+function ChartInsight({ text }) {
+  if (!text) return null;
+  return (
+    <div className="mt-2 flex items-start gap-1.5 px-0.5">
+      <svg className="w-3.5 h-3.5 text-indigo-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+      <p className="text-xs text-gray-500 italic leading-relaxed">{text}</p>
     </div>
   );
 }
@@ -156,6 +170,12 @@ export default function AnalyticsDashboard() {
   const { session } = useAuth();
   const [Plot, setPlot] = useState(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [analysis, setAnalysis] = useState({ en: null, fil: null });
+  const [analysisLang, setAnalysisLang] = useState("en");
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
+  const analysisFetchedRef = useRef({ en: false, fil: false });
 
   useEffect(() => {
     import("react-plotly.js").then((mod) => setPlot(() => mod.default));
@@ -171,6 +191,26 @@ export default function AnalyticsDashboard() {
     }
   }
 
+  async function handleExportPdf() {
+    setExporting(true);
+    try {
+      var lang = analysisLang;
+      var analysisData = analysis[lang];
+      if (!analysisData && kpi && trends && barangay) {
+        try {
+          analysisData = await fetchAnalyticsAnalysis(kpi, trends, barangay, responseTimes, demo, rescuerPerf, temporal, heatmapData, lang);
+        } catch {
+          // export without AI summary
+        }
+      }
+      await exportAnalyticsPdf(kpi, recentAlerts, analysisData || null);
+    } catch {
+      // handled in utility
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const { data: kpi, loading: kpiLoading } = usePolling(fetchKpiData, 60000, [], !!session);
   const { data: heatmapData } = usePolling(() => fetchHeatmapData(24), 60000, [], !!session);
   const { data: trends } = usePolling(() => fetchTrendsData(30), 300000, [], !!session);
@@ -181,6 +221,38 @@ export default function AnalyticsDashboard() {
   const { data: demo } = usePolling(fetchDemographics, 600000, [], !!session);
   const { data: evacStatus } = usePolling(fetchEvacuationStatus, 300000, [], !!session);
   const { data: recentAlerts } = usePolling(() => fetchRecentActivity(20), 120000, [], !!session);
+
+  useEffect(() => {
+    if (!kpi || !trends || !barangay || !responseTimes || !demo || !rescuerPerf || !temporal || !heatmapData) return;
+    if (analysisFetchedRef.current[analysisLang]) return;
+    runAnalysis(analysisLang);
+  }, [kpi, trends, barangay, responseTimes, demo, rescuerPerf, temporal, heatmapData, analysisLang]);
+
+  async function runAnalysis(lang) {
+    if (!kpi || !trends || !barangay) return;
+    setAnalysisLoading(true);
+    setAnalysisError(null);
+    try {
+      const result = await fetchAnalyticsAnalysis(kpi, trends, barangay, responseTimes, demo, rescuerPerf, temporal, heatmapData, lang);
+      setAnalysis((prev) => ({ ...prev, [lang]: result }));
+      analysisFetchedRef.current[lang] = true;
+    } catch (err) {
+      setAnalysisError(err.message);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
+  function handleAnalysisLangSwitch(lang) {
+    if (lang === analysisLang) return;
+    setAnalysisLang(lang);
+  }
+
+  function handleReanalyze() {
+    analysisFetchedRef.current = { en: false, fil: false };
+    setAnalysis({ en: null, fil: null });
+    setAnalysisError(null);
+  }
 
   const heatmapPoints = useMemo(() => {
     if (!heatmapData?.points) return [];
@@ -266,6 +338,14 @@ export default function AnalyticsDashboard() {
           >
             {backfilling ? "Rebuilding..." : "Refresh Data"}
           </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={exporting}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-shield-600 text-white hover:bg-shield-700 disabled:opacity-50 transition-colors"
+          >
+            {exporting ? "Exporting..." : "Export PDF"}
+          </button>
           {kpiLoading && (
             <span className="text-xs text-gray-400 animate-pulse">Refreshing...</span>
           )}
@@ -322,8 +402,95 @@ export default function AnalyticsDashboard() {
         />
       </div>
 
+      {/* AI Executive Summary */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <h3 className="font-bold text-gray-900">AI Executive Summary</h3>
+            <span className="text-[10px] text-gray-400 ml-1">
+              <span className="font-medium text-gray-500">Groq</span> &middot; Llama 4 Scout
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex bg-gray-100 rounded-md p-0.5">
+              <button
+                onClick={() => handleAnalysisLangSwitch("en")}
+                className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-colors ${analysisLang === "en" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                EN
+              </button>
+              <button
+                onClick={() => handleAnalysisLangSwitch("fil")}
+                className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-colors ${analysisLang === "fil" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                FIL
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleReanalyze}
+              disabled={analysisLoading}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              {analysisLoading ? (
+                <span className="flex items-center gap-1.5">
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Analyzing...
+                </span>
+              ) : (
+                "Re-analyze"
+              )}
+            </button>
+          </div>
+        </div>
+
+        {analysisLoading && !analysis[analysisLang] ? (
+          <div className="space-y-1.5">
+            <div className="h-2.5 bg-gray-100 rounded animate-pulse w-full" />
+            <div className="h-2.5 bg-gray-100 rounded animate-pulse w-11/12" />
+            <div className="h-2.5 bg-gray-100 rounded animate-pulse w-10/12" />
+            <div className="h-2.5 bg-gray-100 rounded animate-pulse w-full" />
+            <div className="h-2.5 bg-gray-100 rounded animate-pulse w-8/12" />
+          </div>
+        ) : analysisError ? (
+          <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-[11px] text-red-600">{analysisError}</p>
+            </div>
+            <button
+              onClick={() => {
+                analysisFetchedRef.current[analysisLang] = false;
+                setAnalysisError(null);
+              }}
+              className="text-[10px] font-semibold text-red-600 hover:text-red-800 underline shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        ) : analysis[analysisLang]?.executive_summary ? (
+          <div className="text-[13px] text-gray-700 leading-relaxed space-y-1.5">
+            {analysis[analysisLang].executive_summary.split("\n\n").filter(Boolean).map((para, i) => (
+              <p key={i}>{para}</p>
+            ))}
+          </div>
+        ) : (
+          <div className="py-6 text-center text-gray-400">
+            <p className="text-sm">Waiting for data to analyze...</p>
+          </div>
+        )}
+      </div>
+
       {/* Heatmap Map */}
-      <div className="card overflow-hidden p-0">
+      <div id="map-heatmap" className="card overflow-hidden p-0">
         <div className="p-4 pb-2">
           <h3 className="font-bold text-gray-900">Incident Heatmap</h3>
           <p className="text-xs text-gray-400">
@@ -344,11 +511,14 @@ export default function AnalyticsDashboard() {
             <HeatmapLayer points={heatmapPoints} />
           </MapContainer>
         </div>
+        <div className="px-4 pb-3">
+          <ChartInsight text={analysis[analysisLang]?.chart_insights?.incident_heatmap} />
+        </div>
       </div>
 
       {/* Row: Status Distribution + Incident Trend */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="card">
+        <div id="chart-status-distribution" className="card">
           <h3 className="font-bold text-gray-900 mb-4">Status Distribution</h3>
           <DynamicPlot
             Plot={Plot}
@@ -377,9 +547,10 @@ export default function AnalyticsDashboard() {
               margin: { l: 10, r: 10, t: 10, b: 10 },
             }}
           />
+          <ChartInsight text={analysis[analysisLang]?.chart_insights?.status_distribution} />
         </div>
 
-        <div className="card">
+        <div id="chart-trend" className="card">
           <h3 className="font-bold text-gray-900 mb-4">Daily Incident Trend</h3>
           <DynamicPlot
             Plot={Plot}
@@ -416,11 +587,12 @@ export default function AnalyticsDashboard() {
               hovermode: "x",
             }}
           />
+          <ChartInsight text={analysis[analysisLang]?.chart_insights?.incident_trend} />
         </div>
       </div>
 
       {/* Temporal Heatmap */}
-      <div className="card">
+      <div id="chart-temporal-heatmap" className="card">
         <h3 className="font-bold text-gray-900 mb-4">
           Activity Patterns — Hour × Day of Week
         </h3>
@@ -455,11 +627,12 @@ export default function AnalyticsDashboard() {
             margin: { l: 40, r: 10, t: 10, b: 40 },
           }}
         />
+        <ChartInsight text={analysis[analysisLang]?.chart_insights?.temporal_heatmap} />
       </div>
 
       {/* Row: Response Time + Barangay */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="card">
+        <div id="chart-response-times" className="card">
           <h3 className="font-bold text-gray-900 mb-4">
             Response Time Trend (seconds)
           </h3>
@@ -492,9 +665,10 @@ export default function AnalyticsDashboard() {
               hovermode: "x",
             }}
           />
+          <ChartInsight text={analysis[analysisLang]?.chart_insights?.response_times} />
         </div>
 
-        <div className="card">
+        <div id="chart-barangay" className="card">
           <h3 className="font-bold text-gray-900 mb-4">
             Most Affected Barangays
           </h3>
@@ -536,12 +710,13 @@ export default function AnalyticsDashboard() {
               legend: { orientation: "h", y: 1.05, x: 0.5, xanchor: "center", font: { size: 10 } },
             }}
           />
+          <ChartInsight text={analysis[analysisLang]?.chart_insights?.barangay} />
         </div>
       </div>
 
       {/* Row: Rescuer Performance + Demographics */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="card">
+        <div id="chart-rescuers" className="card">
           <h3 className="font-bold text-gray-900 mb-4">
             Top Rescuers by Assignments
           </h3>
@@ -580,12 +755,13 @@ export default function AnalyticsDashboard() {
               legend: { orientation: "h", y: 1.05, x: 0.5, xanchor: "center", font: { size: 10 } },
             }}
           />
+          <ChartInsight text={analysis[analysisLang]?.chart_insights?.rescuer_performance} />
         </div>
 
         <div className="card">
           <h3 className="font-bold text-gray-900 mb-4">Demographics</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div id="chart-blood-type">
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Blood Type
               </h4>
@@ -621,8 +797,9 @@ export default function AnalyticsDashboard() {
                 {demo?.total_users || 0} total ·{" "}
                 {demo?.vulnerable_count || 0} vulnerable
               </p>
+              <ChartInsight text={analysis[analysisLang]?.chart_insights?.blood_type} />
             </div>
-            <div>
+            <div id="chart-age-groups">
               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Age Groups
               </h4>
@@ -666,6 +843,7 @@ export default function AnalyticsDashboard() {
                 {demo?.by_gender?.male || 0} male ·{" "}
                 {demo?.by_gender?.female || 0} female
               </p>
+              <ChartInsight text={analysis[analysisLang]?.chart_insights?.age_groups} />
             </div>
           </div>
         </div>

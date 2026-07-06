@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 
 from app.services import analytics as service
+from app.services import groq
 from app.core.auth import require_admin_only
 from app.models.analytics import (
     KpiResponse,
@@ -14,6 +15,7 @@ from app.models.analytics import (
     DemographicResponse,
     EvacuationResponse,
     RecentActivityResponse,
+    AnalyzeAnalyticsRequest,
 )
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
@@ -98,3 +100,23 @@ async def backfill_analytics(current_user: dict = Depends(require_admin_only)):
         return {"data": result, "error": None}
     except Exception as e:
         return {"data": None, "error": {"code": "BACKFILL_ERROR", "message": str(e)}}
+
+
+@router.post("/analyze", response_model=dict)
+async def analyze_analytics(
+    body: AnalyzeAnalyticsRequest,
+    current_user: dict = Depends(require_admin_only),
+):
+    try:
+        text = await groq.analyze_analytics(
+            body.kpi, body.trends, body.barangay,
+            response_times=body.response_times,
+            demographics=body.demographics,
+            rescuer_perf=body.rescuer_perf,
+            temporal=body.temporal,
+            heatmap_data=body.heatmap_data,
+            language=body.language,
+        )
+        return {"data": text, "error": None}
+    except Exception as e:
+        return {"data": None, "error": {"code": "ANALYSIS_ERROR", "message": str(e)}}

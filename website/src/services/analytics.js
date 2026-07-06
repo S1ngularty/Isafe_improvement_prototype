@@ -43,3 +43,15 @@ export async function fetchRecentActivity(limit = 20) {
 export async function triggerBackfill() {
   return apiPost("/api/analytics/backfill");
 }
+
+export async function fetchAnalyticsAnalysis(kpi, trends, barangay, responseTimes, demographics, rescuerPerf, temporal, heatmapData, language = "en") {
+  return apiPost("/api/analytics/analyze", {
+    kpi, trends, barangay,
+    response_times: responseTimes || {},
+    demographics: demographics || {},
+    rescuer_perf: rescuerPerf || {},
+    temporal: temporal || {},
+    heatmap_data: heatmapData || {},
+    language,
+  });
+}

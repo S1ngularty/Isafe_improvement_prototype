@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import date
 
@@ -131,3 +131,15 @@ class RecentActivityItem(BaseModel):
 class RecentActivityResponse(BaseModel):
     items: list[RecentActivityItem]
     total: int
+
+
+class AnalyzeAnalyticsRequest(BaseModel):
+    kpi: dict
+    trends: dict
+    barangay: dict
+    response_times: dict = Field(default_factory=dict)
+    demographics: dict = Field(default_factory=dict)
+    rescuer_perf: dict = Field(default_factory=dict)
+    temporal: dict = Field(default_factory=dict)
+    heatmap_data: dict = Field(default_factory=dict)
+    language: str = Field(default="en", pattern=r"^(en|fil)$")
