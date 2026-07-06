@@ -20,7 +20,17 @@ import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
 import { updateProfile } from "../../services/auth.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
+<<<<<<< HEAD
 import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds, formatSpecialNeeds } from "../../utils/medicalOptions";
+=======
+import Skeleton from "../../components/Skeleton";
+import {
+  ALL_GROUPS,
+  encodeSpecialNeeds,
+  decodeSpecialNeeds,
+  formatSpecialNeeds,
+} from "../../utils/medicalOptions";
+>>>>>>> origin/master
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -39,13 +49,20 @@ const COLORS = {
 };
 
 export default function ProfileScreen({ navigation }) {
-  const { profile, session, logout, refreshProfile } = useAuth();
+  const {
+    profile,
+    session,
+    logout,
+    refreshProfile,
+    loading: authLoading,
+  } = useAuth();
   const { showToast } = useToast();
 
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || "");
   const [gender, setGender] = useState(profile?.gender || "");
   const [residentialAddress, setResidentialAddress] = useState(
+<<<<<<< HEAD
     profile?.barangay_id != null ? String(profile.barangay_id) : ""
   );
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
@@ -55,6 +72,23 @@ export default function ProfileScreen({ navigation }) {
   const [selectedNeeds, setSelectedNeeds] = useState([]);
   const [needsOther, setNeedsOther] = useState("");
   const [streetAddress, setStreetAddress] = useState(profile?.street_address || "");
+=======
+    profile?.barangay || "",
+  );
+  const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
+  const [bloodType, setBloodType] = useState(profile?.blood_type || "");
+  const [medicalNotes, setMedicalNotes] = useState(
+    profile?.medical_notes || "",
+  );
+  const [householdSize, setHouseholdSize] = useState(
+    profile?.household_size?.toString() || "",
+  );
+  const [selectedNeeds, setSelectedNeeds] = useState([]);
+  const [needsOther, setNeedsOther] = useState("");
+  const [streetAddress, setStreetAddress] = useState(
+    profile?.street_address || "",
+  );
+>>>>>>> origin/master
 
   const [needsTempSelected, setNeedsTempSelected] = useState([]);
   const [needsTempOther, setNeedsTempOther] = useState("");
@@ -72,7 +106,13 @@ export default function ProfileScreen({ navigation }) {
       setBloodType(profile.blood_type || "");
       setMedicalNotes(profile.medical_notes || "");
       setHouseholdSize(profile.household_size?.toString() || "");
+<<<<<<< HEAD
       const { selected, other } = decodeSpecialNeeds(profile.special_needs || "");
+=======
+      const { selected, other } = decodeSpecialNeeds(
+        profile.special_needs || "",
+      );
+>>>>>>> origin/master
       setSelectedNeeds(selected);
       setNeedsOther(other);
       setStreetAddress(profile.street_address || "");
@@ -145,7 +185,14 @@ export default function ProfileScreen({ navigation }) {
           setHouseholdSize(tempValue);
           break;
         case "specialNeeds":
+<<<<<<< HEAD
           updateData.special_needs = encodeSpecialNeeds(needsTempSelected, needsTempOther);
+=======
+          updateData.special_needs = encodeSpecialNeeds(
+            needsTempSelected,
+            needsTempOther,
+          );
+>>>>>>> origin/master
           setSelectedNeeds(needsTempSelected);
           setNeedsOther(needsTempOther);
           break;
@@ -180,9 +227,13 @@ export default function ProfileScreen({ navigation }) {
 
   const handleUpdateAvatar = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        showToast("Sorry, we need camera roll permissions to make this work!", "error");
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        showToast(
+          "Sorry, we need camera roll permissions to make this work!",
+          "error",
+        );
         return;
       }
 
@@ -280,39 +331,140 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Pressable onPress={() => setEditingField(null)}>
-                  <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                  <MaterialIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.shieldPrimary}
+                  />
                 </Pressable>
                 <Text style={styles.modalTitle}>{title}</Text>
                 <View style={{ width: 24 }} />
               </View>
 
               <View style={styles.genderOptions}>
-                {["Male", "Female", "Other", "Prefer not to say"].map((option) => (
-                  <Pressable
-                    key={option}
-                    style={[
-                      styles.genderOption,
-                      tempValue === option && styles.genderOptionSelected,
-                    ]}
-                    onPress={() => setTempValue(option)}
-                  >
-                    <Text
+                {["Male", "Female", "Other", "Prefer not to say"].map(
+                  (option) => (
+                    <Pressable
+                      key={option}
                       style={[
-                        styles.genderOptionText,
-                        tempValue === option && styles.genderOptionTextSelected,
+                        styles.genderOption,
+                        tempValue === option && styles.genderOptionSelected,
                       ]}
-                    >
-                      {option}
-                    </Text>
-                  </Pressable>
-                ))}
+                      onPress={() => setTempValue(option)}>
+                      <Text
+                        style={[
+                          styles.genderOptionText,
+                          tempValue === option &&
+                            styles.genderOptionTextSelected,
+                        ]}>
+                        {option}
+                      </Text>
+                    </Pressable>
+                  ),
+                )}
               </View>
 
               <Pressable
                 style={[styles.modalButton, loading && styles.buttonDisabled]}
                 onPress={handleSaveField}
-                disabled={loading}
-              >
+                disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.modalButtonText}>Save</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+
+    if (editingField === "specialNeeds") {
+      return (
+        <Modal visible={!!editingField} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { maxHeight: "80%" }]}>
+              <View style={styles.modalHeader}>
+                <Pressable onPress={() => setEditingField(null)}>
+                  <MaterialIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.shieldPrimary}
+                  />
+                </Pressable>
+                <Text style={styles.modalTitle}>{title}</Text>
+                <Pressable onPress={() => setEditingField(null)}>
+                  <Text
+                    style={{
+                      color: COLORS.shieldPrimary,
+                      fontWeight: "600",
+                      fontSize: 14,
+                    }}>
+                    Done
+                  </Text>
+                </Pressable>
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                {ALL_GROUPS.map(({ heading, options }) => (
+                  <View key={heading} style={{ marginBottom: 12 }}>
+                    <Text style={styles.needsGroupHeading}>{heading}</Text>
+                    {options.map((opt) => {
+                      const checked = needsTempSelected.includes(opt.id);
+                      return (
+                        <Pressable
+                          key={opt.id}
+                          style={styles.needsOptionRow}
+                          onPress={() => {
+                            setNeedsTempSelected((prev) =>
+                              checked
+                                ? prev.filter((id) => id !== opt.id)
+                                : [...prev, opt.id],
+                            );
+                          }}>
+                          <View
+                            style={[
+                              styles.checkbox,
+                              checked && styles.checkboxChecked,
+                            ]}>
+                            {checked && (
+                              <MaterialIcons
+                                name="check"
+                                size={14}
+                                color={COLORS.white}
+                              />
+                            )}
+                          </View>
+                          <Text style={styles.needsOptionLabel}>
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ))}
+                <View
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: COLORS.gray200,
+                    paddingTop: 12,
+                    marginTop: 4,
+                  }}>
+                  <Text style={styles.needsGroupHeading}>Other</Text>
+                  <TextInput
+                    style={[styles.modalInput, { marginTop: 6 }]}
+                    value={needsTempOther}
+                    onChangeText={setNeedsTempOther}
+                    placeholder="Please specify any other needs..."
+                  />
+                </View>
+              </ScrollView>
+
+              <Pressable
+                style={[styles.modalButton, loading && styles.buttonDisabled]}
+                onPress={handleSaveField}
+                disabled={loading}>
                 {loading ? (
                   <ActivityIndicator color={COLORS.white} />
                 ) : (
@@ -446,7 +598,11 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Pressable onPress={() => setEditingField(null)}>
-                <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                <MaterialIcons
+                  name="close"
+                  size={24}
+                  color={COLORS.shieldPrimary}
+                />
               </Pressable>
               <Text style={styles.modalTitle}>{title}</Text>
               <View style={{ width: 24 }} />
@@ -454,16 +610,35 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.modalBody}>
               <View style={styles.inputGroup}>
-                <MaterialIcons name={icon} size={24} color={COLORS.shieldPrimary} />
+                <MaterialIcons
+                  name={icon}
+                  size={24}
+                  color={COLORS.shieldPrimary}
+                />
                 <TextInput
                   style={styles.modalInput}
                   value={tempValue}
                   onChangeText={setTempValue}
                   placeholder={`Enter ${title.toLowerCase()}`}
                   editable={!loading}
-                  multiline={editingField === "medicalNotes" || editingField === "specialNeeds" || editingField === "streetAddress"}
-                  numberOfLines={(editingField === "medicalNotes" || editingField === "specialNeeds" || editingField === "streetAddress") ? 3 : 1}
-                  keyboardType={editingField === "phoneNumber" || editingField === "householdSize" ? "number-pad" : "default"}
+                  multiline={
+                    editingField === "medicalNotes" ||
+                    editingField === "specialNeeds" ||
+                    editingField === "streetAddress"
+                  }
+                  numberOfLines={
+                    editingField === "medicalNotes" ||
+                    editingField === "specialNeeds" ||
+                    editingField === "streetAddress"
+                      ? 3
+                      : 1
+                  }
+                  keyboardType={
+                    editingField === "phoneNumber" ||
+                    editingField === "householdSize"
+                      ? "number-pad"
+                      : "default"
+                  }
                 />
               </View>
             </View>
@@ -471,8 +646,7 @@ export default function ProfileScreen({ navigation }) {
             <Pressable
               style={[styles.modalButton, loading && styles.buttonDisabled]}
               onPress={handleSaveField}
-              disabled={loading}
-            >
+              disabled={loading}>
               {loading ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
@@ -485,26 +659,49 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  const renderFieldValue = (value, fallback) => {
+    if (authLoading) return <Skeleton width={120} height={16} />;
+    return <Text style={styles.fieldValue}>{value || fallback}</Text>;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} color={COLORS.shieldPrimary} />
+          <MaterialIcons
+            name="arrow-back"
+            size={24}
+            color={COLORS.shieldPrimary}
+          />
         </Pressable>
         <Text style={styles.headerTitle}>My Profile</Text>
         <Pressable onPress={() => navigation.navigate("Settings")}>
-          <MaterialIcons name="settings" size={24} color={COLORS.shieldPrimary} />
+          <MaterialIcons
+            name="settings"
+            size={24}
+            color={COLORS.shieldPrimary}
+          />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
         {/* Profile Picture Section */}
         <View style={styles.profilePictureSection}>
-          <Pressable onPress={handleUpdateAvatar} style={styles.profileAvatarContainer}>
+          <Pressable
+            onPress={handleUpdateAvatar}
+            style={styles.profileAvatarContainer}>
             {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.profileAvatarImage} />
+              <Image
+                source={{ uri: profile.avatar_url }}
+                style={styles.profileAvatarImage}
+              />
             ) : (
-              <Image source={{ uri: getDefaultAvatar(fullName) }} style={styles.profileAvatarImage} />
+              <Image
+                source={{ uri: getDefaultAvatar(fullName) }}
+                style={styles.profileAvatarImage}
+              />
             )}
             <View style={styles.editAvatarBadge}>
               <MaterialIcons name="edit" size={16} color={COLORS.white} />
@@ -524,16 +721,19 @@ export default function ProfileScreen({ navigation }) {
           {/* Full Name Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="person" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="person"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Full Name</Text>
-                <Text style={styles.fieldValue}>{fullName || "Add name"}</Text>
+                {renderFieldValue(fullName, "Add name")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("fullName", fullName)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -541,16 +741,19 @@ export default function ProfileScreen({ navigation }) {
           {/* Date of Birth Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="cake" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="cake"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Date of Birth</Text>
-                <Text style={styles.fieldValue}>{dateOfBirth || "MM/DD/YYYY"}</Text>
+                {renderFieldValue(dateOfBirth, "MM/DD/YYYY")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("dateOfBirth", dateOfBirth)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -561,13 +764,12 @@ export default function ProfileScreen({ navigation }) {
               <MaterialIcons name="wc" size={24} color={COLORS.shieldPrimary} />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Gender</Text>
-                <Text style={styles.fieldValue}>{gender || "Select gender"}</Text>
+                {renderFieldValue(gender, "Select gender")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("gender", gender)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -575,16 +777,21 @@ export default function ProfileScreen({ navigation }) {
           {/* Barangay Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="location-city" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="location-city"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Barangay</Text>
-                <Text style={styles.fieldValue}>{residentialAddress || "Add barangay"}</Text>
+                {renderFieldValue(residentialAddress, "Add barangay")}
               </View>
             </View>
             <Pressable
-              onPress={() => handleEditField("residentialAddress", residentialAddress)}
-              style={styles.editButton}
-            >
+              onPress={() =>
+                handleEditField("residentialAddress", residentialAddress)
+              }
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -592,16 +799,19 @@ export default function ProfileScreen({ navigation }) {
           {/* Street Address Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="home" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="home"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Street Address</Text>
-                <Text style={styles.fieldValue}>{streetAddress || "Add street address"}</Text>
+                {renderFieldValue(streetAddress, "Add street address")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("streetAddress", streetAddress)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -609,35 +819,43 @@ export default function ProfileScreen({ navigation }) {
           {/* Phone Number Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="phone" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="phone"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Phone Number</Text>
-                <Text style={styles.fieldValue}>{phoneNumber || "Add phone number"}</Text>
+                {renderFieldValue(phoneNumber, "Add phone number")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("phoneNumber", phoneNumber)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
-          
-          <Text style={[styles.sectionTitle, { marginTop: 16 }]}>MEDICAL & HOUSEHOLD INFO</Text>
+
+          <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
+            MEDICAL & HOUSEHOLD INFO
+          </Text>
 
           {/* Blood Type Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="bloodtype" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="bloodtype"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Blood Type</Text>
-                <Text style={styles.fieldValue}>{bloodType || "Add blood type"}</Text>
+                {renderFieldValue(bloodType, "Add blood type")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("bloodType", bloodType)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -645,16 +863,19 @@ export default function ProfileScreen({ navigation }) {
           {/* Medical Notes Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="medical-services" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="medical-services"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Medical Notes</Text>
-                <Text style={styles.fieldValue}>{medicalNotes || "Add medical notes"}</Text>
+                {renderFieldValue(medicalNotes, "Add medical notes")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("medicalNotes", medicalNotes)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -662,14 +883,47 @@ export default function ProfileScreen({ navigation }) {
           {/* Special Needs Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="accessible" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="accessible"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Special Needs</Text>
                 {selectedNeeds.length > 0 || needsOther ? (
+<<<<<<< HEAD
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                     {formatSpecialNeeds(encodeSpecialNeeds(selectedNeeds, needsOther)).map((label, i) => (
                       <View key={i} style={{ backgroundColor: "#fef3c7", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
                         <Text style={{ fontSize: 10, color: "#92400e", fontWeight: "600" }}>{label}</Text>
+=======
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 4,
+                      marginTop: 4,
+                    }}>
+                    {formatSpecialNeeds(
+                      encodeSpecialNeeds(selectedNeeds, needsOther),
+                    ).map((label, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          backgroundColor: "#fef3c7",
+                          borderRadius: 8,
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                        }}>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            color: "#92400e",
+                            fontWeight: "600",
+                          }}>
+                          {label}
+                        </Text>
+>>>>>>> origin/master
                       </View>
                     ))}
                   </View>
@@ -679,9 +933,8 @@ export default function ProfileScreen({ navigation }) {
               </View>
             </View>
             <Pressable
-              onPress={() => handleEditField("specialNeeds", specialNeeds)}
-              style={styles.editButton}
-            >
+              onPress={() => handleEditField("specialNeeds", "")}
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -689,16 +942,19 @@ export default function ProfileScreen({ navigation }) {
           {/* Household Size Field */}
           <View style={styles.fieldItem}>
             <View style={styles.fieldContent}>
-              <MaterialIcons name="family-restroom" size={24} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="family-restroom"
+                size={24}
+                color={COLORS.shieldPrimary}
+              />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Household Size</Text>
-                <Text style={styles.fieldValue}>{householdSize || "Add household size"}</Text>
+                {renderFieldValue(householdSize, "Add household size")}
               </View>
             </View>
             <Pressable
               onPress={() => handleEditField("householdSize", householdSize)}
-              style={styles.editButton}
-            >
+              style={styles.editButton}>
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
@@ -707,27 +963,42 @@ export default function ProfileScreen({ navigation }) {
         {/* Emergency Contacts */}
         <Pressable
           style={styles.emergencyContactsCard}
-          onPress={() => navigation.navigate("EmergencyContacts")}
-        >
+          onPress={() => navigation.navigate("EmergencyContacts")}>
           <View style={styles.emergencyContactsLeft}>
             <View style={styles.emergencyContactsIcon}>
-              <MaterialIcons name="contact-phone" size={22} color={COLORS.shieldPrimary} />
+              <MaterialIcons
+                name="contact-phone"
+                size={22}
+                color={COLORS.shieldPrimary}
+              />
             </View>
             <View>
-              <Text style={styles.emergencyContactsTitle}>Emergency Contacts</Text>
+              <Text style={styles.emergencyContactsTitle}>
+                Emergency Contacts
+              </Text>
               <Text style={styles.emergencyContactsSubtitle}>
                 Manage up to 5 trusted contacts
               </Text>
             </View>
           </View>
-          <MaterialIcons name="chevron-right" size={24} color={COLORS.gray400} />
+          <MaterialIcons
+            name="chevron-right"
+            size={24}
+            color={COLORS.gray400}
+          />
         </Pressable>
 
         {/* Security Message */}
         <View style={styles.securityMessage}>
-          <MaterialIcons name="security" size={24} color={COLORS.shieldPrimary} />
+          <MaterialIcons
+            name="security"
+            size={24}
+            color={COLORS.shieldPrimary}
+          />
           <View style={styles.securityTextContainer}>
-            <Text style={styles.securityTitle}>Your information is secure.</Text>
+            <Text style={styles.securityTitle}>
+              Your information is secure.
+            </Text>
             <Text style={styles.securityDescription}>
               We value your privacy and will only use it for safety features
             </Text>
@@ -1093,6 +1364,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.shieldPrimary,
     borderColor: COLORS.shieldPrimary,
   },
+<<<<<<< HEAD
   barangayOptionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1115,4 +1387,6 @@ const styles = StyleSheet.create({
     color: COLORS.shieldPrimary,
     fontWeight: "600",
   },
+=======
+>>>>>>> origin/master
 });

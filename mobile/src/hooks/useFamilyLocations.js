@@ -5,7 +5,7 @@ import { getFamilyMembers, getMyFamily } from "../services/family.js";
 export default function useFamilyLocations() {
   const [members, setMembers] = useState([]);
   const [family, setFamily] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {

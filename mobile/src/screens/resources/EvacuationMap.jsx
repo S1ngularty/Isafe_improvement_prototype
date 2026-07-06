@@ -27,6 +27,7 @@ import { useToast } from "../../context/ToastContext.jsx";
 import { fetchRoute } from "../../services/routing.js";
 import { stripHtml, stepIcon, formatDist } from "../../utils/geo.js";
 import LEAFLET_HTML from "../../assets/leafletMapHtml.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   primary: "#800000",
@@ -197,8 +198,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
       {/* Map */}
       {!mapLoaded && (
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading map...</Text>
+          <Skeleton width="100%" height="100%" borderRadius={0} />
         </View>
       )}
       <WebView

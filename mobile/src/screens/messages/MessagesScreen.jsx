@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import useFamilyLocations from "../../hooks/useFamilyLocations";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -61,7 +62,17 @@ export default function MessagesScreen({ navigation }) {
               Join or create a family to start chatting with them.
             </Text>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.messageItem}>
+            <Skeleton width={48} height={48} borderRadius={24} />
+            <View style={styles.messageContent}>
+              <View style={styles.messageHeader}>
+                <Skeleton width={120} height={16} />
+              </View>
+              <Skeleton width={200} height={13} style={{ marginTop: 4 }} />
+            </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );

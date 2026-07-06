@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { supabase } from "../../services/supabase.js";
+import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -101,9 +102,19 @@ export default function EmergencyHistoryScreen({ navigation }) {
       </View>
 
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.shieldPrimary} />
-          <Text style={styles.loadingText}>Loading history...</Text>
+        <View style={styles.listContent}>
+          {[1, 2, 3].map((key) => (
+            <View key={key} style={styles.historyItem}>
+              <View style={styles.itemHeader}>
+                <View style={styles.statusWithIcon}>
+                  <Skeleton width={20} height={20} borderRadius={10} />
+                  <Skeleton width={60} height={16} />
+                </View>
+                <Skeleton width={80} height={14} />
+              </View>
+              <Skeleton width={150} height={14} style={{ marginTop: 8 }} />
+            </View>
+          ))}
         </View>
       ) : history.length > 0 ? (
         <FlatList

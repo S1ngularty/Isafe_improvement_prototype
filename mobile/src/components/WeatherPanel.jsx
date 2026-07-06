@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useWeather } from "../hooks/useWeather.js";
+import Skeleton from "./Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -37,9 +38,31 @@ export default function WeatherPanel({ lat, lng }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator color={COLORS.shieldPrimary} />
-        <Text style={styles.loadingText}>Fetching weather...</Text>
+      <View style={styles.container}>
+        <View style={styles.currentSection}>
+          <View style={styles.currentLeft}>
+            <Skeleton width={48} height={48} borderRadius={24} style={{ marginBottom: 4 }} />
+            <Skeleton width={60} height={28} />
+          </View>
+          <View style={styles.currentRight}>
+            <View style={styles.metric}>
+              <Skeleton width={50} height={14} />
+              <Skeleton width={40} height={14} />
+            </View>
+            <View style={styles.metric}>
+              <Skeleton width={70} height={14} />
+              <Skeleton width={40} height={14} />
+            </View>
+            <View style={styles.metric}>
+              <Skeleton width={90} height={14} />
+              <Skeleton width={40} height={14} />
+            </View>
+            <View style={styles.metric}>
+              <Skeleton width={40} height={14} />
+              <Skeleton width={40} height={14} />
+            </View>
+          </View>
+        </View>
       </View>
     );
   }

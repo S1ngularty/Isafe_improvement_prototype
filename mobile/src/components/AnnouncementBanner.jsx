@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Text, Pressable, Image, ActivityIndicator } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
 import { fetchActiveAnnouncements } from "../services/announcements.js";
+import { MaterialIcons } from "@expo/vector-icons";
+import Skeleton from "./Skeleton";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -79,7 +80,24 @@ export default function AnnouncementBanner() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator color={COLORS.white} />
+        <View style={styles.content}>
+          <Skeleton width={24} height={24} borderRadius={12} />
+          <View style={styles.textContainer}>
+            <Skeleton width={180} height={14} style={{ marginBottom: 6 }} />
+            <Skeleton width={140} height={12} />
+          </View>
+        </View>
+        <View style={styles.nav}>
+          <View style={styles.dots}>
+            <Skeleton width={6} height={6} borderRadius={3} />
+            <Skeleton width={6} height={6} borderRadius={3} />
+            <Skeleton width={6} height={6} borderRadius={3} />
+          </View>
+          <View style={styles.arrows}>
+            <Skeleton width={20} height={20} borderRadius={10} />
+            <Skeleton width={20} height={20} borderRadius={10} />
+          </View>
+        </View>
       </View>
     );
   }
