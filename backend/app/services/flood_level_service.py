@@ -1,9 +1,11 @@
-def process_flood_level(data:dict):
-    level = data.get("level_cm")
+from app.core.supabase import client as supabase
 
+
+def process_flood_level(data: dict) -> dict:
+    level = data.get("water_level_cm") or data.get("level_cm")
     if level is None:
-        return
-    
+        return data
+
     if level > 150:
         status = "FLOOD_WARNING"
     elif level > 100:
@@ -11,6 +13,18 @@ def process_flood_level(data:dict):
     else:
         status = "SAFE"
 
-    data["status"] = status
+    if supabase is not None:
+        try:
+            record = {
+                "sensor_id": data.get("sensor_id", "unknown"),
+                "distance_mm": data.get("distance_mm"),
+                "water_level_cm": level,
+                "status": status,
+                "samples": data.get("samples"),
+            }
+            supabase.table("water_level_readings").insert(record).execute()
+        except Exception as e:
+            print("Failed to insert water level reading:", e)
 
-    return
+    data["status"] = status
+    return data

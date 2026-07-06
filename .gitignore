@@ -38,3 +38,6 @@ AGENTS.md__pycache__/
 __pycache__/
 *.pyc
 AGENTS.md
+
+# IoT Sensor
+IOT_SENSOR/**/secrets.h
