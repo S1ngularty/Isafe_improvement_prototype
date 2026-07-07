@@ -1,3 +1,4 @@
+// components/AuthModal.jsx (Updated)
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -5,6 +6,7 @@ import { useToast } from "../context/ToastContext";
 import Modal from "./Modal";
 import { ALL_GROUPS, encodeSpecialNeeds } from "../utils/medicalOptions";
 import { BARANGAY_OPTIONS } from "../utils/barangayOptions";
+import { verifyOtp, resendOtp } from "../services/auth.js";
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
@@ -21,6 +23,9 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [tab, setTab] = useState(initialTab);
+  const [mode, setMode] = useState("form"); // "form" | "otp"
+  
+  // Form fields
   const [fullName, setFullName] = useState("");
   const [barangay, setBarangay] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -33,15 +38,24 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
+  
+  // OTP fields
+  const [otpCode, setOtpCode] = useState("");
+  const [tempEmail, setTempEmail] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
+  
+  // State management
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [ruleResults, setRuleResults] = useState([]);
   const [strength, setStrength] = useState(0);
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [otpResending, setOtpResending] = useState(false);
 
   function switchTab(t) {
     setTab(t);
+    setMode("form");
     setErrors({});
     setTouched({});
     setServerError("");
@@ -57,6 +71,9 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     setHouseholdSize("");
     setSelectedNeeds([]);
     setNeedsOther("");
+    setOtpCode("");
+    setTempEmail("");
+    setTempPassword("");
   }
 
   function validate(field, value) {
@@ -75,7 +92,6 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
       if (!EMAIL_RE.test(value)) return "Please enter a valid email address.";
     }
     if (field === "password" && tab === "signup") {
-      // full rules evaluated via evalPassword, no inline error here
       return "";
     }
     if (field === "password" && tab === "login") {
@@ -154,6 +170,19 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
       setErrors((p) => ({ ...p, password: pwErr }));
       markTouched("password");
       if (emailErr || pwErr) return;
+      
+      // Regular login
+      setSubmitting(true);
+      try {
+        const { role } = await login(email, password);
+        onClose();
+        navigate(role === "admin" ? "/admin" : "/dashboard", { replace: true });
+      } catch (err) {
+        setServerError(err.message || "Login failed. Please try again.");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
     }
 
     if (tab === "signup") {
@@ -163,21 +192,18 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
       markTouched("fullName");
       markTouched("barangay");
       if (nameErr || brgyErr) return;
-      if (strength < PASSWORD_RULES.length) return;
+      if (strength < PASSWORD_RULES.length) {
+        setServerError("Please meet all password requirements.");
+        return;
+      }
       const confirmErr = validate("confirm", confirm);
       setErrors((p) => ({ ...p, confirm: confirmErr }));
       markTouched("confirm");
       if (confirmErr) return;
-    }
 
-    setSubmitting(true);
-    try {
-      if (tab === "login") {
-        const { role } = await login(email, password);
-        onClose();
-        navigate(role === "admin" ? "/admin" : "/dashboard", { replace: true });
-      } else {
-        const data = await signup(email, password, {
+      setSubmitting(true);
+      try {
+        const result = await signup(email, password, {
           full_name: fullName.trim(),
           barangay_id: parseInt(barangay, 10),
           phone_number: phoneNumber.trim(),
@@ -186,17 +212,89 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
           household_size: householdSize || null,
           special_needs: encodeSpecialNeeds(selectedNeeds, needsOther),
         });
-        onClose();
-        if (!data.session) {
-          showToast("Account created! Check your email to confirm your address.", "success", 7000);
+        
+        // Store email and password for OTP verification
+        setTempEmail(email);
+        setTempPassword(password);
+        setMode("otp");
+        showToast("📧 Verification code sent to your email!", "success");
+      } catch (err) {
+        const errorMessage = err.message || "Registration failed. Please try again.";
+        if (errorMessage.includes("already registered")) {
+          setServerError("This email is already registered. Please sign in instead.");
         } else {
-          navigate("/dashboard", { replace: true });
+          setServerError(errorMessage);
         }
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  }
+
+  async function handleVerifyOtp(e) {
+    e.preventDefault();
+    if (!otpCode || otpCode.length !== 6) {
+      setServerError("Please enter a valid 6-digit verification code.");
+      return;
+    }
+
+    setSubmitting(true);
+    setServerError("");
+    try {
+      await verifyOtp(otpCode, tempEmail);
+      showToast("✅ Email verified! Please sign in.", "success");
+      
+      // Reset and switch to login
+      setMode("form");
+      setTab("login");
+      setEmail(tempEmail);
+      setPassword(tempPassword);
+      setOtpCode("");
+      setTempEmail("");
+      setTempPassword("");
+      
+      // Auto-login after verification
+      try {
+        const { role } = await login(tempEmail, tempPassword);
+        onClose();
+        navigate(role === "admin" ? "/admin" : "/dashboard", { replace: true });
+        showToast("Welcome! You're now signed in.", "success");
+      } catch (loginErr) {
+        // If auto-login fails, let user sign in manually
+        showToast("Verified! Please sign in.", "success");
       }
     } catch (err) {
-      setServerError(err.message || "Authentication failed. Please try again.");
+      const errorMessage = err.message || "Verification failed.";
+      if (errorMessage.includes("expired")) {
+        setServerError("Code expired. Request a new one.");
+      } else if (errorMessage.includes("Invalid")) {
+        setServerError("Invalid code. Please check and try again.");
+      } else if (errorMessage.includes("already registered")) {
+        setServerError("This email is already registered. Please sign in.");
+        setMode("form");
+        setTab("login");
+      } else {
+        setServerError(errorMessage);
+      }
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResendOtp() {
+    if (!tempEmail) {
+      setServerError("No email found. Please register again.");
+      return;
+    }
+    setOtpResending(true);
+    setServerError("");
+    try {
+      await resendOtp(tempEmail);
+      showToast("🔄 New verification code sent!", "success");
+    } catch (err) {
+      setServerError(err.message || "Failed to resend code. Please try again.");
+    } finally {
+      setOtpResending(false);
     }
   }
 
@@ -205,6 +303,83 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
 
   const barColor = strength <= 2 ? "bg-red-500" : strength <= 4 ? "bg-yellow-500" : "bg-green-500";
 
+  // Render OTP verification screen
+  if (mode === "otp") {
+    return (
+      <Modal open={open} onClose={onClose}>
+        <div className="px-8 py-6">
+          <div className="text-center mb-6">
+            <div className="w-10 h-10 bg-shield-600 rounded-xl flex items-center justify-center mx-auto mb-3">
+              <span className="text-white font-bold text-xl">C</span>
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Verify Your Email</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              We sent a 6-digit code to <strong>{tempEmail}</strong>
+            </p>
+          </div>
+
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <div>
+              <label htmlFor="otp-code" className="block text-sm font-medium text-gray-700 mb-1">
+                Verification Code
+              </label>
+              <input
+                id="otp-code"
+                type="text"
+                maxLength={6}
+                className="input-field text-center text-2xl tracking-widest"
+                placeholder="000000"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                autoFocus
+              />
+            </div>
+
+            {serverError && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                {serverError}
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={submitting} 
+              className="btn-primary w-full"
+            >
+              {submitting ? "Verifying..." : "Verify Email"}
+            </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={otpResending}
+                className="text-sm text-shield-600 hover:text-shield-700 font-medium disabled:opacity-50"
+              >
+                {otpResending ? "Sending..." : "Resend Code"}
+              </button>
+            </div>
+
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("form");
+                  setServerError("");
+                  setOtpCode("");
+                }}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                ← Back to registration
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+    );
+  }
+
+  // Render login/signup form
   return (
     <Modal open={open} onClose={onClose}>
       <div className="px-8 py-6">
@@ -294,6 +469,7 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
                   onChange={(e) => handleBarangayChange(e.target.value)}
                   onBlur={() => handleBlur("barangay")}
                 >
+                  <option value="">Select your barangay</option>
                   {BARANGAY_OPTIONS.map((b) => (
                     <option key={b.id} value={b.id}>{b.label}</option>
                   ))}
