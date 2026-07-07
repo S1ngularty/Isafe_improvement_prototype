@@ -1,137 +1,165 @@
-// SR04M-2 Debug Sketch v2
-// Listens at 9600 baud (default SR04M-2), shows raw HEX dump every 2s.
-// No secrets.h needed.
+// HC-SR04 Distance Sensor with MQTT
+// Samples at 50ms internally, publishes smoothed reading every 30s via MQTT/TLS.
 
-#define RX_PIN 26
-#define TX_PIN 27
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+#include <NewPing.h>
 
-uint8_t rawBuffer[256];
-int rawIndex = 0;
-unsigned long lastDump = 0;
+#include "secrets.h"
+
+#define TRIG_PIN 26
+#define ECHO_PIN 27
+#define MAX_DISTANCE 450
+
+#define PING_INTERVAL_MS 50
+#define PUBLISH_INTERVAL_MS 30000
+#define WIFI_TIMEOUT_MS 20000
+
+#define WINDOW_SIZE 10
+
+NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
+
+WiFiClientSecure wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+unsigned int sampleWindow[WINDOW_SIZE];
+int sampleIndex = 0;
+int samplesCollected = 0;
+float smoothedDistance = 60;
+
+unsigned long lastPingTime = 0;
+unsigned long lastPublishTime = 0;
+unsigned long lastReconnectAttempt = 0;
 
 void setup() {
   Serial.begin(115200);
-  delay(2000);
+  delay(1000);
 
-  Serial.println(F("\n========== SR04M-2 Debug v2 =========="));
-  Serial.print(F("GPIO26 (RX) <- SR04M-2 TX  (9600 8N1)"));
-  Serial.println();
-  Serial.print(F("GPIO27 (TX) -> SR04M-2 RX"));
-  Serial.println();
-  Serial.println();
-  Serial.println(F("Every 2s: raw HEX dump of received bytes"));
-  Serial.println(F("Commands:"));
-  Serial.println(F("  t   send 0x55 trigger"));
-  Serial.println(F("  0x  send custom hex byte(s), e.g. type: 55"));
-  Serial.println(F("  f   flush buffer"));
-  Serial.println(F("  c   clear raw buffer (reset display)"));
-  Serial.println(F("========================================\n"));
+  Serial.println(F("\n========== HC-SR04 MQTT =========="));
+  Serial.println(F("TRIG: GPIO26  |  ECHO: GPIO27"));
 
-  Serial2.begin(9600, SERIAL_8N1, RX_PIN, TX_PIN);
-  delay(300);
-  while (Serial2.available()) Serial2.read();
+  connectWiFi();
+
+  wifiClient.setInsecure();
+
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+  mqttClient.setCallback(callback);
 }
 
 void loop() {
-  handleSerialInput();
-  collectBytes();
+  if (!mqttClient.connected()) {
+    unsigned long now = millis();
+    if (now - lastReconnectAttempt > 5000) {
+      lastReconnectAttempt = now;
+      reconnectMQTT();
+    }
+  } else {
+    mqttClient.loop();
+  }
 
-  if (millis() - lastDump > 2000) {
-    lastDump = millis();
-    dumpRawBuffer();
+  unsigned long currentTime = millis();
+
+  if (currentTime - lastPingTime >= PING_INTERVAL_MS) {
+    lastPingTime = currentTime;
+
+    unsigned int distance = sonar.ping_cm();
+
+    if (distance > 0) {
+      sampleWindow[sampleIndex] = distance;
+      sampleIndex = (sampleIndex + 1) % WINDOW_SIZE;
+      if (samplesCollected < WINDOW_SIZE) samplesCollected++;
+    }
+  }
+
+  if (currentTime - lastPublishTime >= PUBLISH_INTERVAL_MS) {
+    lastPublishTime = currentTime;
+    publishReading();
   }
 }
 
-void collectBytes() {
-  while (Serial2.available() && rawIndex < 256) {
-    rawBuffer[rawIndex++] = Serial2.read();
+void connectWiFi() {
+  Serial.print(F("Connecting to WiFi"));
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(F("."));
+    if (millis() - start > WIFI_TIMEOUT_MS) {
+      Serial.println(F("\nWiFi connection timeout"));
+      Serial.println(F("Restarting..."));
+      ESP.restart();
+    }
+  }
+
+  Serial.println();
+  Serial.print(F("Connected. IP: "));
+  Serial.println(WiFi.localIP());
+}
+
+void reconnectMQTT() {
+  if (WiFi.status() != WL_CONNECTED) {
+    connectWiFi();
+  }
+
+  Serial.print(F("Connecting to MQTT..."));
+
+  if (mqttClient.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
+    Serial.println(F(" connected"));
+  } else {
+    Serial.print(F(" failed (rc="));
+    Serial.print(mqttClient.state());
+    Serial.println(F(")"));
   }
 }
 
-void dumpRawBuffer() {
-  if (rawIndex == 0) {
-    Serial.println(F("[no data received]"));
+void publishReading() {
+  if (samplesCollected == 0) {
+    Serial.println(F("No samples collected - skipping publish"));
     return;
   }
 
-  Serial.println();
-  Serial.print(F("--- "));
-  Serial.print(rawIndex);
-  Serial.println(F(" bytes received ---"));
-
-  // Print as HEX
-  for (int i = 0; i < rawIndex; i++) {
-    if (i > 0 && i % 16 == 0) Serial.println();
-    if (rawBuffer[i] < 0x10) Serial.print('0');
-    Serial.print(rawBuffer[i], HEX);
-    Serial.print(' ');
+  unsigned int farthest = 0;
+  for (int i = 0; i < samplesCollected; i++) {
+    if (sampleWindow[i] > farthest) farthest = sampleWindow[i];
   }
-  Serial.println();
 
-  // Try to find 0xFF-prefixed 4-byte frames
-  int framesFound = 0;
-  for (int i = 0; i <= rawIndex - 4; i++) {
-    if (rawBuffer[i] == 0xFF) {
-      uint16_t dist = (rawBuffer[i + 1] << 8) | rawBuffer[i + 2];
-      uint8_t sum = (rawBuffer[i] + rawBuffer[i + 1] + rawBuffer[i + 2]) & 0xFF;
-      bool checksumOK = (sum == rawBuffer[i + 3]);
+  float diff = abs((float)farthest - smoothedDistance);
 
-      Serial.print(F("  Frame at offset "));
-      Serial.print(i);
-      Serial.print(F(": FF "));
-      Serial.print(rawBuffer[i + 1], HEX);
-      Serial.print(' ');
-      Serial.print(rawBuffer[i + 2], HEX);
-      Serial.print(' ');
-      Serial.print(rawBuffer[i + 3], HEX);
-      Serial.print(F("  dist="));
-      Serial.print(dist);
-      Serial.print(F("mm  chk="));
-      Serial.println(checksumOK ? F("OK") : F("FAIL"));
-      framesFound++;
+  if (diff > 2) {
+    if (diff > 30) {
+      smoothedDistance = (farthest * 0.7) + (smoothedDistance * 0.3);
+    } else {
+      smoothedDistance = (farthest * 0.4) + (smoothedDistance * 0.6);
     }
   }
 
-  if (framesFound == 0 && rawIndex >= 4) {
-    Serial.println(F("  No FF-prefixed frames found"));
-  }
+  int distanceMM = (int)(smoothedDistance * 10);
 
-  rawIndex = 0;
-}
+  Serial.print(F("Distance: "));
+  Serial.print(smoothedDistance);
+  Serial.println(F(" cm"));
 
-void handleSerialInput() {
-  if (!Serial.available()) return;
+  char payload[128];
+  snprintf(payload, sizeof(payload),
+    "{\"sensor_id\":\"hc-sr04-001\",\"distance_mm\":%d,\"water_level_cm\":%.1f}",
+    distanceMM, smoothedDistance);
 
-  String cmd = Serial.readStringUntil('\n');
-  cmd.trim();
-
-  if (cmd == "t") {
-    Serial.println(F(">> Sending 0x55 trigger..."));
-    Serial2.write(0x55);
-    flushSerial2();
-  } else if (cmd == "f") {
-    flushSerial2();
-  } else if (cmd == "c") {
-    rawIndex = 0;
-    Serial.println(F("Buffer cleared"));
-  } else if (cmd.length() > 0) {
-    // Try to parse as hex bytes
-    int b = (int)strtol(cmd.c_str(), NULL, 16);
-    if (b >= 0 && b <= 255) {
-      Serial.print(F(">> Sending hex: 0x"));
-      Serial.println(b, HEX);
-      Serial2.write((uint8_t)b);
-    }
+  if (mqttClient.publish(MQTT_TOPIC, payload)) {
+    Serial.print(F("Published: "));
+    Serial.println(payload);
+  } else {
+    Serial.println(F("Publish failed"));
   }
 }
 
-void flushSerial2() {
-  int c = 0;
-  while (Serial2.available()) {
-    Serial2.read();
-    c++;
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print(F("MQTT msg ["));
+  Serial.print(topic);
+  Serial.print(F("]: "));
+  for (unsigned int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
   }
-  Serial.print(F("Flushed "));
-  Serial.print(c);
-  Serial.println(F(" bytes"));
+  Serial.println();
 }
