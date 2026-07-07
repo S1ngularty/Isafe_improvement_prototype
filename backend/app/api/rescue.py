@@ -10,12 +10,16 @@ router = APIRouter(prefix="/api/rescue", tags=["rescue"])
 async def list_in_need(
     lat: Optional[float] = Query(None),
     lng: Optional[float] = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
     current_user: dict = Depends(require_rescuer),
 ):
     data = await service.list_in_need(
         current_user["id"],
         rescuer_lat=lat,
         rescuer_lng=lng,
+        page=page,
+        limit=limit,
     )
     return {"data": data, "error": None}
 
@@ -52,9 +56,16 @@ async def update_assignment(
 @router.get("/assignments")
 async def get_assignments(
     active_only: bool = Query(False),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
     current_user: dict = Depends(require_rescuer),
 ):
-    data = await service.get_my_assignments(current_user["id"], active_only=active_only)
+    data = await service.get_my_assignments(
+        current_user["id"],
+        active_only=active_only,
+        page=page,
+        limit=limit,
+    )
     return {"data": data, "error": None}
 
 

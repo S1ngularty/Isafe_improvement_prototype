@@ -79,7 +79,7 @@ export default function RescuerDashboardScreen({ navigation }) {
         fetchInNeed(location?.latitude, location?.longitude),
         fetchMyAssignments(true),
       ]);
-      setUsers(inNeedData?.users || []);
+      setUsers(inNeedData?.data || []);
       setAssignments(myAssignmentsData?.data || []);
     } catch (err) {
       showToast(err.message || "Failed to load data", "error");

@@ -34,7 +34,7 @@ export default function RescuerOverviewMapScreen() {
   const loadData = useCallback(async () => {
     try {
       const inNeedData = await fetchInNeed(currentLocation?.latitude, currentLocation?.longitude);
-      const users = inNeedData?.users || [];
+      const users = inNeedData?.data || [];
       setInNeedUsers(users);
 
       if (mapLoaded && currentLocation) {

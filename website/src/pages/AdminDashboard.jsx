@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -19,6 +19,8 @@ import TideView from "../components/TideView";
 import AdminAlertsView from "../components/AdminAlertsView";
 import AdminAlertDetail from "../components/AdminAlertDetail";
 import AdminRescuersView from "../components/AdminRescuersView";
+import AnalyticsDashboard from "../components/AnalyticsDashboard";
+import DataTable from "../components/DataTable";
 export default function AdminDashboard() {
   const { session, logout } = useAuth();
   const { showToast } = useToast();
@@ -28,6 +30,12 @@ export default function AdminDashboard() {
   const [statusView, setStatusView] = useState(null);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const USERS_PER_PAGE = 50;
+  const [userSearch, setUserSearch] = useState("");
+  const [userSortBy, setUserSortBy] = useState(null);
+  const [userSortDesc, setUserSortDesc] = useState(false);
 
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(false);
@@ -38,6 +46,12 @@ export default function AdminDashboard() {
   const [announcePreview, setAnnouncePreview] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [announcePage, setAnnouncePage] = useState(1);
+  const [announceTotal, setAnnounceTotal] = useState(0);
+  const [announceSearch, setAnnounceSearch] = useState("");
+  const [announceSortBy, setAnnounceSortBy] = useState(null);
+  const [announceSortDesc, setAnnounceSortDesc] = useState(false);
+  const ANNOUNCE_PAGE_SIZE = 10;
 
   const [tcwsAlerts, setTcwsAlerts] = useState([]);
   const [tcwsLoading, setTcwsLoading] = useState(false);
@@ -56,6 +70,12 @@ export default function AdminDashboard() {
   const [evacPreview, setEvacPreview] = useState(null);
   const [evacDeleteConfirm, setEvacDeleteConfirm] = useState(null);
   const [evacSaving, setEvacSaving] = useState(false);
+  const [evacPage, setEvacPage] = useState(1);
+  const [evacTotal, setEvacTotal] = useState(0);
+  const [evacSearch, setEvacSearch] = useState("");
+  const [evacSortBy, setEvacSortBy] = useState(null);
+  const [evacSortDesc, setEvacSortDesc] = useState(false);
+  const EVAC_PAGE_SIZE = 10;
 
   const [hotlines, setHotlines] = useState([]);
   const [hotlinesLoading, setHotlinesLoading] = useState(false);
@@ -64,31 +84,121 @@ export default function AdminDashboard() {
   const [hotlineForm, setHotlineForm] = useState({ name: "", phoneNumbers: [{ type: "", number: "" }], email: "", website: "", category: "general", is_active: true, sort_order: 0 });
   const [hotlineDeleteConfirm, setHotlineDeleteConfirm] = useState(null);
   const [hotlineSaving, setHotlineSaving] = useState(false);
+  const [hotlinesPage, setHotlinesPage] = useState(1);
+  const [hotlinesTotal, setHotlinesTotal] = useState(0);
+  const [hotlineSearch, setHotlineSearch] = useState("");
+  const [hotlineSortBy, setHotlineSortBy] = useState(null);
+  const [hotlineSortDesc, setHotlineSortDesc] = useState(false);
+  const HOTLINE_PAGE_SIZE = 10;
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (page = 1, sortBy = userSortBy, sortDesc = userSortDesc) => {
     setUsersLoading(true);
+    setUsersPage(page);
     try {
-      const data = await fetchAllProfiles();
-      setUsers(data);
+      const result = await fetchAllProfiles(
+        page,
+        USERS_PER_PAGE,
+        userSearch || null,
+        sortBy,
+        sortDesc ? "DESC" : "ASC",
+      );
+
+      setUsers(result.data || []);
+      setUsersTotal(result.total || 0);
     } catch (err) {
       showToast("Failed to load users: " + err.message, "error");
     } finally {
       setUsersLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, userSearch, userSortBy, userSortDesc]);
 
+  function handleUserSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      setUserSortBy(sorting[0].id);
+      setUserSortDesc(sorting[0].desc);
+      loadUsers(1, sorting[0].id, sorting[0].desc);
+    } else {
+      setUserSortBy(null);
+      setUserSortDesc(false);
+      loadUsers(1, null, false);
+    }
+  }
 
-  const loadAnnouncements = useCallback(async () => {
+  const HOTLINE_SORT_FIELD_MAP = {
+    name: "name",
+    category: "category",
+    status: "is_active",
+  };
+
+  function handleHotlineSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = HOTLINE_SORT_FIELD_MAP[sorting[0].id] || "sort_order";
+      setHotlineSortBy(field);
+      setHotlineSortDesc(sorting[0].desc);
+      loadHotlines(1, field, sorting[0].desc);
+    } else {
+      setHotlineSortBy(null);
+      setHotlineSortDesc(false);
+      loadHotlines(1, null, false);
+    }
+  }
+
+  const EVAC_SORT_FIELD_MAP = {
+    name: "name",
+    capacity: "capacity",
+    status: "status",
+  };
+
+  function handleEvacSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = EVAC_SORT_FIELD_MAP[sorting[0].id] || "created_at";
+      setEvacSortBy(field);
+      setEvacSortDesc(sorting[0].desc);
+      loadEvacuationAreas(1, field, sorting[0].desc);
+    } else {
+      setEvacSortBy(null);
+      setEvacSortDesc(false);
+      loadEvacuationAreas(1, null, false);
+    }
+  }
+
+  const ANNOUNCE_SORT_FIELD_MAP = {
+    title: "title",
+    type: "type",
+    status: "is_active",
+  };
+
+  function handleAnnounceSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = ANNOUNCE_SORT_FIELD_MAP[sorting[0].id] || "created_at";
+      setAnnounceSortBy(field);
+      setAnnounceSortDesc(sorting[0].desc);
+      loadAnnouncements(1, field, sorting[0].desc);
+    } else {
+      setAnnounceSortBy(null);
+      setAnnounceSortDesc(false);
+      loadAnnouncements(1, null, false);
+    }
+  }
+
+  const loadAnnouncements = useCallback(async (page = 1, sortBy = announceSortBy, sortDesc = announceSortDesc) => {
     setAnnouncementsLoading(true);
+    setAnnouncePage(page);
     try {
-      const data = await fetchAllAnnouncements();
-      setAnnouncements(data);
+      const data = await fetchAllAnnouncements(page, ANNOUNCE_PAGE_SIZE, announceSearch, sortBy, sortDesc ? "DESC" : "ASC");
+      if (Array.isArray(data)) {
+        setAnnouncements(data);
+        setAnnounceTotal(data.length);
+      } else {
+        setAnnouncements(data?.announcements || []);
+        setAnnounceTotal(data?.total || 0);
+      }
     } catch (err) {
       showToast("Failed to load announcements: " + err.message, "error");
     } finally {
       setAnnouncementsLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, announceSearch, announceSortBy, announceSortDesc]);
 
   const loadTcws = useCallback(async () => {
     setTcwsLoading(true);
@@ -102,38 +212,76 @@ export default function AdminDashboard() {
     }
   }, [showToast]);
 
-  const loadEvacuationAreas = useCallback(async () => {
+  const loadEvacuationAreas = useCallback(async (page = 1, sortBy = evacSortBy, sortDesc = evacSortDesc) => {
     setEvacLoading(true);
+    setEvacPage(page);
     try {
-      const data = await fetchAllEvacuationAreas();
-      setEvacAreas(data);
+      const data = await fetchAllEvacuationAreas(page, EVAC_PAGE_SIZE, evacSearch, sortBy, sortDesc ? "DESC" : "ASC");
+      if (Array.isArray(data)) {
+        setEvacAreas(data);
+        setEvacTotal(data.length);
+      } else {
+        setEvacAreas(data?.areas || []);
+        setEvacTotal(data?.total || 0);
+      }
     } catch (err) {
       showToast("Failed to load evacuation areas: " + err.message, "error");
     } finally {
       setEvacLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, evacSearch, evacSortBy, evacSortDesc]);
 
-  const loadHotlines = useCallback(async () => {
+  const loadHotlines = useCallback(async (page = 1, sortBy = hotlineSortBy, sortDesc = hotlineSortDesc) => {
     setHotlinesLoading(true);
+    setHotlinesPage(page);
     try {
-      const data = await fetchAllHotlines();
-      setHotlines(data);
+      const data = await fetchAllHotlines(page, HOTLINE_PAGE_SIZE, hotlineSearch, sortBy, sortDesc ? "DESC" : "ASC");
+      if (Array.isArray(data)) {
+        setHotlines(data);
+        setHotlinesTotal(data.length);
+      } else {
+        setHotlines(data?.hotlines || []);
+        setHotlinesTotal(data?.total || 0);
+      }
     } catch (err) {
       showToast("Failed to load hotlines: " + err.message, "error");
     } finally {
       setHotlinesLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, hotlineSearch, hotlineSortBy, hotlineSortDesc]);
 
   useEffect(() => {
-    if (view === "users") loadUsers();
+    if (view === "users") loadUsers(1);
     if (view === "announcements") loadAnnouncements();
     if (view === "tcws") loadTcws();
     if (view === "evacuation") loadEvacuationAreas();
     if (view === "hotlines") loadHotlines();
     if (view !== "alerts") setStatusView(null);
   }, [view, loadUsers, loadAnnouncements, loadTcws, loadEvacuationAreas, loadHotlines]);
+
+  useEffect(() => {
+    if (view !== "users") return;
+    const timer = setTimeout(() => loadUsers(1), 300);
+    return () => clearTimeout(timer);
+  }, [userSearch]);
+
+  useEffect(() => {
+    if (view !== "hotlines") return;
+    const timer = setTimeout(() => loadHotlines(1), 300);
+    return () => clearTimeout(timer);
+  }, [hotlineSearch]);
+
+  useEffect(() => {
+    if (view !== "evacuation") return;
+    const timer = setTimeout(() => loadEvacuationAreas(1), 300);
+    return () => clearTimeout(timer);
+  }, [evacSearch]);
+
+  useEffect(() => {
+    if (view !== "announcements") return;
+    const timer = setTimeout(() => loadAnnouncements(1), 300);
+    return () => clearTimeout(timer);
+  }, [announceSearch]);
 
   function openCreateModal() {
     setEditingAnnouncement(null);
@@ -533,12 +681,360 @@ export default function AdminDashboard() {
     navigate("/", { replace: true });
   }
 
-  const stats = [
-    { color: "shield", label: "Total Users", value: users.length || "—" },
-    { color: "green", label: "Active", value: users.filter((u) => u.is_active).length || "—" },
-    { color: "alert", label: "Deactivated", value: users.filter((u) => !u.is_active).length || "—" },
-    { color: "shield", label: "Admins", value: users.filter((u) => u.role === "admin").length || "—" },
-  ];
+  const userColumns = useMemo(() => [
+    {
+      id: "user",
+      header: "User",
+      accessorKey: "full_name",
+      cell: ({ row }) => {
+        const u = row.original;
+        const isSelf = u.id === session?.user?.id;
+        return (
+          <div className="flex items-left flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-gray-900">{u.full_name || "\u2014"}</p>
+              {isSelf && <span className="text-[10px] px-1.5 py-0.5 bg-shield-100 text-shield-700 rounded font-medium">You</span>}
+            </div>
+            <p className="text-xs text-gray-400">{u.email || "\u2014"}</p>
+          </div>
+        );
+      },
+    },
+    {
+      id: "barangay",
+      header: "Barangay",
+      accessorKey: "barangay",
+      meta: { responsive: true },
+      cell: ({ getValue }) => <span className="text-gray-600">{getValue() || "\u2014"}</span>,
+    },
+    {
+      id: "blood",
+      header: "Blood",
+      accessorKey: "blood_type",
+      meta: { responsive: true },
+      cell: ({ getValue }) => {
+        const val = getValue();
+        return <span className={`text-xs font-medium ${val ? "text-gray-700" : "text-gray-300"}`}>{val || "\u2014"}</span>;
+      },
+    },
+    {
+      id: "specialNeeds",
+      header: "Special Needs",
+      accessorKey: "special_needs",
+      meta: { responsive: true },
+      cell: ({ getValue }) => {
+        const val = getValue();
+        if (!val) return <span className="text-xs text-gray-300">\u2014</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {formatSpecialNeeds(val).map((label, i) => (
+              <span key={i} className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                {label.length > 20 ? label.slice(0, 20) + "\u2026" : label}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      id: "role",
+      header: "Role",
+      accessorKey: "role",
+      cell: ({ row }) => {
+        const u = row.original;
+        const isSelf = u.id === session?.user?.id;
+        if (isSelf) {
+          return <span className="px-3 py-1 text-xs font-semibold rounded-full bg-alert-100 text-alert-600">{u.role}</span>;
+        }
+        return (
+          <select
+            value={u.role}
+            onChange={(e) => handleRoleChange(u, e.target.value)}
+            className={`px-2 py-1 text-xs font-semibold rounded-full border cursor-pointer ${
+              u.role === "admin"
+                ? "bg-alert-100 text-alert-600 border-alert-200"
+                : u.role === "rescuer"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-gray-100 text-gray-600 border-gray-200"
+            }`}
+          >
+            <option value="user">user</option>
+            <option value="rescuer">rescuer</option>
+            <option value="admin">admin</option>
+          </select>
+        );
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "is_active",
+      cell: ({ row }) => {
+        const u = row.original;
+        const isSelf = u.id === session?.user?.id;
+        return (
+          <button
+            onClick={() => handleActiveToggle(u)}
+            disabled={isSelf}
+            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              isSelf
+                ? "bg-green-100 text-green-700 cursor-not-allowed"
+                : u.is_active
+                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                  : "bg-red-100 text-red-700 hover:bg-red-200"
+            }`}
+            title={isSelf ? "You cannot deactivate your own account" : u.is_active ? "Deactivate" : "Activate"}
+          >
+            {u.is_active ? "Active" : "Inactive"}
+          </button>
+        );
+      },
+    },
+  ], [session]);
+
+  const hotlineColumns = useMemo(() => [
+    {
+      id: "name",
+      header: "Name",
+      accessorKey: "name",
+      cell: ({ row }) => {
+        const h = row.original;
+        return (
+          <div>
+            <p className="font-medium text-gray-900 truncate max-w-[240px]">{h.name}</p>
+            {h.email && <p className="text-xs text-gray-400 truncate max-w-[240px] mt-0.5">{h.email}</p>}
+          </div>
+        );
+      },
+    },
+    {
+      id: "category",
+      header: "Category",
+      accessorKey: "category",
+      meta: { responsive: true },
+      cell: ({ getValue }) => (
+        <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize bg-gray-100 text-gray-600">
+          {getValue()}
+        </span>
+      ),
+    },
+    {
+      id: "phones",
+      header: "Phone Numbers",
+      meta: { responsive: true },
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="text-xs text-gray-500">{(row.original.phone_numbers || []).length} number(s)</span>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "is_active",
+      cell: ({ row }) => {
+        const h = row.original;
+        return (
+          <button
+            onClick={() => handleHotlineToggle(h)}
+            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              h.is_active ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            {h.is_active ? "Active" : "Hidden"}
+          </button>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const h = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <button onClick={() => openHotlineEdit(h)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+              Edit
+            </button>
+            <button onClick={() => setHotlineDeleteConfirm(h)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+              Delete
+            </button>
+          </div>
+        );
+      },
+    },
+  ], []);
+
+  const evacColumns = useMemo(() => [
+    {
+      id: "landmark",
+      header: "Landmark",
+      meta: { responsive: true },
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        return a.landmark_url ? (
+          <img src={a.landmark_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+        ) : (
+          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        );
+      },
+    },
+    {
+      id: "name",
+      header: "Name",
+      accessorKey: "name",
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <div>
+            <p className="font-medium text-gray-900 truncate max-w-[200px]">{a.name}</p>
+            <p className="text-xs text-gray-400 truncate max-w-[200px] mt-0.5">
+              {a.latitude?.toFixed(4)}, {a.longitude?.toFixed(4)}
+            </p>
+          </div>
+        );
+      },
+    },
+    {
+      id: "capacity",
+      header: "Capacity",
+      accessorKey: "capacity",
+      meta: { responsive: true },
+      cell: ({ getValue }) => {
+        const val = getValue();
+        return <span className="text-gray-600">{val != null ? val.toLocaleString() : "\u2014"}</span>;
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "status",
+      cell: ({ getValue }) => {
+        const status = getValue();
+        return (
+          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+            status === "active" ? "bg-green-100 text-green-700" :
+            status === "inactive" ? "bg-gray-100 text-gray-500" :
+            "bg-yellow-100 text-yellow-700"
+          }`}>
+            {status}
+          </span>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <button onClick={() => openEvacEdit(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+              Edit
+            </button>
+            <button onClick={() => setEvacDeleteConfirm(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+              Delete
+            </button>
+          </div>
+        );
+      },
+    },
+  ], []);
+
+  const announceColumns = useMemo(() => [
+    {
+      id: "media",
+      header: "Media",
+      meta: { responsive: true },
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        return a.image_url ? (
+          a.type === "video" ? (
+            <video src={a.image_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" muted />
+          ) : (
+            <img src={a.image_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+          )
+        ) : (
+          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+        );
+      },
+    },
+    {
+      id: "title",
+      header: "Title",
+      accessorKey: "title",
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <div>
+            <p className="font-medium text-gray-900 truncate max-w-[240px]">{a.title}</p>
+            <p className="text-xs text-gray-400 truncate max-w-[240px] mt-0.5">{a.description}</p>
+          </div>
+        );
+      },
+    },
+    {
+      id: "type",
+      header: "Type",
+      accessorKey: "type",
+      meta: { responsive: true },
+      cell: ({ getValue }) => {
+        const type = getValue();
+        return (
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${type === "video" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
+            {type}
+          </span>
+        );
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "is_active",
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <button
+            onClick={() => handleToggleActive(a)}
+            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              a.is_active ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            {a.is_active ? "Active" : "Hidden"}
+          </button>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <button onClick={() => openEditModal(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+              Edit
+            </button>
+            <button onClick={() => handleDeleteClick(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+              Delete
+            </button>
+          </div>
+        );
+      },
+    },
+  ], []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -582,322 +1078,48 @@ export default function AdminDashboard() {
 
         <main className="flex-1 p-6 w-full">
           {view === "dashboard" && (
-            <>
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">Overview</h1>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                {stats.map(({ color, label, value }) => (
-                  <div key={label} className={`card border-l-4 ${
-                    color === "alert" ? "border-alert-600" : color === "shield" ? "border-shield-600" : "border-green-600"
-                  }`}>
-                    <h3 className="font-bold text-gray-900 mb-1">{label}</h3>
-                    <p className="text-3xl font-extrabold text-gray-900">{value}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 card">
-                  <h3 className="font-bold text-gray-900 mb-4">Activity Overview</h3>
-                  <div className="flex items-end gap-3 h-40 px-2">
-                    {[
-                      { day: "Mon", h: 30 },
-                      { day: "Tue", h: 55 },
-                      { day: "Wed", h: 40 },
-                      { day: "Thu", h: 75 },
-                      { day: "Fri", h: 50 },
-                      { day: "Sat", h: 20 },
-                      { day: "Sun", h: 35 },
-                    ].map(({ day, h }) => (
-                      <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full bg-shield-500 rounded-t-md hover:bg-shield-600 transition-colors" style={{ height: `${h}%` }} />
-                        <span className="text-xs text-gray-400">{day}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-400 text-center mt-4">Reports submitted per day (placeholder data)</p>
-                </div>
-
-                <div className="flex flex-col gap-6">
-                  <div className="card flex flex-col gap-4">
-                    <h3 className="font-bold text-gray-900">Distribution</h3>
-                    <div className="flex items-center gap-4">
-                      <div className="w-20 h-20 rounded-full border-[6px] border-shield-500 border-r-alert-500 border-b-green-500 border-l-yellow-400" />
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-shield-500" /> Alerts</div>
-                        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-alert-500" /> Incidents</div>
-                        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-green-500" /> Resolved</div>
-                        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-yellow-400" /> Pending</div>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400">Placeholder distribution</p>
-                  </div>
-
-                  <div className="card">
-                    <h3 className="font-bold text-gray-900 mb-3">Activity Heatmap</h3>
-                    <div className="grid grid-cols-[repeat(7,1fr)] gap-1">
-                      {Array.from({ length: 35 }).map((_, i) => {
-                        const v = Math.floor(Math.random() * 5);
-                        const colors = ["bg-gray-100","bg-green-200","bg-green-400","bg-shield-400","bg-shield-600"];
-                        return <div key={i} className={`aspect-square rounded-sm ${colors[v]}`} title={`Activity: ${v}`} />;
-                      })}
-                    </div>
-                    <div className="flex items-center justify-center gap-2 mt-2 text-[10px] text-gray-400">
-                      <span>Less</span>
-                      {["bg-gray-100","bg-green-200","bg-green-400","bg-shield-400","bg-shield-600"].map((c) => (
-                        <div key={c} className={`w-2.5 h-2.5 rounded-sm ${c}`} />
-                      ))}
-                      <span>More</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card mt-6">
-                <h3 className="font-bold text-gray-900 mb-4">Monthly Incident Trend</h3>
-                <div className="relative h-32 px-2">
-                  <div className="absolute inset-x-2 bottom-0 h-24 bg-gradient-to-t from-shield-100/80 to-transparent rounded-b-lg" />
-                  <svg className="absolute inset-x-2 bottom-0 w-full h-24 overflow-visible" viewBox="0 0 400 96" preserveAspectRatio="none">
-                    <polyline
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="text-shield-500"
-                      points="0,70 40,60 80,72 120,48 160,35 200,50 240,28 280,40 320,22 360,30 400,18"
-                    />
-                    <polygon
-                      fill="currentColor"
-                      className="text-shield-500/15"
-                      points="0,70 40,60 80,72 120,48 160,35 200,50 240,28 280,40 320,22 360,30 400,18 400,96 0,96"
-                    />
-                  </svg>
-                  <div className="absolute bottom-0 inset-x-2 flex justify-between text-[10px] text-gray-400 pb-0.5">
-                    {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m) => (
-                      <span key={m}>{m}</span>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 text-center mt-1">Placeholder incident data</p>
-              </div>
-
-              <div className="grid lg:grid-cols-2 gap-6 mt-6">
-                <div className="card">
-                  <h3 className="font-bold text-gray-900 mb-3">Incident Type Breakdown</h3>
-                  <div className="space-y-3">
-                    {[
-                      { label: "Flood", a: 45, b: 20 },
-                      { label: "Fire", a: 25, b: 15 },
-                      { label: "Earthquake", a: 15, b: 8 },
-                      { label: "Landslide", a: 8, b: 12 },
-                      { label: "Typhoon", a: 30, b: 18 },
-                    ].map(({ label, a, b }) => (
-                      <div key={label}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-gray-600">{label}</span>
-                          <span className="text-gray-400">{a + b}</span>
-                        </div>
-                        <div className="flex h-4 rounded-full overflow-hidden bg-gray-100">
-                          <div className="bg-shield-500 transition-all" style={{ width: `${(a / (a + b)) * 100}%` }} />
-                          <div className="bg-alert-400 transition-all flex-1" />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                          <span>Reported</span>
-                          <span>Resolved</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-3">Placeholder stacked comparison</p>
-                </div>
-
-                <div className="card">
-                  <h3 className="font-bold text-gray-900 mb-3">Response Time (Hours)</h3>
-                  <div className="flex items-end justify-center gap-2 h-40">
-                    {[
-                      { label: "Jan", h: 2.1 },{ label: "Feb", h: 2.8 },{ label: "Mar", h: 1.9 },{ label: "Apr", h: 2.3 },
-                      { label: "May", h: 1.6 },{ label: "Jun", h: 1.4 },{ label: "Jul", h: 1.8 },{ label: "Aug", h: 2.0 },
-                      { label: "Sep", h: 1.5 },{ label: "Oct", h: 2.2 },{ label: "Nov", h: 1.7 },{ label: "Dec", h: 1.3 },
-                    ].map(({ label, h }) => {
-                      const pct = (h / 3) * 100;
-                      const color = h <= 1.6 ? "bg-green-500" : h <= 2.2 ? "bg-yellow-400" : "bg-alert-500";
-                      return (
-                        <div key={label} className="flex flex-col items-center gap-1 flex-1">
-                          <span className="text-[9px] text-gray-400">{h}h</span>
-                          <div className={`w-full rounded-t-sm ${color}`} style={{ height: `${pct}%`, minHeight: 4 }} />
-                          <span className="text-[9px] text-gray-300">{label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-gray-400 text-center mt-2">Placeholder response metrics</p>
-                </div>
-              </div>
-
-              <div className="grid lg:grid-cols-2 gap-6 mt-6">
-                <div className="card">
-                  <h3 className="font-bold text-gray-900 mb-4">Recent Activity</h3>
-                  <div className="space-y-3">
-                    {[
-                      { text: "New user registered", time: "2 min ago", color: "bg-green-500" },
-                      { text: "Alert reported — Barangay San Roque", time: "15 min ago", color: "bg-alert-500" },
-                      { text: "Admin changed user role", time: "1 hour ago", color: "bg-shield-500" },
-                      { text: "Account deactivated", time: "3 hours ago", color: "bg-yellow-400" },
-                      { text: "System update completed", time: "1 day ago", color: "bg-gray-400" },
-                    ].map(({ text, time, color }) => (
-                      <div key={text} className="flex items-start gap-3">
-                        <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${color}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-700 truncate">{text}</p>
-                          <p className="text-xs text-gray-400">{time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="card">
-                  <h3 className="font-bold text-gray-900 mb-4">Barangay Breakdown</h3>
-                  <div className="space-y-4">
-                    {[
-                      { name: "San Roque", pct: 35 },
-                      { name: "San Isidro", pct: 28 },
-                      { name: "Poblacion", pct: 20 },
-                      { name: "Sta. Maria", pct: 12 },
-                      { name: "Other", pct: 5 },
-                    ].map(({ name, pct }) => (
-                      <div key={name}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">{name}</span>
-                          <span className="text-gray-400">{pct}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-100 rounded-full">
-                          <div className="h-full bg-shield-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-400 mt-4">Placeholder barangay data</p>
-                </div>
-              </div>
-            </>
+            <AnalyticsDashboard />
           )}
 
           {view === "users" && (
             <>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
                   <p className="text-gray-500 text-sm mt-1">Manage roles and account status.</p>
                 </div>
-                <button onClick={loadUsers} disabled={usersLoading} className="btn-outline px-4 py-2 text-sm">
+                <button onClick={() => loadUsers(1)} disabled={usersLoading} className="btn-outline px-4 py-2 text-sm">
                   {usersLoading ? "Loading..." : "Refresh"}
                 </button>
               </div>
 
-              <div className="card p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr className="text-left text-gray-500 font-medium">
-                        <th className="px-6 py-3">User</th>
-                        <th className="px-6 py-3 hidden md:table-cell">Barangay</th>
-                        <th className="px-6 py-3 hidden md:table-cell">Blood</th>
-                        <th className="px-6 py-3 hidden md:table-cell">Special Needs</th>
-                        <th className="px-6 py-3">Role</th>
-                        <th className="px-6 py-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {users.length === 0 && !usersLoading && (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center text-gray-400">
-                            No users found.
-                          </td>
-                        </tr>
-                      )}
-                      {usersLoading && (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center">
-                            <div className="w-6 h-6 border-2 border-shield-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                          </td>
-                        </tr>
-                      )}
-                      {users.map((user) => {
-                        const isSelf = user.id === session.user.id;
-                        return (
-
-                        <tr key={user.id} className={`hover:bg-gray-50 transition-colors ${isSelf ? "bg-shield-50/50" : ""}`}>
-
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900">{user.full_name || "—"}</p>
-                              {isSelf && <span className="text-[10px] px-1.5 py-0.5 bg-shield-100 text-shield-700 rounded font-medium">You</span>}
-                            </div>
-                            <p className="text-xs text-gray-400">{user.email || "—"}</p>
-                          </td>
-                          <td className="px-6 py-4 text-gray-600 hidden md:table-cell">{user.barangay || "—"}</td>
-                          <td className="px-6 py-4 hidden md:table-cell">
-                            <span className={`text-xs font-medium ${user.blood_type ? "text-gray-700" : "text-gray-300"}`}>
-                              {user.blood_type || "—"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 hidden md:table-cell">
-                            {user.special_needs ? (
-                              <div className="flex flex-wrap gap-1">
-                                {formatSpecialNeeds(user.special_needs).map((label, i) => (
-                                  <span key={i} className="text-[10px] text-amber-700 font-medium bg-amber-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                                    {label.length > 20 ? label.slice(0, 20) + "…" : label}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-xs text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {isSelf ? (
-                              <span className="px-3 py-1 text-xs font-semibold rounded-full bg-alert-100 text-alert-600">
-                                {user.role}
-                              </span>
-                            ) : (
-                              <select
-                                value={user.role}
-                                onChange={(e) => handleRoleChange(user, e.target.value)}
-                                className={`px-2 py-1 text-xs font-semibold rounded-full border cursor-pointer ${
-                                  user.role === "admin"
-                                    ? "bg-alert-100 text-alert-600 border-alert-200"
-                                    : user.role === "rescuer"
-                                      ? "bg-amber-50 text-amber-700 border-amber-200"
-                                      : "bg-gray-100 text-gray-600 border-gray-200"
-                                }`}
-                              >
-                                <option value="user">user</option>
-                                <option value="rescuer">rescuer</option>
-                                <option value="admin">admin</option>
-                              </select>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <button
-                              onClick={() => handleActiveToggle(user)}
-                              disabled={isSelf}
-                              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                                isSelf
-                                  ? "bg-green-100 text-green-700 cursor-not-allowed"
-                                  : user.is_active
-                                    ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                    : "bg-red-100 text-red-700 hover:bg-red-200"
-                              }`}
-                              title={isSelf ? "You cannot deactivate your own account" : user.is_active ? "Deactivate" : "Activate"}
-                            >
-                              {user.is_active ? "Active" : "Inactive"}
-                            </button>
-                          </td>
-                        </tr>
-                      )})}
-                    </tbody>
-                  </table>
+              <div className="mb-4">
+                <div className="relative max-w-sm">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search by name, email, or barangay..."
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
+                  />
                 </div>
               </div>
+
+              <DataTable
+                columns={userColumns}
+                data={users}
+                totalCount={usersTotal}
+                pageIndex={usersPage - 1}
+                pageSize={USERS_PER_PAGE}
+                isLoading={usersLoading}
+                serverSide
+                onPageChange={loadUsers}
+                onSortChange={handleUserSortChange}
+                emptyMessage="No users found."
+              />
             </>
           )}
 
@@ -917,85 +1139,34 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {announcementsLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : announcements.length === 0 ? (
-                <div className="card py-16 text-center text-gray-400">
-                  <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-sm font-medium">No announcements yet</p>
-                  <p className="text-xs mt-1">Create your first announcement to start.</p>
+                  <input
+                    type="text"
+                    value={announceSearch}
+                    onChange={(e) => setAnnounceSearch(e.target.value)}
+                    placeholder="Search by title or description..."
+                    aria-label="Search announcements"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
+                  />
                 </div>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr className="text-left text-gray-600 font-semibold">
-                          <th className="px-6 py-3 w-24">Media</th>
-                          <th className="px-6 py-3">Title</th>
-                          <th className="px-6 py-3 hidden md:table-cell">Type</th>
-                          <th className="px-6 py-3">Status</th>
-                          <th className="px-6 py-3 w-28">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {announcements.map((a) => (
-                          <tr key={a.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-3">
-                              {a.image_url ? (
-                                a.type === "video" ? (
-                                  <video src={a.image_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" muted />
-                                ) : (
-                                  <img src={a.image_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
-                                )
-                              ) : (
-                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-3">
-                              <p className="font-medium text-gray-900 truncate max-w-[240px]">{a.title}</p>
-                              <p className="text-xs text-gray-400 truncate max-w-[240px] mt-0.5">{a.description}</p>
-                            </td>
-                            <td className="px-6 py-3 hidden md:table-cell">
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${a.type === "video" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
-                                {a.type}
-                              </span>
-                            </td>
-                            <td className="px-6 py-3">
-                              <button
-                                onClick={() => handleToggleActive(a)}
-                                className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                                  a.is_active ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                }`}
-                              >
-                                {a.is_active ? "Active" : "Hidden"}
-                              </button>
-                            </td>
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => openEditModal(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
-                                  Edit
-                                </button>
-                                <button onClick={() => handleDeleteClick(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              </div>
+
+              <DataTable
+                columns={announceColumns}
+                data={announcements}
+                totalCount={announceTotal}
+                pageIndex={announcePage - 1}
+                pageSize={ANNOUNCE_PAGE_SIZE}
+                isLoading={announcementsLoading}
+                serverSide
+                onPageChange={(p) => loadAnnouncements(p)}
+                onSortChange={handleAnnounceSortChange}
+                emptyMessage="No announcements yet. Create your first announcement to start."
+              />
 
               {announceModal && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeModal}>
@@ -1165,73 +1336,34 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {hotlinesLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : hotlines.length === 0 ? (
-                <div className="card py-16 text-center text-gray-400">
-                  <svg className="w-14 h-14 mx-auto mb-3 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-sm font-medium">No hotlines yet</p>
-                  <p className="text-xs mt-1">Click "New Hotline" to add your first emergency hotline.</p>
+                  <input
+                    type="text"
+                    value={hotlineSearch}
+                    onChange={(e) => setHotlineSearch(e.target.value)}
+                    placeholder="Search by name, email, or category..."
+                    aria-label="Search hotlines"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
+                  />
                 </div>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr className="text-left text-gray-600 font-semibold">
-                          <th className="px-6 py-3">Name</th>
-                          <th className="px-6 py-3 hidden md:table-cell">Category</th>
-                          <th className="px-6 py-3 hidden md:table-cell">Phone Numbers</th>
-                          <th className="px-6 py-3">Status</th>
-                          <th className="px-6 py-3 w-28">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {hotlines.map((h) => (
-                          <tr key={h.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-3">
-                              <p className="font-medium text-gray-900 truncate max-w-[240px]">{h.name}</p>
-                              {h.email && <p className="text-xs text-gray-400 truncate max-w-[240px] mt-0.5">{h.email}</p>}
-                            </td>
-                            <td className="px-6 py-3 hidden md:table-cell">
-                              <span className="text-xs px-2 py-0.5 rounded-full font-medium capitalize bg-gray-100 text-gray-600">
-                                {h.category}
-                              </span>
-                            </td>
-                            <td className="px-6 py-3 hidden md:table-cell">
-                              <span className="text-xs text-gray-500">{(h.phone_numbers || []).length} number(s)</span>
-                            </td>
-                            <td className="px-6 py-3">
-                              <button
-                                onClick={() => handleHotlineToggle(h)}
-                                className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                                  h.is_active ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                }`}
-                              >
-                                {h.is_active ? "Active" : "Hidden"}
-                              </button>
-                            </td>
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => openHotlineEdit(h)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
-                                  Edit
-                                </button>
-                                <button onClick={() => setHotlineDeleteConfirm(h)} className="text-xs text-red-500 hover:text-red-700 font-medium">
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              </div>
+
+              <DataTable
+                columns={hotlineColumns}
+                data={hotlines}
+                totalCount={hotlinesTotal}
+                pageIndex={hotlinesPage - 1}
+                pageSize={HOTLINE_PAGE_SIZE}
+                isLoading={hotlinesLoading}
+                serverSide
+                onPageChange={(p) => loadHotlines(p)}
+                onSortChange={handleHotlineSortChange}
+                emptyMessage='No hotlines yet. Click "New Hotline" to add your first emergency hotline.'
+              />
 
               {hotlineModal && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeHotlineModal}>
@@ -1397,80 +1529,34 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {evacLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : evacAreas.length === 0 ? (
-                <div className="card py-16 text-center text-gray-400">
-                  <svg className="w-14 h-14 mx-auto mb-3 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 21h18M3 7v1h18V7M3 7l1-4h16l1 4M5 11v8m4-8v8m4-8v8m4-8v8" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-sm font-medium">No evacuation centers yet</p>
-                  <p className="text-xs mt-1">Click "New Center" to add your first evacuation center.</p>
+                  <input
+                    type="text"
+                    value={evacSearch}
+                    onChange={(e) => setEvacSearch(e.target.value)}
+                    placeholder="Search by name or description..."
+                    aria-label="Search evacuation centers"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
+                  />
                 </div>
-              ) : (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr className="text-left text-gray-600 font-semibold">
-                          <th className="px-6 py-3 w-20">Landmark</th>
-                          <th className="px-6 py-3">Name</th>
-                          <th className="px-6 py-3 hidden md:table-cell">Capacity</th>
-                          <th className="px-6 py-3">Status</th>
-                          <th className="px-6 py-3 w-28">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {evacAreas.map((a) => (
-                          <tr key={a.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-3">
-                              {a.landmark_url ? (
-                                <img src={a.landmark_url} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
-                              ) : (
-                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                  </svg>
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-6 py-3">
-                              <p className="font-medium text-gray-900 truncate max-w-[200px]">{a.name}</p>
-                              <p className="text-xs text-gray-400 truncate max-w-[200px] mt-0.5">
-                                {a.latitude?.toFixed(4)}, {a.longitude?.toFixed(4)}
-                              </p>
-                            </td>
-                            <td className="px-6 py-3 hidden md:table-cell text-gray-600">
-                              {a.capacity != null ? a.capacity.toLocaleString() : "—"}
-                            </td>
-                            <td className="px-6 py-3">
-                              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                                a.status === "active" ? "bg-green-100 text-green-700" :
-                                a.status === "inactive" ? "bg-gray-100 text-gray-500" :
-                                "bg-yellow-100 text-yellow-700"
-                              }`}>
-                                {a.status}
-                              </span>
-                            </td>
-                            <td className="px-6 py-3">
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => openEvacEdit(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
-                                  Edit
-                                </button>
-                                <button onClick={() => setEvacDeleteConfirm(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              </div>
+
+              <DataTable
+                columns={evacColumns}
+                data={evacAreas}
+                totalCount={evacTotal}
+                pageIndex={evacPage - 1}
+                pageSize={EVAC_PAGE_SIZE}
+                isLoading={evacLoading}
+                serverSide
+                onPageChange={(p) => loadEvacuationAreas(p)}
+                onSortChange={handleEvacSortChange}
+                emptyMessage='No evacuation centers yet. Click "New Center" to add your first evacuation center.'
+              />
 
               {evacModal && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeEvacModal}>

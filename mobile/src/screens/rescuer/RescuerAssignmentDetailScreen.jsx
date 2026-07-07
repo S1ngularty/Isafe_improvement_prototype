@@ -134,7 +134,7 @@ export default function RescuerAssignmentDetailScreen({ route, navigation }) {
             target.lat, target.lng,
           );
           if (result) {
-            const label = `${result.distance_km} km \u00b7 ~${result.duration_min} min`;
+            const label = `${result.distance_km} km, ~${result.duration_min} min`;
             sendToMap("SET_ROUTE", { coordinates: result.coordinates, label });
             setRouteData(result);
           }
@@ -249,7 +249,7 @@ export default function RescuerAssignmentDetailScreen({ route, navigation }) {
         {routeData && (
           <View style={s.routeCard}>
             <Text style={s.routeTitle}>
-              {routeData.distance_km} km \u00b7 ~{routeData.duration_min} min
+              {routeData.distance_km} km, ~{routeData.duration_min} min
             </Text>
             {routeData.steps && routeData.steps.length > 0 && (
               <>

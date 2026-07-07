@@ -1,17 +1,37 @@
 from app.core.supabase import client
 from app.models.notification_model import NotifyContactUserModel
 from app.services.notification import NotificationService
+from app.db.pagination import paginate_query
+
+
+def _flatten_barangay(rows: list[dict]):
+    for r in rows:
+        brgy_info = r.pop("barangays", None) or {}
+        r["barangay"] = brgy_info.get("name")
+
+
+def _matching_barangay_ids(q: str) -> list[int]:
+    try:
+        result = (
+            client.table("barangays")
+            .select("id")
+            .ilike("name", f"%{q}%")
+            .execute()
+        )
+        return [b["id"] for b in (result.data or [])]
+    except Exception:
+        return []
 
 PROFILE_FIELDS = (
     "id, full_name, status, family_role, lat, lng, last_seen_at, "
-    "avatar_url, barangay, street_address, phone_number, "
+    "avatar_url, barangay_id, barangays(name), street_address, phone_number, "
     "blood_type, medical_notes, special_needs, special_needs_other, "
     "gender, date_of_birth, household_size, "
     "external_name, external_phone, relationship"
 )
 
 USER_STATUS_FIELDS = (
-    "id, full_name, status, family_role, barangay, "
+    "id, full_name, status, family_role, barangay_id, barangays(name), "
     "lat, lng, last_seen_at, avatar_url"
 )
 
@@ -19,6 +39,68 @@ STATUS_HISTORY_FIELDS = (
     "id, previous_status, new_status, lat, lng, "
     "resolution_note, resolved_by, created_at"
 )
+
+ADMIN_PROFILE_FIELDS = "id, full_name, barangay_id, barangays(name), role, is_active, created_at, blood_type, special_needs"
+
+ALLOWED_SORT_COLUMNS = {
+    "full_name": "full_name",
+    "barangay": "barangay_id",
+    "role": "role",
+    "is_active": "is_active",
+    "created_at": "created_at",
+}
+
+ALLOWED_STATUS_USER_SORT_COLUMNS = {
+    "full_name": "full_name",
+    "status": "status",
+    "last_seen_at": "last_seen_at",
+    "barangay": "barangay_id",
+}
+
+
+async def get_profiles(
+    page: int = 1,
+    limit: int = 50,
+    search: str | None = None,
+    order_by: str = "created_at",
+    order_dir: str = "DESC",
+) -> dict:
+    query = client.from_("profiles").select(ADMIN_PROFILE_FIELDS, count="exact")
+
+    if search and search.strip():
+        q = search.strip()
+        brgy_ids = _matching_barangay_ids(q)
+        if brgy_ids:
+            id_list = ",".join(str(i) for i in brgy_ids)
+            query = query.or_(f"full_name.ilike.%{q}%,barangay_id.in.({id_list})")
+        else:
+            query = query.or_(f"full_name.ilike.%{q}%")
+
+    sort_col = ALLOWED_SORT_COLUMNS.get(order_by, "created_at")
+    sort_desc = order_dir.upper() == "DESC"
+    query = query.order(sort_col, desc=sort_desc, nullsfirst=False)
+
+    result = await paginate_query(query, page=page, limit=limit)
+    rows = result["data"]
+
+    if rows:
+        _flatten_barangay(rows)
+        emails_map = {}
+        try:
+            for r in rows:
+                uid = r["id"]
+                if uid not in emails_map:
+                    auth_user = client.auth.admin.get_user_by_id(uid)
+                    if auth_user and auth_user.user:
+                        emails_map[uid] = auth_user.user.email
+        except Exception:
+            pass
+
+        for r in rows:
+            r["email"] = emails_map.get(r["id"])
+
+    result["data"] = rows
+    return result
 
 
 async def get_status_overview() -> dict:
@@ -32,18 +114,36 @@ async def get_status_overview() -> dict:
     return counts
 
 
-async def get_status_users(status_filter: str | None = None, search: str | None = None) -> dict:
-    query = client.from_("profiles").select(USER_STATUS_FIELDS)
+async def get_status_users(
+    status_filter: str | None = None,
+    search: str | None = None,
+    page: int = 1,
+    limit: int = 50,
+    order_by: str = "last_seen_at",
+    order_dir: str = "DESC",
+) -> dict:
+    query = client.from_("profiles").select(USER_STATUS_FIELDS, count="exact")
 
     if status_filter and status_filter in ("safe", "help", "emergency"):
         query = query.eq("status", status_filter)
 
-    result = query.order("last_seen_at", desc=True, nullsfirst=False).execute()
-    rows = result.data or []
-
     if search and search.strip():
-        q = search.strip().lower()
-        rows = [r for r in rows if q in (r.get("full_name") or "").lower() or q in (r.get("barangay") or "").lower()]
+        q = search.strip()
+        brgy_ids = _matching_barangay_ids(q)
+        if brgy_ids:
+            id_list = ",".join(str(i) for i in brgy_ids)
+            query = query.or_(f"full_name.ilike.%{q}%,barangay_id.in.({id_list})")
+        else:
+            query = query.or_(f"full_name.ilike.%{q}%")
+
+    sort_col = ALLOWED_STATUS_USER_SORT_COLUMNS.get(order_by, "last_seen_at")
+    sort_desc = order_dir.upper() == "DESC"
+    query = query.order(sort_col, desc=sort_desc, nullsfirst=False)
+    result = await paginate_query(query, page=page, limit=limit)
+    rows = result["data"]
+
+    if rows:
+        _flatten_barangay(rows)
 
     user_ids = [r["id"] for r in rows]
     if user_ids:
@@ -61,9 +161,11 @@ async def get_status_users(status_filter: str | None = None, search: str | None 
 
         emails_map = {}
         try:
-            emails_result = client.rpc("get_all_profiles").execute()
-            for e in emails_result.data or []:
-                emails_map[e.get("id", "")] = e.get("email")
+            for uid in user_ids:
+                if uid not in emails_map:
+                    auth_user = client.auth.admin.get_user_by_id(uid)
+                    if auth_user and auth_user.user:
+                        emails_map[uid] = auth_user.user.email
         except Exception:
             pass
 
@@ -71,19 +173,18 @@ async def get_status_users(status_filter: str | None = None, search: str | None 
             r["family_name"] = family_names_map.get(r["id"])
             r["email"] = emails_map.get(r["id"])
 
-    return {"users": rows, "total": len(rows)}
+    result["data"] = rows
+    return result
 
 
-async def get_status_history(user_id: str) -> dict:
-    result = (
+async def get_status_history(user_id: str, page: int = 1, limit: int = 50) -> dict:
+    query = (
         client.table("status_history")
-        .select(STATUS_HISTORY_FIELDS)
+        .select(STATUS_HISTORY_FIELDS, count="exact")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
-        .limit(100)
-        .execute()
     )
-    return {"items": result.data or [], "total": len(result.data or [])}
+    return await paginate_query(query, page=page, limit=limit)
 
 
 async def get_user_profile(user_id: str) -> dict | None:
@@ -98,6 +199,8 @@ async def get_user_profile(user_id: str) -> dict | None:
         return None
 
     profile = dict(result.data)
+    brgy_info = profile.pop("barangays", None) or {}
+    profile["barangay"] = brgy_info.get("name")
 
     fam_result = (
         client.table("profiles")
@@ -160,7 +263,7 @@ async def update_user_status(
 
     try:
         status_label = new_status.replace("_", " ").title()
-        NotificationService.send_alert_notification(
+        await NotificationService.send_alert_notification(
             NotifyContactUserModel(
                 user_id=user_id,
                 status=new_status,

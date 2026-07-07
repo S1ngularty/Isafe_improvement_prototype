@@ -1,5 +1,6 @@
 from app.integrations.expo_push import send_expo_push
 from app.core.supabase import client
+from app.services.sms import send_status_alert_sms
 
 
 class NotificationService:
@@ -74,7 +75,7 @@ class NotificationService:
             return []
 
     @staticmethod
-    def send_alert_notification(payload):
+    async def send_alert_notification(payload):
         # Validate payload
         if not payload:
             return {"success": False, "message": "Payload is required"}
@@ -176,12 +177,52 @@ class NotificationService:
                     print(f"Failed to send notification: {e}")
                     failed_count += 1
 
+            sms_result = None
+            try:
+                payload_data = payload.payload or {}
+
+                full_name = None
+                if isinstance(payload_data, dict):
+                    full_name = payload_data.get("full_name") or payload_data.get("fullName")
+
+                profile_result = (
+                    client
+                    .table("profiles")
+                    .select("full_name, lat, lng")
+                    .eq("id", payload.user_id)
+                    .single()
+                    .execute()
+                )
+                db_profile = profile_result.data or {}
+
+                full_name = full_name or db_profile.get("full_name", "Someone")
+
+                lat = None
+                lng = None
+                if isinstance(payload_data, dict):
+                    lat = payload_data.get("lat") or payload_data.get("latitude")
+                    lng = payload_data.get("lng") or payload_data.get("longitude")
+                if lat is None or lng is None:
+                    lat = db_profile.get("lat")
+                    lng = db_profile.get("lng")
+
+                sms_result = await send_status_alert_sms(
+                    user_id=payload.user_id,
+                    status=payload.status,
+                    full_name=full_name,
+                    lat=lat,
+                    lng=lng,
+                )
+            except Exception as e:
+                print(f"Failed to send SMS alert: {e}")
+
             return {
                 "success": True,
                 "sent_count": sent_count,
                 "failed_count": failed_count,
                 "contacts_found": len(contacts),
                 "family_tokens_found": len(family_tokens),
+                "sms_sent": bool(sms_result and sms_result.get("success")),
                 "message": f"Expo push notifications processed: {sent_count} sent, {failed_count} failed"
             }
 

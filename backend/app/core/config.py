@@ -8,6 +8,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY_CHAT", os.getenv("GROQ_API_KEY", ""))
 
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+
 APP_NAME = os.getenv("APP_NAME", "cityshield")
 APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 APP_CONTACT_EMAIL = os.getenv("APP_CONTACT_EMAIL", "contact@cityshield.app")
@@ -23,3 +25,7 @@ TIDECHECK_API_URL = "https://tidecheck.com/api/station/fes2022-calauag/tides"
 TIDECHECK_DEFAULT_PARAMS = {"days": "15", "datum": "LAT"}
 TIDE_CACHE_TTL = 600
 CRON_API_KEY = os.getenv("CRON_API_KEY", "")
+
+TEXTBEE_API_KEY = os.getenv("TEXTBEE_API_KEY", "")
+TEXTBEE_DEVICE_ID = os.getenv("TEXTBEE_DEVICE_ID", "")
+TEXTBEE_API_BASE = "https://api.textbee.dev/api/v1/gateway/devices"

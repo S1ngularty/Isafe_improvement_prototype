@@ -3,19 +3,32 @@ from typing import Optional
 import math
 from datetime import datetime, timezone
 from app.services.routing import get_route
+from app.db.pagination import paginate_query
+
+
+def _flatten_barangay(rows: list[dict]):
+    for r in rows:
+        brgy_info = r.pop("barangays", None) or {}
+        r["barangay"] = brgy_info.get("name")
 
 PROFILE_BASE_FIELDS = (
-    "id, full_name, status, barangay, lat, lng, last_seen_at, "
+    "id, full_name, status, barangay_id, barangays(name), lat, lng, last_seen_at, "
     "blood_type, medical_notes, special_needs, household_size, avatar_url"
 )
 RESCUER_DETAIL_FIELDS = (
-    "id, full_name, avatar_url, barangay, phone_number, "
+    "id, full_name, avatar_url, barangay_id, barangays(name), phone_number, "
     "rescuers(id, organization, rescuer_type, availability, certification, contact_number)"
 )
 
 
-async def list_in_need(rescuer_id: str, rescuer_lat: float | None = None, rescuer_lng: float | None = None) -> dict:
-    """List all users with status 'help' or 'emergency'"""
+async def list_in_need(
+    rescuer_id: str,
+    rescuer_lat: float | None = None,
+    rescuer_lng: float | None = None,
+    page: int = 1,
+    limit: int = 50,
+) -> dict:
+    """List users with status 'help' or 'emergency', sorted by priority and distance."""
     result = (
         client.from_("profiles")
         .select(PROFILE_BASE_FIELDS)
@@ -24,6 +37,7 @@ async def list_in_need(rescuer_id: str, rescuer_lat: float | None = None, rescue
         .execute()
     )
     rows = result.data or []
+    _flatten_barangay(rows)
 
     enriched = []
     for r in rows:
@@ -39,7 +53,20 @@ async def list_in_need(rescuer_id: str, rescuer_lat: float | None = None, rescue
         x.get("distance_km") if x.get("distance_km") is not None else 99999
     ))
 
-    return {"users": enriched, "total": len(enriched)}
+    total = len(enriched)
+    total_pages = max(1, (total + limit - 1) // limit)
+    offset = (page - 1) * limit
+    page_items = enriched[offset:offset + limit]
+
+    return {
+        "data": page_items,
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_prev": page > 1,
+    }
 
 
 async def claim_assignment(rescuer_id: str, target_user_id: str) -> dict:
@@ -181,20 +208,29 @@ async def update_assignment(assignment_id: str, rescuer_id: str, body: dict) -> 
     return dict(result.data[0])
 
 
-async def get_my_assignments(rescuer_id: str, active_only: bool = False) -> dict:
+async def get_my_assignments(
+    rescuer_id: str,
+    active_only: bool = False,
+    page: int = 1,
+    limit: int = 50,
+) -> dict:
     """Get assignments for the current rescuer"""
     query = (
         client.from_("rescue_assignments")
-        .select("*, target:target_user_id(id, full_name, status, barangay, lat, lng, last_seen_at, blood_type, medical_notes, special_needs, special_needs_other, household_size, avatar_url, phone_number)")
+        .select("*, target:target_user_id(id, full_name, status, barangay_id, barangays(name), lat, lng, last_seen_at, blood_type, medical_notes, special_needs, special_needs_other, household_size, avatar_url, phone_number)")
         .eq("rescuer_id", rescuer_id)
     )
     if active_only:
         query = query.in_("state", ["en_route", "on_scene"])
 
-    result = query.order("created_at", desc=True).limit(50).execute()
-    rows = result.data or []
-
-    return {"data": rows, "total": len(rows)}
+    query = query.order("created_at", desc=True)
+    result = await paginate_query(query, page=page, limit=limit)
+    for row in result.get("data", []):
+        target = row.get("target")
+        if target and isinstance(target, dict):
+            brgy_info = target.pop("barangays", None) or {}
+            target["barangay"] = brgy_info.get("name")
+    return result
 
 
 async def get_active_for_target(target_user_id: str) -> dict | None:
@@ -223,6 +259,8 @@ async def get_rescuer_profile(user_id: str) -> dict | None:
         return None
 
     profile = dict(result.data[0])
+    brgy_info = profile.pop("barangays", None) or {}
+    profile["barangay"] = brgy_info.get("name")
     rescuer_data = profile.pop("rescuers", None)
     if rescuer_data and isinstance(rescuer_data, list) and len(rescuer_data) > 0:
         profile.update(rescuer_data[0])
@@ -244,7 +282,7 @@ async def update_rescuer_profile(user_id: str, body: dict) -> dict:
     profile_fields = {}
     rescuer_fields = {}
 
-    allowed_profile = ("full_name", "phone_number", "barangay", "avatar_url")
+    allowed_profile = ("full_name", "phone_number", "barangay_id", "avatar_url")
     allowed_rescuer = ("organization", "rescuer_type", "availability", "certification", "contact_number")
 
     for k, v in body.items():

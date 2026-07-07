@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from app.services import family_alerts as service
 from app.core.supabase import client
 
@@ -39,6 +39,8 @@ async def get_status_history(
     period: int = 7,
     since: str = None,
     user_id: str = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
     authorization: str = Header(None),
 ):
     if period not in (7, 15, 30) and not since:
@@ -52,7 +54,7 @@ async def get_status_history(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     try:
-        data = await service.get_status_history(uid, period, since)
+        data = await service.get_status_history(uid, period, since, page=page, limit=limit)
         return {"data": data, "error": None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

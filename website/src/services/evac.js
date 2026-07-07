@@ -9,8 +9,12 @@ export async function fetchEvacuationAreas() {
   }
 }
 
-export async function fetchAllEvacuationAreas() {
-  return apiGet("/api/evacuation-areas/admin");
+export async function fetchAllEvacuationAreas(page = 1, limit = 10, search = "", orderBy = null, orderDir = null) {
+  const params = { page, limit };
+  if (search) params.search = search;
+  if (orderBy) params.order_by = orderBy;
+  if (orderDir) params.order_dir = orderDir;
+  return apiGet("/api/evacuation-areas/admin", params);
 }
 
 export async function createEvacuationArea(formData) {

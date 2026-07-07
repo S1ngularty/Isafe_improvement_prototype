@@ -4,6 +4,7 @@ import { useToast } from "../context/ToastContext";
 import { uploadAvatar, removeAvatar, updateProfile } from "../services/profile.js";
 import { getMyFamily, getFamilyMembers } from "../services/family.js";
 import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds } from "../utils/medicalOptions";
+import { BARANGAY_OPTIONS } from "../utils/barangayOptions";
 
 const BLOOD_TYPES = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -24,8 +25,9 @@ export default function UserProfile() {
   const { showToast } = useToast();
   const fileRef = useRef(null);
   const [fullName, setFullName] = useState(profile?.full_name || "");
-  const [barangay, setBarangay] = useState(profile?.barangay || "");
+  const [barangay, setBarangay] = useState(profile?.barangay_id != null ? String(profile.barangay_id) : "");
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
+  const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || "");
   const [bloodType, setBloodType] = useState(profile?.blood_type || "");
   const [householdSize, setHouseholdSize] = useState(profile?.household_size || "");
   const [selectedNeeds, setSelectedNeeds] = useState([]);
@@ -82,7 +84,8 @@ export default function UserProfile() {
     setSaving(true);
     try {
       await updateProfile({
-        full_name: fullName.trim(), barangay: barangay.trim(), phone_number: phoneNumber.trim(),
+        full_name: fullName.trim(), barangay_id: parseInt(barangay, 10), phone_number: phoneNumber.trim(),
+        date_of_birth: dateOfBirth || null,
         blood_type: bloodType, household_size: householdSize || null,
         special_needs: encodeSpecialNeeds(selectedNeeds, needsOther), street_address: streetAddress.trim(),
         medical_notes: medicalNotes.trim(), external_name: externalName.trim(),
@@ -128,8 +131,14 @@ export default function UserProfile() {
           >
             <div className="grid sm:grid-cols-2 gap-3">
               <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputCls} placeholder="Full name" />
-              <input type="text" value={barangay} onChange={(e) => setBarangay(e.target.value)} className={inputCls} placeholder="Barangay" />
+              <select value={barangay} onChange={(e) => setBarangay(e.target.value)} className={inputCls}>
+                <option value="">Barangay</option>
+                {BARANGAY_OPTIONS.map((b) => (
+                  <option key={b.id} value={b.id}>{b.label}</option>
+                ))}
+              </select>
               <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={inputCls} placeholder="Phone (+639...) " />
+              <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} className={inputCls} max={new Date().toISOString().split("T")[0]} />
               <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className={inputCls}>
                 {BLOOD_TYPES.map((t) => <option key={t || "none"} value={t}>{t || "Blood type"}</option>)}
               </select>

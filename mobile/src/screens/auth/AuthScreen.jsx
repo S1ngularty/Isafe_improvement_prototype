@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Keyboard } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Keyboard, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { signIn, signUp, verifyOtp, resendOtp } from "../../services/auth.js";
 import { useToast } from "../../context/ToastContext.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
 
 export default function AuthScreen() {
   const { showToast } = useToast();
@@ -16,11 +17,13 @@ export default function AuthScreen() {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [barangay, setBarangay] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showBarangayPicker, setShowBarangayPicker] = useState(false);
 
   const handleLogin = async () => {
     Keyboard.dismiss();
@@ -59,9 +62,10 @@ export default function AuthScreen() {
     try {
       await signUp(email, password, { 
         full_name: fullName, 
-        barangay,
+        barangay_id: Number(barangay),
         phone_number: phoneNumber,
-        street_address: streetAddress
+        street_address: streetAddress,
+        date_of_birth: dateOfBirth || null
       });
       showToast("📧 Account created! Check your email to verify.", "success");
       setMode("otp");
@@ -89,6 +93,7 @@ export default function AuthScreen() {
       setFullName("");
       setPhoneNumber("");
       setStreetAddress("");
+      setDateOfBirth("");
       setBarangay("");
     } catch (error) {
       showToast(error.message || "Verification failed. Check your code and try again.", "error");
@@ -204,11 +209,54 @@ export default function AuthScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Barangay (optional)"
-                value={barangay}
-                onChangeText={setBarangay}
+                placeholder="Date of Birth (YYYY-MM-DD, optional)"
+                value={dateOfBirth}
+                onChangeText={setDateOfBirth}
                 editable={!loading}
               />
+              <Pressable
+                style={[styles.input, styles.barangaySelector]}
+                onPress={() => setShowBarangayPicker(true)}
+                disabled={loading}
+              >
+                <Text style={barangay ? styles.barangaySelectedText : styles.barangayPlaceholder}>
+                  {barangay || "Barangay (optional)"}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={24} color={COLORS.gray400} />
+              </Pressable>
+
+              <Modal visible={showBarangayPicker} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                  <View style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                      <Pressable onPress={() => setShowBarangayPicker(false)}>
+                        <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                      </Pressable>
+                      <Text style={styles.modalTitle}>Select Barangay</Text>
+                      <View style={{ width: 24 }} />
+                    </View>
+                    <ScrollView style={styles.modalBody}>
+                      {BARANGAY_OPTIONS.map((b) => (
+                        <Pressable
+                          key={b.id}
+                          style={[styles.barangayOption, barangay === b.id && styles.barangayOptionSelected]}
+                          onPress={() => {
+                            setBarangay(b.id);
+                            setShowBarangayPicker(false);
+                          }}
+                        >
+                          <Text style={[styles.barangayOptionText, barangay === b.id && styles.barangayOptionTextSelected]}>
+                            {b.label}
+                          </Text>
+                          {barangay === b.id && (
+                            <MaterialIcons name="check" size={20} color={COLORS.shieldPrimary} />
+                          )}
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
+              </Modal>
               <TextInput
                 style={styles.input}
                 placeholder="Email"
@@ -446,5 +494,69 @@ const styles = StyleSheet.create({
     color: COLORS.gray500,
     marginBottom: 16,
     lineHeight: 20,
+  },
+  barangaySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  barangayPlaceholder: {
+    color: COLORS.gray400,
+    fontSize: 16,
+    flex: 1,
+  },
+  barangaySelectedText: {
+    color: COLORS.gray900,
+    fontSize: 16,
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    width: "85%",
+    maxHeight: "70%",
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.gray900,
+  },
+  modalBody: {
+    maxHeight: 400,
+  },
+  barangayOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+  },
+  barangayOptionSelected: {
+    backgroundColor: COLORS.gray100,
+  },
+  barangayOptionText: {
+    fontSize: 16,
+    color: COLORS.gray900,
+  },
+  barangayOptionTextSelected: {
+    color: COLORS.shieldPrimary,
+    fontWeight: "600",
   },
 });

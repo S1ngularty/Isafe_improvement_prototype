@@ -145,7 +145,7 @@ const STATUS_TABS = [
 export default function AlertsView() {
   const { session, refreshProfile } = useAuth();
   const userId = session?.user?.id;
-  const { currentStatus, history, period, loading, error, changePeriod, refresh } = useFamilyAlerts(userId);
+  const { currentStatus, history, period, loading, loadingMore, error, hasMore, changePeriod, loadMore, refresh } = useFamilyAlerts(userId);
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedMember, setSelectedMember] = useState(null);
 
@@ -396,6 +396,17 @@ export default function AlertsView() {
                 })}
               </div>
             ))}
+          </div>
+        )}
+        {hasMore && !loading && (
+          <div className="px-4 py-3 text-center border-t border-gray-50">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="px-4 py-2 text-xs font-semibold text-shield-600 bg-shield-50 hover:bg-shield-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loadingMore ? "Loading..." : "Load More"}
+            </button>
           </div>
         )}
       </div>

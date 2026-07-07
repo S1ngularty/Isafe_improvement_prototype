@@ -177,6 +177,10 @@ function HomeStack({ currentStatus, onStatusChange }) {
         component={EmergencyHotlinesScreen}
         options={{ animationEnabled: true }}
       />
+      {/* <Stack.Screen
+        name="Evacuation"
+        component={EvacuationCentersScreen}
+      /> */}
       <Stack.Screen name="EvacuationMap" component={EvacuationMapScreen} />
       <Stack.Screen
         name="FloodHazard"
@@ -364,10 +368,7 @@ function RescuerActiveStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ActiveList" component={RescuerActiveScreen} />
-      <Stack.Screen
-        name="RescuerAssignmentDetail"
-        component={RescuerAssignmentDetailScreen}
-      />
+      <Stack.Screen name="RescuerAssignmentDetail" component={RescuerAssignmentDetailScreen} />
     </Stack.Navigator>
   );
 }
@@ -410,7 +411,8 @@ function RescuerTabs() {
         },
         tabBarActiveTintColor: COLORS.shieldPrimary,
         tabBarInactiveTintColor: COLORS.gray300,
-      })}>
+      })}
+    >
       <Tab.Screen
         name="RescuerDashboard"
         component={RescuerDashboardScreen}
@@ -574,7 +576,7 @@ function RootNavigator() {
                 <WelcomeScreen {...props} onComplete={handleWelcomeComplete} />
               )}
             </Stack.Screen>
-          ) : session || isOffline ? (
+          ) : session ? (
             role === "rescuer" ? (
               <Stack.Screen name="RescuerTabs" component={RescuerTabs} />
             ) : (
