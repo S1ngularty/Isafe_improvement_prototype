@@ -24,6 +24,7 @@ from app.api.admin_rescuers import router as admin_rescuers_router
 from app.api.email import router as email_router
 from app.api.analytics import router as analytics_router
 from app.core.scheduler import start as start_scheduler, stop as stop_scheduler
+from app.api.auth import router as auth_router
 from app.mqtt.client import start_mqtt
 
 @asynccontextmanager
@@ -88,6 +89,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"data": None, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
     )
 
+app.include_router(auth_router)
 
 @app.get("/")
 async def root() -> dict[str, str]:

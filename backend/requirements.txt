@@ -8,9 +8,10 @@ annotated-types==0.7.0
 anyio==4.14.0
 asyncio==4.0.0
 attrs==26.1.0
+bcrypt==5.0.0
 branca==0.8.2
 CacheControl==0.14.4
-cachetools==5.5.2
+cachetools==7.1.4
 certifi==2026.6.17
 cffi==2.0.0
 charset-normalizer==3.4.7
@@ -22,6 +23,8 @@ cryptography==49.0.0
 cycler==0.12.1
 deprecation==2.1.0
 distro==1.9.0
+dnspython==2.8.0
+email-validator==2.3.0
 fastapi==0.115.8
 firebase-admin==6.6.0
 folium==0.20.0
