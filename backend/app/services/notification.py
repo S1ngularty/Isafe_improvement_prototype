@@ -59,15 +59,15 @@ class NotificationService:
             
             # Get all push tokens for family members
             member_ids = [member["id"] for member in members_result.data]
-            
-            tokens_result = client.table("notification").select("push_token").in_("user_id", member_ids).execute()
+            print(f"members ID: {member_ids}")
+            tokens_result = client.table("notification").select("push_token").in_("user_id", member_ids).neq("user_id",user_id).execute()
             
             if not tokens_result.data:
                 return []
             
             # Extract push tokens
             tokens = [row["push_token"] for row in tokens_result.data if row.get("push_token")]
-            
+            print(f"members token: {tokens}")
             return tokens
             
         except Exception as e:
