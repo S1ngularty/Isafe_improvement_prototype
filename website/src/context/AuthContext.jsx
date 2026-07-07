@@ -1,3 +1,4 @@
+// context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect } from "react";
 import { getSession, onAuthStateChange, getUserRole, getProfile, signIn, signUp, signOut } from "../services/auth.js";
 
@@ -86,13 +87,10 @@ export function AuthProvider({ children }) {
   };
 
   const signupFn = async (email, password, metadata = {}) => {
-    const data = await signUp(email, password, metadata);
-    setSession(data.session);
-    if (data.session) {
-      await refreshRole();
-      await refreshProfile();
-    }
-    return data;
+    // This now calls the backend API
+    const result = await signUp(email, password, metadata);
+    // Don't set session here - user needs to verify email first
+    return result;
   };
 
   const logout = async () => {
