@@ -1,5 +1,13 @@
 import uuid
+from datetime import datetime, timezone
 from app.core.supabase import client
+
+ALLOWED_SORT_COLUMNS = {
+    "title": "title",
+    "type": "type",
+    "is_active": "is_active",
+    "created_at": "created_at",
+}
 
 VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".avi"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -53,6 +61,41 @@ async def get_all_announcements() -> list[dict]:
         .execute()
     )
     return result.data or []
+
+
+async def get_all_announcements_paginated(
+    page: int = 1,
+    limit: int = 10,
+    search: str | None = None,
+    order_by: str = "created_at",
+    order_dir: str = "DESC",
+) -> dict:
+    query = client.table("announcements").select("*", count="exact").is_("deleted_at", "null")
+
+    if search and search.strip():
+        q = search.strip()
+        query = query.or_(f"title.ilike.%{q}%,description.ilike.%{q}%")
+
+    sort_col = ALLOWED_SORT_COLUMNS.get(order_by, "created_at")
+    sort_desc = order_dir.upper() == "DESC"
+    query = query.order(sort_col, desc=sort_desc)
+
+    page = max(1, page)
+    limit = max(1, min(100, limit))
+    offset = (page - 1) * limit
+    end = offset + limit - 1
+    query = query.range(offset, end)
+    result = query.execute()
+
+    rows = result.data or []
+    total = result.count if hasattr(result, "count") else len(rows)
+
+    return {
+        "announcements": rows,
+        "total": total,
+        "page": page,
+        "limit": limit,
+    }
 
 
 async def create_announcement(
@@ -148,7 +191,7 @@ async def update_announcement(
         updates["type"] = "video" if content_type.startswith("video/") else "image"
 
     if updates:
-        updates["updated_at"] = "now()"
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
         client.table("announcements").update(updates).eq("id", announcement_id).execute()
 
     result = (
@@ -162,4 +205,6 @@ async def update_announcement(
 
 
 async def soft_delete_announcement(announcement_id: str) -> None:
-    client.table("announcements").update({"deleted_at": "now()"}).eq("id", announcement_id).execute()
+    client.table("announcements").update(
+        {"deleted_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", announcement_id).execute()

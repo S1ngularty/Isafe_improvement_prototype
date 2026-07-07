@@ -185,7 +185,7 @@ export default function MapsScreen() {
     try {
       const result = await fetchRoute(slat, slng, member.lat, member.lng);
       if (result) {
-        const label = `${result.distance_km} km \u00b7 ~${result.duration_min} min to ${member.full_name || "Member"}`;
+        const label = `${result.distance_km} km, ~${result.duration_min} min to ${member.full_name || "Member"}`;
         sendToMap("SET_ROUTE", { coordinates: result.coordinates, label });
         const stepsClean = (result.steps || []).map((s) => ({ ...s, instruction: stripHtml(s.instruction) }));
         setRoute({ ...result, memberName: member.full_name || "Member", memberLat: member.lat, memberLng: member.lng, steps: stepsClean });

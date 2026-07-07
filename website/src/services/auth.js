@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { apiGet } from "./backend.js";
 
 export async function signUp(email, password, metadata = {}) {
   const { data, error } = await supabase.auth.signUp({
@@ -79,10 +80,15 @@ export async function getProfile() {
   return data;
 }
 
-export async function fetchAllProfiles() {
-  const { data, error } = await supabase.rpc("get_all_profiles");
-  if (error) throw error;
-  return data;
+export async function fetchAllProfiles(page = 1, pageSize = 50, search = null, orderBy = null, orderDir = null) {
+  const params = {
+    page,
+    limit: pageSize,
+  };
+  if (search) params.search = search;
+  if (orderBy) params.order_by = orderBy;
+  if (orderDir) params.order_dir = orderDir;
+  return apiGet("/api/admin/profiles", params);
 }
 
 export async function updateUserRole(userId, role) {

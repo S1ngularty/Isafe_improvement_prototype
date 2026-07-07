@@ -16,6 +16,7 @@ create policy "Anyone can read active announcements"
   using (is_active = true and deleted_at is null);
 
 drop policy if exists "Admins can delete announcements" on public.announcements;
+drop policy if exists "Admins can soft-delete announcements" on public.announcements;
 create policy "Admins can soft-delete announcements"
   on public.announcements for delete
   using (is_admin());
@@ -24,10 +25,12 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('announcement_media', 'announcement_media', true, 52428800, array['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'])
 on conflict (id) do nothing;
 
+drop policy if exists "Public can read announcement media" on storage.objects;
 create policy "Public can read announcement media"
   on storage.objects for select
   using (bucket_id = 'announcement_media');
 
+drop policy if exists "Admins can upload announcement media" on storage.objects;
 create policy "Admins can upload announcement media"
   on storage.objects for insert
   with check (
@@ -38,6 +41,7 @@ create policy "Admins can upload announcement media"
     )
   );
 
+drop policy if exists "Admins can update announcement media" on storage.objects;
 create policy "Admins can update announcement media"
   on storage.objects for update
   using (
@@ -48,6 +52,7 @@ create policy "Admins can update announcement media"
     )
   );
 
+drop policy if exists "Admins can delete announcement media" on storage.objects;
 create policy "Admins can delete announcement media"
   on storage.objects for delete
   using (

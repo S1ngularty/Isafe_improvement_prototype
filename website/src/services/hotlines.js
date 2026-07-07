@@ -8,8 +8,12 @@ export async function fetchHotlines() {
   }
 }
 
-export async function fetchAllHotlines() {
-  return apiGet("/api/hotlines/admin");
+export async function fetchAllHotlines(page = 1, limit = 10, search = "", orderBy = null, orderDir = null) {
+  const params = { page, limit };
+  if (search) params.search = search;
+  if (orderBy) params.order_by = orderBy;
+  if (orderDir) params.order_dir = orderDir;
+  return apiGet("/api/hotlines/admin", params);
 }
 
 export async function createHotline(formData) {

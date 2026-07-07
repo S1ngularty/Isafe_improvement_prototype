@@ -1,7 +1,9 @@
 import json
-from fastapi import APIRouter, HTTPException, Form
+from fastapi import APIRouter, Depends, HTTPException, Form, Query
+from typing import Optional
 from app.models.hotline import HotlineCreate, HotlineUpdate
 from app.services import hotlines as service
+from app.core.auth import require_admin_only
 
 router = APIRouter(prefix="/api/hotlines", tags=["hotlines"])
 
@@ -27,8 +29,18 @@ async def list_active():
 
 
 @router.get("/admin", response_model=dict)
-async def list_all():
-    data = await service.get_all_hotlines()
+async def list_all(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    order_by: str = Query("sort_order"),
+    order_dir: str = Query("ASC"),
+    current_user: dict = Depends(require_admin_only),
+):
+    data = await service.get_all_hotlines_paginated(
+        page=page, limit=limit, search=search,
+        order_by=order_by, order_dir=order_dir,
+    )
     return {"data": data, "error": None}
 
 
@@ -41,6 +53,7 @@ async def create(
     category: str = Form("general"),
     is_active: bool = Form(True),
     sort_order: int = Form(0),
+    current_user: dict = Depends(require_admin_only),
 ):
     body = HotlineCreate(
         name=name,
@@ -78,6 +91,7 @@ async def update(
     category: str | None = Form(default=None),
     is_active: bool | None = Form(default=None),
     sort_order: int | None = Form(default=None),
+    current_user: dict = Depends(require_admin_only),
 ):
     body = HotlineUpdate(
         name=name,
@@ -107,7 +121,10 @@ async def update(
 
 
 @router.delete("/{hotline_id}", response_model=dict)
-async def delete(hotline_id: int):
+async def delete(
+    hotline_id: int,
+    current_user: dict = Depends(require_admin_only),
+):
     try:
         await service.soft_delete_hotline(hotline_id)
         return {"data": None, "error": None}

@@ -88,7 +88,7 @@ export default function RescuerMapScreen() {
         fetchInNeed(currentLocation?.latitude, currentLocation?.longitude),
       ]);
       setAssignments(assignData?.data || []);
-      setInNeedUsers(inNeedData?.users || []);
+      setInNeedUsers(inNeedData?.data || []);
     } catch (_) {}
   }, [currentLocation]);
 

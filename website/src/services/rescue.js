@@ -34,12 +34,19 @@ async function apiCall(method, path, body = null, params = {}) {
   return envelope.data;
 }
 
-export async function fetchAdminRescuers(search = "") {
-  return apiCall("GET", "/api/admin/rescuers", null, { search });
+export async function fetchAdminRescuers(search = "", page = 1, limit = 50, orderBy = null, orderDir = null) {
+  const params = { search, page, limit };
+  if (orderBy) params.order_by = orderBy;
+  if (orderDir) params.order_dir = orderDir;
+  return apiCall("GET", "/api/admin/rescuers", null, params);
 }
 
-export async function fetchRescueActivity() {
-  return apiCall("GET", "/api/admin/rescue-activity");
+export async function fetchRescueActivity(page = 1, limit = 50, state = null, orderBy = null, orderDir = null) {
+  const params = { page, limit };
+  if (state) params.state = state;
+  if (orderBy) params.order_by = orderBy;
+  if (orderDir) params.order_dir = orderDir;
+  return apiCall("GET", "/api/admin/rescue-activity", null, params);
 }
 
 export async function adminUpdateRescuer(userId, body) {

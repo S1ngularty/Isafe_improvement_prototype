@@ -10,6 +10,7 @@ asyncio==4.0.0
 attrs==26.1.0
 branca==0.8.2
 CacheControl==0.14.4
+cachetools==5.5.2
 certifi==2026.6.17
 cffi==2.0.0
 charset-normalizer==3.4.7

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "../context/ToastContext";
 import { fetchAllProfiles, updateUserRole } from "../services/auth";
 import { adminUpdateRescuer, fetchAdminRescuers, fetchRescueActivity } from "../services/rescue";
 import useRealtimeRefresh from "../hooks/useRealtimeRefresh";
+import DataTable from "./DataTable";
 
 const RESCUER_TYPES = [
   { value: "general", label: "General" },
@@ -39,36 +40,92 @@ export default function AdminRescuersView() {
   const [promoting, setPromoting] = useState(false);
   const [search, setSearch] = useState("");
   const [detailUser, setDetailUser] = useState(null);
+  const [rosterTotal, setRosterTotal] = useState(0);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [rosterPage, setRosterPage] = useState(1);
+  const [rosterSortColumn, setRosterSortColumn] = useState("last_seen_at");
+  const [rosterSortDirection, setRosterSortDirection] = useState("DESC");
+  const [activitySortColumn, setActivitySortColumn] = useState("created_at");
+  const [activitySortDirection, setActivitySortDirection] = useState("DESC");
+  const [activityStateFilter, setActivityStateFilter] = useState("");
+  const PAGE_SIZE = 10;
+  const ROSTER_PAGE_SIZE = 10;
 
-  const loadRescuers = useCallback(async () => {
+  const loadRescuers = useCallback(async (p = 1, sortBy = rosterSortColumn, sortDir = rosterSortDirection) => {
     setLoading(true);
+    setRosterPage(p);
     try {
-      const data = await fetchAdminRescuers(search);
+      const data = await fetchAdminRescuers(search, p, ROSTER_PAGE_SIZE, sortBy, sortDir);
       setRescuers(data?.rescuers || []);
+      setRosterTotal(data?.total || 0);
     } catch (err) {
       showToast(err.message || "Failed to load rescuers", "error");
     } finally {
       setLoading(false);
     }
-  }, [search, showToast]);
+  }, [search, showToast, rosterSortColumn, rosterSortDirection]);
 
-  const loadActivity = useCallback(async () => {
+  const loadActivity = useCallback(async (p = 1, stateFilter = null, sortBy = activitySortColumn, sortDir = activitySortDirection) => {
+    setActivityPage(p);
     try {
-      const data = await fetchRescueActivity();
+      const filter = stateFilter !== null ? stateFilter : activityStateFilter;
+      const data = await fetchRescueActivity(p, PAGE_SIZE, filter || null, sortBy, sortDir);
       setActivity(data?.assignments || []);
+      setActivityTotal(data?.total || 0);
     } catch (_) {}
-  }, []);
+  }, [activitySortColumn, activitySortDirection, activityStateFilter]);
+
+  const ROSTER_SORT_FIELD_MAP = {
+    rescuer: "full_name",
+    type: "rescuer_type",
+    availability: "availability",
+    organization: "organization",
+    certification: "certification",
+  };
+
+  function handleRosterSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = ROSTER_SORT_FIELD_MAP[sorting[0].id] || "last_seen_at";
+      setRosterSortColumn(field);
+      setRosterSortDirection(sorting[0].desc ? "DESC" : "ASC");
+      loadRescuers(1, field, sorting[0].desc ? "DESC" : "ASC");
+    } else {
+      setRosterSortColumn("last_seen_at");
+      setRosterSortDirection("DESC");
+      loadRescuers(1, "last_seen_at", "DESC");
+    }
+  }
+
+  const ACTIVITY_SORT_FIELD_MAP = {
+    status: "state",
+    aid: "aid_type",
+    date: "created_at",
+  };
+
+  function handleActivitySortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = ACTIVITY_SORT_FIELD_MAP[sorting[0].id] || "created_at";
+      setActivitySortColumn(field);
+      setActivitySortDirection(sorting[0].desc ? "DESC" : "ASC");
+      loadActivity(1, null, field, sorting[0].desc ? "DESC" : "ASC");
+    } else {
+      setActivitySortColumn("created_at");
+      setActivitySortDirection("DESC");
+      loadActivity(1, null, "created_at", "DESC");
+    }
+  }
 
   const loadAllUsers = useCallback(async () => {
     try {
-      const data = await fetchAllProfiles();
-      setAllUsers(data || []);
+      const data = await fetchAllProfiles(1, 500, null);
+      setAllUsers(data?.data || []);
     } catch (_) {}
   }, []);
 
   useEffect(() => {
-    if (tab === "roster") loadRescuers();
-    if (tab === "activity") loadActivity();
+    if (tab === "roster") loadRescuers(1);
+    if (tab === "activity") loadActivity(1);
     if (tab === "promote") loadAllUsers();
   }, [tab, loadRescuers, loadActivity, loadAllUsers]);
 
@@ -134,6 +191,236 @@ export default function AdminRescuersView() {
     { id: "promote", label: "Promote User" },
   ];
 
+  const rosterColumns = [
+    {
+      id: "rescuer",
+      header: "Rescuer",
+      accessorKey: "full_name",
+      enableSorting: true,
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">
+              {(r.full_name || "?").charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">{r.full_name || "Unknown"}</p>
+              <p className="text-xs text-gray-400">{r.barangay || "\u2014"}</p>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: "type",
+      header: "Type",
+      accessorKey: "rescuer_type",
+      enableSorting: true,
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <select
+            value={r.rescuer_type || "general"}
+            onChange={(e) => handleUpdateRescuer(r.id, "rescuer_type", e.target.value)}
+            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white"
+          >
+            {RESCUER_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        );
+      },
+    },
+    {
+      id: "availability",
+      header: "Availability",
+      accessorKey: "availability",
+      enableSorting: true,
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <select
+            value={r.availability || "off_duty"}
+            onChange={(e) => handleUpdateRescuer(r.id, "availability", e.target.value)}
+            className={`text-xs font-semibold rounded px-2 py-1 border ${
+              r.availability === "available"
+                ? "bg-green-50 text-green-700 border-green-200"
+                : r.availability === "on_duty"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                  : "bg-gray-50 text-gray-500 border-gray-200"
+            }`}
+          >
+            <option value="available">Available</option>
+            <option value="on_duty">On Duty</option>
+            <option value="off_duty">Off Duty</option>
+          </select>
+        );
+      },
+    },
+    {
+      id: "organization",
+      header: "Organization",
+      accessorKey: "organization",
+      enableSorting: true,
+      cell: ({ getValue }) => <span className="text-gray-600">{getValue() || "\u2014"}</span>,
+    },
+    {
+      id: "certification",
+      header: "Certification",
+      accessorKey: "certification",
+      enableSorting: true,
+      cell: ({ getValue }) => <span className="text-gray-600">{getValue() || "\u2014"}</span>,
+    },
+    {
+      id: "contact",
+      header: "Contact",
+      accessorKey: "contact_number",
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-gray-600">{row.original.contact_number || row.original.phone_number || "\u2014"}</span>,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <button
+          onClick={() => handleDemote(row.original.id)}
+          className="text-xs text-red-600 hover:text-red-800 font-medium"
+        >
+          Demote
+        </button>
+      ),
+    },
+  ];
+
+  const activityColumns = useMemo(() => [
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "state",
+      cell: ({ row }) => {
+        const state = row.original.state;
+        const dotColor = state === "helped" ? "bg-green-500"
+          : state === "en_route" ? "bg-yellow-500"
+          : state === "on_scene" ? "bg-blue-500"
+          : "bg-gray-400";
+        return (
+          <div className="flex items-center gap-2">
+            <div className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+            <span className="text-sm text-gray-700 capitalize">{(state || "unknown").replace(/_/g, " ")}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "assignment",
+      header: "Assignment",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        return (
+          <span className="text-sm text-gray-900">
+            {a.rescuer?.full_name || "Unknown"}
+            <span className="text-gray-400 mx-1">&rarr;</span>
+            {a.target?.full_name || "Unknown"}
+          </span>
+        );
+      },
+    },
+    {
+      id: "aid",
+      header: "Aid",
+      accessorKey: "aid_type",
+      meta: { responsive: true },
+      cell: ({ getValue }) => {
+        const aid = getValue();
+        return (
+          <span className="text-sm text-gray-600">{aid ? (AID_LABELS[aid] || aid) : "\u2014"}</span>
+        );
+      },
+    },
+    {
+      id: "date",
+      header: "Date",
+      accessorKey: "created_at",
+      meta: { responsive: true },
+      cell: ({ getValue }) => (
+        <span className="text-sm text-gray-500">
+          {getValue() ? new Date(getValue()).toLocaleString() : ""}
+        </span>
+      ),
+    },
+  ], []);
+
+  const promoteColumns = useMemo(() => [
+    {
+      id: "user",
+      header: "User",
+      accessorKey: "full_name",
+      cell: ({ row }) => {
+        const u = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">
+              {(u.full_name || "?").charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">{u.full_name || "Unknown"}</p>
+              <p className="text-xs text-gray-400">{u.email || "—"}</p>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: "role",
+      header: "Current Role",
+      accessorKey: "role",
+      cell: ({ getValue }) => {
+        const role = getValue();
+        return (
+          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+            role === "rescuer"
+              ? "bg-amber-50 text-amber-700"
+              : "bg-gray-100 text-gray-600"
+          }`}>
+            {role || "user"}
+          </span>
+        );
+      },
+    },
+    {
+      id: "barangay",
+      header: "Barangay",
+      accessorKey: "barangay",
+      cell: ({ getValue }) => <span className="text-gray-600">{getValue() || "—"}</span>,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const u = row.original;
+        if (u.role === "rescuer") {
+          return <span className="text-xs text-gray-400 italic">Already a rescuer</span>;
+        }
+        return (
+          <button
+            onClick={() => {
+              setSelectedUserId(u.id);
+              setPromoteForm({ organization: "", rescuer_type: "general", certification: "", contact_number: "" });
+              setPromoteModal(true);
+            }}
+            className="px-3 py-1 text-xs font-semibold rounded-full bg-shield-100 text-shield-700 hover:bg-shield-200 transition-colors"
+          >
+            Promote to Rescuer
+          </button>
+        );
+      },
+    },
+  ], []);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -166,133 +453,58 @@ export default function AdminRescuersView() {
               onChange={(e) => setSearch(e.target.value)}
               className="input flex-1 max-w-sm"
             />
-            <button onClick={loadRescuers} disabled={loading} className="btn-outline px-4 py-2 text-sm">
+            <button onClick={() => loadRescuers(1)} disabled={loading} className="btn-outline px-4 py-2 text-sm">
               {loading ? "Loading..." : "Refresh"}
             </button>
           </div>
 
-          <div className="card p-0 overflow-hidden">
-            {rescuers.length === 0 && !loading ? (
-              <div className="p-12 text-center text-gray-400">
-                No rescuers found. Promote a user from the "Promote User" tab.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr className="text-left text-gray-500 font-medium">
-                      <th className="px-6 py-3">Rescuer</th>
-                      <th className="px-6 py-3">Type</th>
-                      <th className="px-6 py-3">Availability</th>
-                      <th className="px-6 py-3">Organization</th>
-                      <th className="px-6 py-3">Certification</th>
-                      <th className="px-6 py-3">Contact</th>
-                      <th className="px-6 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {rescuers.map((r) => (
-                      <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                              {(r.full_name || "?").charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{r.full_name || "Unknown"}</p>
-                              <p className="text-xs text-gray-400">{r.barangay || "—"}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={r.rescuer_type || "general"}
-                            onChange={(e) => handleUpdateRescuer(r.id, "rescuer_type", e.target.value)}
-                            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white"
-                          >
-                            {RESCUER_TYPES.map((t) => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={r.availability || "off_duty"}
-                            onChange={(e) => handleUpdateRescuer(r.id, "availability", e.target.value)}
-                            className={`text-xs font-semibold rounded px-2 py-1 border ${
-                              r.availability === "available"
-                                ? "bg-green-50 text-green-700 border-green-200"
-                                : r.availability === "on_duty"
-                                  ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : "bg-gray-50 text-gray-500 border-gray-200"
-                            }`}
-                          >
-                            <option value="available">Available</option>
-                            <option value="on_duty">On Duty</option>
-                            <option value="off_duty">Off Duty</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">{r.organization || "—"}</td>
-                        <td className="px-6 py-4 text-gray-600">{r.certification || "—"}</td>
-                        <td className="px-6 py-4 text-gray-600">{r.contact_number || r.phone_number || "—"}</td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => handleDemote(r.id)}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium"
-                          >
-                            Demote
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <DataTable
+            columns={rosterColumns}
+            data={rescuers}
+            totalCount={rosterTotal}
+            pageIndex={rosterPage - 1}
+            pageSize={ROSTER_PAGE_SIZE}
+            isLoading={loading}
+            serverSide
+            onPageChange={(p) => loadRescuers(p)}
+            onSortChange={handleRosterSortChange}
+            emptyMessage='No rescuers found. Promote a user from the "Promote User" tab.'
+          />
         </div>
       )}
 
       {/* Activity Tab */}
       {tab === "activity" && (
         <div>
-          <button onClick={loadActivity} className="btn-outline px-4 py-2 text-sm mb-4">
-            Refresh
-          </button>
-          <div className="space-y-3">
-            {activity.length === 0 ? (
-              <div className="card p-8 text-center text-gray-400">No rescue activity yet</div>
-            ) : (
-              activity.map((a) => (
-                <div key={a.id} className="card hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-2.5 h-2.5 rounded-full ${
-                        a.state === "helped" ? "bg-green-500" :
-                        a.state === "en_route" ? "bg-yellow-500" :
-                        a.state === "on_scene" ? "bg-blue-500" :
-                        "bg-gray-400"
-                      }`} />
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {a.rescuer?.full_name || "Unknown"} → {a.target?.full_name || "Unknown"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          State: <span className="font-medium uppercase">{a.state.replace("_", " ")}</span>
-                          {a.aid_type && <span> · Aide: {AID_LABELS[a.aid_type] || a.aid_type}</span>}
-                          {a.eta_seconds && <span> · ETA: ~{Math.round(a.eta_seconds / 60)}min</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs text-gray-400">
-                      {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
-                    </span>
-                  </div>
-                  {a.notes && <p className="text-sm text-gray-600 bg-gray-50 rounded px-3 py-2">{a.notes}</p>}
-                </div>
-              ))
-            )}
+          <div className="flex items-center gap-3 mb-4">
+            <select
+              value={activityStateFilter}
+              onChange={function (e) { setActivityStateFilter(e.target.value); loadActivity(1, e.target.value); }}
+              className="input max-w-[200px] text-sm"
+              aria-label="Filter by state"
+            >
+              <option value="">All States</option>
+              <option value="dispatched">Dispatched</option>
+              <option value="en_route">En Route</option>
+              <option value="on_scene">On Scene</option>
+              <option value="helped">Helped</option>
+            </select>
+            <button onClick={() => loadActivity(1)} className="btn-outline px-4 py-2 text-sm">
+              Refresh
+            </button>
           </div>
+          <DataTable
+            columns={activityColumns}
+            data={activity}
+            totalCount={activityTotal}
+            pageIndex={activityPage - 1}
+            pageSize={PAGE_SIZE}
+            isLoading={false}
+            serverSide
+            onPageChange={(p) => loadActivity(p)}
+            onSortChange={handleActivitySortChange}
+            emptyMessage="No rescue activity yet"
+          />
         </div>
       )}
 
@@ -302,65 +514,12 @@ export default function AdminRescuersView() {
           <p className="text-sm text-gray-500 mb-4">
             Select a user to promote to rescuer. Rescuers cannot self-register.
           </p>
-          <div className="card p-0 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr className="text-left text-gray-500 font-medium">
-                    <th className="px-6 py-3">User</th>
-                    <th className="px-6 py-3">Current Role</th>
-                    <th className="px-6 py-3">Barangay</th>
-                    <th className="px-6 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {allUsers
-                    .filter((u) => u.role !== "admin")
-                    .map((u) => (
-                      <tr key={u.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                              {(u.full_name || "?").charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{u.full_name || "Unknown"}</p>
-                              <p className="text-xs text-gray-400">{u.email || "—"}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            u.role === "rescuer"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-gray-100 text-gray-600"
-                          }`}>
-                            {u.role || "user"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">{u.barangay || "—"}</td>
-                        <td className="px-6 py-4">
-                          {u.role === "rescuer" ? (
-                            <span className="text-xs text-gray-400 italic">Already a rescuer</span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setSelectedUserId(u.id);
-                                setPromoteForm({ organization: "", rescuer_type: "general", certification: "", contact_number: "" });
-                                setPromoteModal(true);
-                              }}
-                              className="px-3 py-1 text-xs font-semibold rounded-full bg-shield-100 text-shield-700 hover:bg-shield-200 transition-colors"
-                            >
-                              Promote to Rescuer
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DataTable
+            columns={promoteColumns}
+            data={allUsers.filter((u) => u.role !== "admin")}
+            pageSize={10}
+            emptyMessage="No users available to promote"
+          />
         </div>
       )}
 

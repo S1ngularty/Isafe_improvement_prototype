@@ -7,7 +7,10 @@ async function getAuthHeaders() {
     if (session?.access_token) {
       return { Authorization: `Bearer ${session.access_token}` };
     }
-  } catch {}
+    console.warn("[backend] No session found — request sent without auth");
+  } catch (err) {
+    console.warn("[backend] Failed to get auth headers:", err);
+  }
   return {};
 }
 
