@@ -59,15 +59,15 @@ class NotificationService:
             
             # Get all push tokens for family members
             member_ids = [member["id"] for member in members_result.data]
-            
-            tokens_result = client.table("notification").select("push_token").in_("user_id", member_ids).execute()
+            print(f"members ID: {member_ids}")
+            tokens_result = client.table("notification").select("push_token").in_("user_id", member_ids).neq("user_id",user_id).execute()
             
             if not tokens_result.data:
                 return []
             
             # Extract push tokens
             tokens = [row["push_token"] for row in tokens_result.data if row.get("push_token")]
-            
+            print(f"members token: {tokens}")
             return tokens
             
         except Exception as e:
@@ -99,7 +99,7 @@ class NotificationService:
             "status": payload.status,
             "payload": payload.payload or {},
         }
-
+        print(f"notification status: {payload.status}")
         try:
             # Get contacts
             contacts_result = (
@@ -178,43 +178,44 @@ class NotificationService:
                     failed_count += 1
 
             sms_result = None
-            try:
-                payload_data = payload.payload or {}
+            if payload.status != "safe":
+                try:
+                    payload_data = payload.payload or {}
 
-                full_name = None
-                if isinstance(payload_data, dict):
-                    full_name = payload_data.get("full_name") or payload_data.get("fullName")
+                    full_name = None
+                    if isinstance(payload_data, dict):
+                        full_name = payload_data.get("full_name") or payload_data.get("fullName")
 
-                profile_result = (
-                    client
-                    .table("profiles")
-                    .select("full_name, lat, lng")
-                    .eq("id", payload.user_id)
-                    .single()
-                    .execute()
-                )
-                db_profile = profile_result.data or {}
+                    profile_result = (
+                        client
+                        .table("profiles")
+                        .select("full_name, lat, lng")
+                        .eq("id", payload.user_id)
+                        .single()
+                        .execute()
+                    )
+                    db_profile = profile_result.data or {}
 
-                full_name = full_name or db_profile.get("full_name", "Someone")
+                    full_name = full_name or db_profile.get("full_name", "Someone")
 
-                lat = None
-                lng = None
-                if isinstance(payload_data, dict):
-                    lat = payload_data.get("lat") or payload_data.get("latitude")
-                    lng = payload_data.get("lng") or payload_data.get("longitude")
-                if lat is None or lng is None:
-                    lat = db_profile.get("lat")
-                    lng = db_profile.get("lng")
+                    lat = None
+                    lng = None
+                    if isinstance(payload_data, dict):
+                        lat = payload_data.get("lat") or payload_data.get("latitude")
+                        lng = payload_data.get("lng") or payload_data.get("longitude")
+                    if lat is None or lng is None:
+                        lat = db_profile.get("lat")
+                        lng = db_profile.get("lng")
 
-                sms_result = await send_status_alert_sms(
-                    user_id=payload.user_id,
-                    status=payload.status,
-                    full_name=full_name,
-                    lat=lat,
-                    lng=lng,
-                )
-            except Exception as e:
-                print(f"Failed to send SMS alert: {e}")
+                    sms_result = await send_status_alert_sms(
+                        user_id=payload.user_id,
+                        status=payload.status,
+                        full_name=full_name,
+                        lat=lat,
+                        lng=lng,
+                    )
+                except Exception as e:
+                    print(f"Failed to send SMS alert: {e}")
 
             return {
                 "success": True,

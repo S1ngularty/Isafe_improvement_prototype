@@ -1,5 +1,18 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, Text, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Keyboard, Modal } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  Modal,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { signIn, signUp, verifyOtp, resendOtp } from "../../services/auth.js";
@@ -24,7 +37,7 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showBarangayPicker, setShowBarangayPicker] = useState(false);
-
+  const [selectedBarangay, setSelectedBarangay] = useState(null);
   const handleLogin = async () => {
     Keyboard.dismiss();
     if (!email.trim() || !password.trim()) {
@@ -44,6 +57,8 @@ export default function AuthScreen() {
     }
   };
 
+  // In AuthScreen.jsx - Update the error handling
+
   const handleRegister = async () => {
     Keyboard.dismiss();
     if (!email.trim() || !password.trim() || !fullName.trim()) {
@@ -58,19 +73,40 @@ export default function AuthScreen() {
       showToast("Password must be at least 6 characters", "error");
       return;
     }
+    if (!selectedBarangay) {
+      showToast("Please select your barangay", "error");
+      return;
+    }
     setLoading(true);
     try {
-      await signUp(email, password, { 
-        full_name: fullName, 
-        barangay_id: Number(barangay),
+      const result = await signUp(email, password, {
+        full_name: fullName,
+        barangay_id: selectedBarangay.id,
         phone_number: phoneNumber,
         street_address: streetAddress,
-        date_of_birth: dateOfBirth || null
+        date_of_birth: dateOfBirth || null,
       });
-      showToast("📧 Account created! Check your email to verify.", "success");
-      setMode("otp");
+
+      if (result.success) {
+        showToast("📧 Verification code sent! Check your email.", "success");
+        setMode("otp");
+      }
     } catch (error) {
-      showToast(error.message || "Registration failed", "error");
+      // Handle different error types
+      const errorMessage = error.message || "Registration failed";
+
+      if (errorMessage.includes("already registered")) {
+        showToast("This email is already registered. Please sign in.", "error");
+        setMode("login");
+      } else if (errorMessage.includes("Verification already sent")) {
+        showToast(
+          "A verification code was already sent. Check your email or request a new one.",
+          "info",
+        );
+        setMode("otp");
+      } else {
+        showToast(errorMessage, "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -84,19 +120,33 @@ export default function AuthScreen() {
     }
     setLoading(true);
     try {
-      // Verify the OTP token
-      await verifyOtp(otp, "signup", email);
-      showToast("Email verified! You can now sign in.", "success");
-      setMode("login");
-      setOtp("");
-      // Clear registration fields
-      setFullName("");
-      setPhoneNumber("");
-      setStreetAddress("");
-      setDateOfBirth("");
-      setBarangay("");
+      const result = await verifyOtp(otp, "signup", email);
+
+      if (result.success) {
+        showToast("✅ Email verified! Please sign in.", "success");
+        setMode("login");
+        setOtp("");
+        setFullName("");
+        setPhoneNumber("");
+        setStreetAddress("");
+        setDateOfBirth("");
+        setSelectedBarangay(null);
+        setPassword("");
+        setConfirmPassword("");
+      }
     } catch (error) {
-      showToast(error.message || "Verification failed. Check your code and try again.", "error");
+      const errorMessage = error.message || "Verification failed";
+
+      if (errorMessage.includes("already registered")) {
+        showToast("This email is already registered. Please sign in.", "error");
+        setMode("login");
+      } else if (errorMessage.includes("expired")) {
+        showToast("Verification code expired. Request a new one.", "error");
+      } else if (errorMessage.includes("Invalid verification code")) {
+        showToast("Invalid code. Please check and try again.", "error");
+      } else {
+        showToast(errorMessage, "error");
+      }
     } finally {
       setLoading(false);
     }
@@ -111,7 +161,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       await resendOtp(email);
-      showToast("⏳ Verification link resent! Check your email.", "success");
+      showToast("🔄 New verification code sent! Check your email.", "success");
     } catch (error) {
       showToast(error.message || "Failed to resend code", "error");
     } finally {
@@ -121,241 +171,309 @@ export default function AuthScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoid}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.headerWrap}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>P</Text>
+        style={styles.keyboardAvoid}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled">
+          <View style={styles.headerWrap}>
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>P</Text>
+            </View>
+            <Text style={styles.title}>
+              {mode === "login"
+                ? "Welcome Back"
+                : mode === "register"
+                  ? "Create Account"
+                  : "Verify Email"}
+            </Text>
+            <Text style={styles.subtitle}>
+              {mode === "login"
+                ? "Sign in to your account"
+                : mode === "register"
+                  ? "Join us to stay safe"
+                  : "Enter the OTP sent to your email"}
+            </Text>
           </View>
-          <Text style={styles.title}>
-            {mode === "login" ? "Welcome Back" : mode === "register" ? "Create Account" : "Verify Email"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {mode === "login"
-              ? "Sign in to your account"
-              : mode === "register"
-              ? "Join us to stay safe"
-              : "Enter the OTP sent to your email"}
-          </Text>
-        </View>
 
-        <View style={styles.formWrap}>
-          {mode === "login" && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                editable={!loading}
-              />
-              <Pressable
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Sign In</Text>
-                )}
-              </Pressable>
-
-              <View style={styles.switchMode}>
-                <Text style={styles.switchText}>Don't have an account? </Text>
-                <Pressable onPress={() => { setMode("register"); setEmail(""); setPassword(""); setConfirmPassword(""); }}>
-                  <Text style={styles.switchLink}>Sign Up</Text>
-                </Pressable>
-              </View>
-            </>
-          )}
-
-          {mode === "register" && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                value={fullName}
-                onChangeText={setFullName}
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone Number (optional)"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Street Address (optional)"
-                value={streetAddress}
-                onChangeText={setStreetAddress}
-                editable={!loading}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Date of Birth (YYYY-MM-DD, optional)"
-                value={dateOfBirth}
-                onChangeText={setDateOfBirth}
-                editable={!loading}
-              />
-              <Pressable
-                style={[styles.input, styles.barangaySelector]}
-                onPress={() => setShowBarangayPicker(true)}
-                disabled={loading}
-              >
-                <Text style={barangay ? styles.barangaySelectedText : styles.barangayPlaceholder}>
-                  {barangay || "Barangay (optional)"}
-                </Text>
-                <MaterialIcons name="arrow-drop-down" size={24} color={COLORS.gray400} />
-              </Pressable>
-
-              <Modal visible={showBarangayPicker} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                  <View style={styles.modalContent}>
-                    <View style={styles.modalHeader}>
-                      <Pressable onPress={() => setShowBarangayPicker(false)}>
-                        <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
-                      </Pressable>
-                      <Text style={styles.modalTitle}>Select Barangay</Text>
-                      <View style={{ width: 24 }} />
-                    </View>
-                    <ScrollView style={styles.modalBody}>
-                      {BARANGAY_OPTIONS.map((b) => (
-                        <Pressable
-                          key={b.id}
-                          style={[styles.barangayOption, barangay === b.id && styles.barangayOptionSelected]}
-                          onPress={() => {
-                            setBarangay(b.id);
-                            setShowBarangayPicker(false);
-                          }}
-                        >
-                          <Text style={[styles.barangayOptionText, barangay === b.id && styles.barangayOptionTextSelected]}>
-                            {b.label}
-                          </Text>
-                          {barangay === b.id && (
-                            <MaterialIcons name="check" size={20} color={COLORS.shieldPrimary} />
-                          )}
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </View>
-                </View>
-              </Modal>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                editable={!loading}
-              />
-              <View style={styles.passwordInputWrapper}>
+          <View style={styles.formWrap}>
+            {mode === "login" && (
+              <>
                 <TextInput
-                  style={styles.passwordInput}
+                  style={styles.input}
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <TextInput
+                  style={styles.input}
                   placeholder="Password"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  secureTextEntry
                   editable={!loading}
                 />
-                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.passwordToggle}>
-                  <MaterialIcons name={showPassword ? "visibility" : "visibility-off"} size={20} color="#991b1b" />
+                <Pressable
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleLogin}
+                  disabled={loading}>
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Sign In</Text>
+                  )}
                 </Pressable>
-              </View>
-              <View style={styles.passwordInputWrapper}>
+
+                <View style={styles.switchMode}>
+                  <Text style={styles.switchText}>Don't have an account? </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode("register");
+                      setEmail("");
+                      setPassword("");
+                      setConfirmPassword("");
+                    }}>
+                    <Text style={styles.switchLink}>Sign Up</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+
+            {mode === "register" && (
+              <>
                 <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!showConfirmPassword}
+                  style={styles.input}
+                  placeholder="Full Name"
+                  value={fullName}
+                  onChangeText={setFullName}
                   editable={!loading}
                 />
-                <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.passwordToggle}>
-                  <MaterialIcons name={showConfirmPassword ? "visibility" : "visibility-off"} size={20} color="#991b1b" />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone Number (optional)"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  editable={!loading}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Street Address (optional)"
+                  value={streetAddress}
+                  onChangeText={setStreetAddress}
+                  editable={!loading}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Date of Birth (YYYY-MM-DD, optional)"
+                  value={dateOfBirth}
+                  onChangeText={setDateOfBirth}
+                  editable={!loading}
+                />
+                <Pressable
+                  style={[styles.input, styles.barangaySelector]}
+                  onPress={() => setShowBarangayPicker(true)}
+                  disabled={loading}>
+                  <Text
+                    style={
+                      selectedBarangay
+                        ? styles.barangaySelectedText
+                        : styles.barangayPlaceholder
+                    }>
+                    {selectedBarangay
+                      ? selectedBarangay.name
+                      : "Select Barangay (required)"}
+                  </Text>
+                  <MaterialIcons
+                    name="arrow-drop-down"
+                    size={24}
+                    color={COLORS.gray400}
+                  />
                 </Pressable>
-              </View>
-              <Pressable
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleRegister}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Create Account</Text>
-                )}
-              </Pressable>
 
-              <View style={styles.switchMode}>
-                <Text style={styles.switchText}>Already have an account? </Text>
-                <Pressable onPress={() => { setMode("login"); setEmail(""); setPassword(""); setConfirmPassword(""); setFullName(""); setPhoneNumber(""); setStreetAddress(""); setBarangay(""); }}>
-                  <Text style={styles.switchLink}>Sign In</Text>
+                <Modal
+                  visible={showBarangayPicker}
+                  transparent
+                  animationType="fade">
+                  <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                      <View style={styles.modalHeader}>
+                        <Pressable onPress={() => setShowBarangayPicker(false)}>
+                          <MaterialIcons
+                            name="close"
+                            size={24}
+                            color={COLORS.shieldPrimary}
+                          />
+                        </Pressable>
+                        <Text style={styles.modalTitle}>Select Barangay</Text>
+                        <View style={{ width: 24 }} />
+                      </View>
+                      <ScrollView style={styles.modalBody}>
+                        {BARANGAY_OPTIONS.map((b) => (
+                          <Pressable
+                            key={b.id}
+                            style={[
+                              styles.barangayOption,
+                              selectedBarangay?.id === b.id &&
+                                styles.barangayOptionSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedBarangay({ id: b.id, name: b.label });
+                              setShowBarangayPicker(false);
+                            }}>
+                            <Text
+                              style={[
+                                styles.barangayOptionText,
+                                selectedBarangay?.id === b.id &&
+                                  styles.barangayOptionTextSelected,
+                              ]}>
+                              {b.label}
+                            </Text>
+                            {selectedBarangay?.id === b.id && (
+                              <MaterialIcons
+                                name="check"
+                                size={20}
+                                color={COLORS.shieldPrimary}
+                              />
+                            )}
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+                </Modal>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  editable={!loading}
+                />
+                <View style={styles.passwordInputWrapper}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    editable={!loading}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.passwordToggle}>
+                    <MaterialIcons
+                      name={showPassword ? "visibility" : "visibility-off"}
+                      size={20}
+                      color="#991b1b"
+                    />
+                  </Pressable>
+                </View>
+                <View style={styles.passwordInputWrapper}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    editable={!loading}
+                  />
+                  <Pressable
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.passwordToggle}>
+                    <MaterialIcons
+                      name={
+                        showConfirmPassword ? "visibility" : "visibility-off"
+                      }
+                      size={20}
+                      color="#991b1b"
+                    />
+                  </Pressable>
+                </View>
+                <Pressable
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleRegister}
+                  disabled={loading}>
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Create Account</Text>
+                  )}
                 </Pressable>
-              </View>
-            </>
-          )}
 
-          {mode === "otp" && (
-            <>
-              <Text style={styles.otpInfo}>
-                We sent a verification code to {email}. Enter it below:
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter 6-digit code"
-                value={otp}
-                onChangeText={setOtp}
-                keyboardType="number-pad"
-                maxLength={6}
-                editable={!loading}
-              />
-              <Pressable
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleVerifyOtp}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Verify Code</Text>
-                )}
-              </Pressable>
+                <View style={styles.switchMode}>
+                  <Text style={styles.switchText}>
+                    Already have an account?{" "}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode("login");
+                      setEmail("");
+                      setPassword("");
+                      setConfirmPassword("");
+                      setFullName("");
+                      setPhoneNumber("");
+                      setStreetAddress("");
+                      setBarangay("");
+                    }}>
+                    <Text style={styles.switchLink}>Sign In</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
 
-              <Pressable
-                style={[styles.button, styles.secondaryButton]}
-                onPress={handleResendCode}
-                disabled={loading}
-              >
-                <Text style={styles.secondaryButtonText}>Resend Code</Text>
-              </Pressable>
-
-              <View style={styles.switchMode}>
-                <Text style={styles.switchText}>Already verified? </Text>
-                <Pressable onPress={() => { setMode("login"); setOtp(""); setPassword(""); setConfirmPassword(""); }}>
-                  <Text style={styles.switchLink}>Sign In</Text>
+            {mode === "otp" && (
+              <>
+                <Text style={styles.otpInfo}>
+                  We sent a verification code to {email}. Enter it below:
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  editable={!loading}
+                />
+                <Pressable
+                  style={[styles.button, loading && styles.buttonDisabled]}
+                  onPress={handleVerifyOtp}
+                  disabled={loading}>
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Verify Code</Text>
+                  )}
                 </Pressable>
-              </View>
-            </>
-          )}
-        </View>
+
+                <Pressable
+                  style={[styles.button, styles.secondaryButton]}
+                  onPress={handleResendCode}
+                  disabled={loading}>
+                  <Text style={styles.secondaryButtonText}>Resend Code</Text>
+                </Pressable>
+
+                <View style={styles.switchMode}>
+                  <Text style={styles.switchText}>Already verified? </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode("login");
+                      setOtp("");
+                      setPassword("");
+                      setConfirmPassword("");
+                    }}>
+                    <Text style={styles.switchLink}>Sign In</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

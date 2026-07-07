@@ -1,29 +1,48 @@
+// services/profile.js
 import { supabase, getStorageUrl } from "./supabase.js";
 
 export async function updateProfile(updates) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const { error } = await supabase.from("profiles").update(updates).eq("id", user.id);
-  if (error) throw new Error(error.message);
+  
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", user.id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Update profile error:", error);
+    throw new Error(error.message);
+  }
+  return data;
 }
 
 export async function uploadAvatar(uri) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+  
   const ext = uri.split(".").pop() || "jpg";
   const path = `${user.id}/avatar.${ext}`;
   const mimeType = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
-  const formData = new FormData();
-  formData.append("file", {
-    uri: uri,
-    name: `avatar.${ext}`,
-    type: mimeType,
-  });
   
-  const { error: uploadErr } = await supabase.storage.from("avatars").upload(path, formData, { 
-    upsert: true,
-  });
-  if (uploadErr) throw new Error(uploadErr.message);
+  // Convert URI to blob/arraybuffer for upload
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  
+  const { error: uploadErr } = await supabase.storage
+    .from("avatars")
+    .upload(path, blob, { 
+      upsert: true,
+      contentType: mimeType,
+    });
+  
+  if (uploadErr) {
+    console.error("Upload avatar error:", uploadErr);
+    throw new Error(uploadErr.message);
+  }
+  
   const avatarUrl = getStorageUrl("avatars", path);
   await updateProfile({ avatar_url: avatarUrl });
   return avatarUrl;
@@ -32,17 +51,30 @@ export async function uploadAvatar(uri) {
 export async function removeAvatar() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const { data: profile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle();
+  
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+  
   const path = extractPath(profile?.avatar_url);
-  if (path) await supabase.storage.from("avatars").remove([path]);
+  if (path) {
+    await supabase.storage.from("avatars").remove([path]);
+  }
   await updateProfile({ avatar_url: null });
 }
 
 function extractPath(url) {
   if (!url) return null;
-  try { const parts = url.split("/public/avatars/"); return parts[1] || null; } catch { return null; }
+  try { 
+    const parts = url.split("/public/avatars/"); 
+    return parts[1] || null; 
+  } catch { 
+    return null; 
+  }
 }
 
 export function getDefaultAvatar(name) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=random`;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=991b1b&color=fff&bold=true&size=100`;
 }

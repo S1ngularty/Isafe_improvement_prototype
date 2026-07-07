@@ -1,3 +1,4 @@
+// screens/ProfileScreen.jsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -17,10 +18,15 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
-import { updateProfile } from "../../services/auth.js";
+import { updateProfile } from "../../services/profile.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
-import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds, formatSpecialNeeds } from "../../utils/medicalOptions";
+import {
+  ALL_GROUPS,
+  encodeSpecialNeeds,
+  decodeSpecialNeeds,
+  formatSpecialNeeds,
+} from "../../utils/medicalOptions";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -38,6 +44,19 @@ const COLORS = {
   white: "#fff",
 };
 
+// Simple Skeleton component
+const Skeleton = ({ width, height }) => (
+  <View
+    style={{
+      width: width || 120,
+      height: height || 16,
+      backgroundColor: COLORS.gray200,
+      borderRadius: 4,
+      opacity: 0.7,
+    }}
+  />
+);
+
 export default function ProfileScreen({ navigation }) {
   const {
     profile,
@@ -52,15 +71,21 @@ export default function ProfileScreen({ navigation }) {
   const [dateOfBirth, setDateOfBirth] = useState(profile?.date_of_birth || "");
   const [gender, setGender] = useState(profile?.gender || "");
   const [residentialAddress, setResidentialAddress] = useState(
-    profile?.barangay_id != null ? String(profile.barangay_id) : ""
+    profile?.barangay_id != null ? String(profile.barangay_id) : "",
   );
   const [phoneNumber, setPhoneNumber] = useState(profile?.phone_number || "");
   const [bloodType, setBloodType] = useState(profile?.blood_type || "");
-  const [medicalNotes, setMedicalNotes] = useState(profile?.medical_notes || "");
-  const [householdSize, setHouseholdSize] = useState(profile?.household_size?.toString() || "");
+  const [medicalNotes, setMedicalNotes] = useState(
+    profile?.medical_notes || "",
+  );
+  const [householdSize, setHouseholdSize] = useState(
+    profile?.household_size?.toString() || "",
+  );
   const [selectedNeeds, setSelectedNeeds] = useState([]);
   const [needsOther, setNeedsOther] = useState("");
-  const [streetAddress, setStreetAddress] = useState(profile?.street_address || "");
+  const [streetAddress, setStreetAddress] = useState(
+    profile?.street_address || "",
+  );
 
   const [needsTempSelected, setNeedsTempSelected] = useState([]);
   const [needsTempOther, setNeedsTempOther] = useState("");
@@ -73,12 +98,16 @@ export default function ProfileScreen({ navigation }) {
       setFullName(profile.full_name || "");
       setDateOfBirth(profile.date_of_birth || "");
       setGender(profile.gender || "");
-      setResidentialAddress(profile.barangay_id != null ? String(profile.barangay_id) : "");
+      setResidentialAddress(
+        profile.barangay_id != null ? String(profile.barangay_id) : "",
+      );
       setPhoneNumber(profile.phone_number || "");
       setBloodType(profile.blood_type || "");
       setMedicalNotes(profile.medical_notes || "");
       setHouseholdSize(profile.household_size?.toString() || "");
-      const { selected, other } = decodeSpecialNeeds(profile.special_needs || "");
+      const { selected, other } = decodeSpecialNeeds(
+        profile.special_needs || "",
+      );
       setSelectedNeeds(selected);
       setNeedsOther(other);
       setStreetAddress(profile.street_address || "");
@@ -87,15 +116,25 @@ export default function ProfileScreen({ navigation }) {
 
   const handleEditField = (field, currentValue) => {
     setEditingField(field);
-    setTempValue(currentValue || "");
+
+    // For special needs, we don't need tempValue since we use needsTempSelected/needsTempOther
     if (field === "specialNeeds") {
+      setTempValue(""); // Set empty since we're not using it
       setNeedsTempSelected([...selectedNeeds]);
       setNeedsTempOther(needsOther);
+    } else {
+      setTempValue(currentValue || "");
     }
   };
 
   const handleSaveField = async () => {
-    if (!tempValue.trim() && editingField !== "gender") {
+    // Skip empty validation for special needs since it's a multi-select
+    // Skip for gender since it can be empty
+    if (
+      editingField !== "gender" &&
+      editingField !== "specialNeeds" &&
+      !tempValue.trim()
+    ) {
       showToast("Field cannot be empty", "error");
       return;
     }
@@ -117,10 +156,16 @@ export default function ProfileScreen({ navigation }) {
     setLoading(true);
     try {
       const updateData = {};
+
       switch (editingField) {
         case "fullName":
-          updateData.full_name = tempValue;
-          setFullName(tempValue);
+          if (!tempValue.trim()) {
+            showToast("Full name cannot be empty", "error");
+            setLoading(false);
+            return;
+          }
+          updateData.full_name = tempValue.trim();
+          setFullName(tempValue.trim());
           break;
         case "dateOfBirth":
           updateData.date_of_birth = tempValue;
@@ -131,37 +176,67 @@ export default function ProfileScreen({ navigation }) {
           setGender(tempValue);
           break;
         case "residentialAddress":
+          if (!tempValue) {
+            showToast("Please select a barangay", "error");
+            setLoading(false);
+            return;
+          }
           updateData.barangay_id = Number(tempValue);
           setResidentialAddress(tempValue);
           break;
+        case "streetAddress":
+          if (!tempValue.trim()) {
+            showToast("Street address cannot be empty", "error");
+            setLoading(false);
+            return;
+          }
+          updateData.street_address = tempValue.trim();
+          setStreetAddress(tempValue.trim());
+          break;
         case "phoneNumber":
-          updateData.phone_number = tempValue;
-          setPhoneNumber(tempValue);
+          updateData.phone_number = tempValue.trim();
+          setPhoneNumber(tempValue.trim());
           break;
         case "bloodType":
           updateData.blood_type = tempValue;
           setBloodType(tempValue);
           break;
         case "medicalNotes":
-          updateData.medical_notes = tempValue;
-          setMedicalNotes(tempValue);
-          break;
-        case "householdSize":
-          updateData.household_size = parseInt(tempValue, 10) || null;
-          setHouseholdSize(tempValue);
+          updateData.medical_notes = tempValue.trim();
+          setMedicalNotes(tempValue.trim());
           break;
         case "specialNeeds":
-          updateData.special_needs = encodeSpecialNeeds(needsTempSelected, needsTempOther);
+          // Special needs doesn't require tempValue validation
+          // It uses needsTempSelected and needsTempOther
+          const encoded = encodeSpecialNeeds(needsTempSelected, needsTempOther);
+          updateData.special_needs = encoded;
           setSelectedNeeds(needsTempSelected);
           setNeedsOther(needsTempOther);
           break;
-        case "streetAddress":
-          updateData.street_address = tempValue;
-          setStreetAddress(tempValue);
+        case "householdSize":
+          if (!tempValue.trim()) {
+            showToast("Household size cannot be empty", "error");
+            setLoading(false);
+            return;
+          }
+          const size = parseInt(tempValue, 10);
+          if (isNaN(size) || size < 1) {
+            showToast(
+              "Please enter a valid household size (minimum 1)",
+              "error",
+            );
+            setLoading(false);
+            return;
+          }
+          updateData.household_size = size;
+          setHouseholdSize(tempValue);
+          break;
+        default:
           break;
       }
 
-      await updateProfile(updateData);
+      // Update profile
+      const updatedProfile = await updateProfile(updateData);
       await refreshProfile();
       showToast("Profile updated successfully", "success");
       setEditingField(null);
@@ -178,6 +253,8 @@ export default function ProfileScreen({ navigation }) {
       setSelectedNeeds(previousState.selectedNeeds);
       setNeedsOther(previousState.needsOther);
       setStreetAddress(previousState.streetAddress);
+
+      console.error("Update error:", error);
       showToast(error.message || "Failed to update profile", "error");
     } finally {
       setLoading(false);
@@ -210,6 +287,7 @@ export default function ProfileScreen({ navigation }) {
         showToast("Avatar updated successfully", "success");
       }
     } catch (error) {
+      console.error("Avatar upload error:", error);
       showToast(error.message || "Failed to update avatar", "error");
     } finally {
       setLoading(false);
@@ -436,74 +514,6 @@ export default function ProfileScreen({ navigation }) {
       );
     }
 
-    if (editingField === "specialNeeds") {
-      return (
-        <Modal visible={!!editingField} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: "80%" }]}>
-              <View style={styles.modalHeader}>
-                <Pressable onPress={() => setEditingField(null)}>
-                  <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
-                </Pressable>
-                <Text style={styles.modalTitle}>{title}</Text>
-                <Pressable onPress={() => setEditingField(null)}>
-                  <Text style={{ color: COLORS.shieldPrimary, fontWeight: "600", fontSize: 14 }}>Done</Text>
-                </Pressable>
-              </View>
-
-              <ScrollView style={styles.modalBody}>
-                {ALL_GROUPS.map(({ heading, options }) => (
-                  <View key={heading} style={{ marginBottom: 12 }}>
-                    <Text style={styles.needsGroupHeading}>{heading}</Text>
-                    {options.map((opt) => {
-                      const checked = needsTempSelected.includes(opt.id);
-                      return (
-                        <Pressable
-                          key={opt.id}
-                          style={styles.needsOptionRow}
-                          onPress={() => {
-                            setNeedsTempSelected((prev) =>
-                              checked ? prev.filter((id) => id !== opt.id) : [...prev, opt.id]
-                            );
-                          }}
-                        >
-                          <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-                            {checked && <MaterialIcons name="check" size={14} color={COLORS.white} />}
-                          </View>
-                          <Text style={styles.needsOptionLabel}>{opt.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ))}
-                <View style={{ borderTopWidth: 1, borderTopColor: COLORS.gray200, paddingTop: 12, marginTop: 4 }}>
-                  <Text style={styles.needsGroupHeading}>Other</Text>
-                  <TextInput
-                    style={[styles.modalInput, { marginTop: 6 }]}
-                    value={needsTempOther}
-                    onChangeText={setNeedsTempOther}
-                    placeholder="Please specify any other needs..."
-                  />
-                </View>
-              </ScrollView>
-
-              <Pressable
-                style={[styles.modalButton, loading && styles.buttonDisabled]}
-                onPress={handleSaveField}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.modalButtonText}>Save</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      );
-    }
-
     if (editingField === "residentialAddress") {
       return (
         <Modal visible={!!editingField} transparent animationType="fade">
@@ -511,7 +521,11 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Pressable onPress={() => setEditingField(null)}>
-                  <MaterialIcons name="close" size={24} color={COLORS.shieldPrimary} />
+                  <MaterialIcons
+                    name="close"
+                    size={24}
+                    color={COLORS.shieldPrimary}
+                  />
                 </Pressable>
                 <Text style={styles.modalTitle}>{title}</Text>
                 <View style={{ width: 24 }} />
@@ -521,14 +535,26 @@ export default function ProfileScreen({ navigation }) {
                 {BARANGAY_OPTIONS.map((b) => (
                   <Pressable
                     key={b.id}
-                    style={[styles.barangayOptionRow, tempValue === b.id && styles.barangayOptionSelected]}
-                    onPress={() => setTempValue(b.id)}
-                  >
-                    <Text style={[styles.barangayOptionText, tempValue === b.id && styles.barangayOptionTextSelected]}>
+                    style={[
+                      styles.barangayOptionRow,
+                      tempValue === String(b.id) &&
+                        styles.barangayOptionSelected,
+                    ]}
+                    onPress={() => setTempValue(String(b.id))}>
+                    <Text
+                      style={[
+                        styles.barangayOptionText,
+                        tempValue === String(b.id) &&
+                          styles.barangayOptionTextSelected,
+                      ]}>
                       {b.label}
                     </Text>
-                    {tempValue === b.id && (
-                      <MaterialIcons name="check" size={20} color={COLORS.shieldPrimary} />
+                    {tempValue === String(b.id) && (
+                      <MaterialIcons
+                        name="check"
+                        size={20}
+                        color={COLORS.shieldPrimary}
+                      />
                     )}
                   </Pressable>
                 ))}
@@ -537,8 +563,7 @@ export default function ProfileScreen({ navigation }) {
               <Pressable
                 style={[styles.modalButton, loading && styles.buttonDisabled]}
                 onPress={handleSaveField}
-                disabled={loading}
-              >
+                disabled={loading}>
                 {loading ? (
                   <ActivityIndicator color={COLORS.white} />
                 ) : (
@@ -551,6 +576,7 @@ export default function ProfileScreen({ navigation }) {
       );
     }
 
+    // For text/input fields
     return (
       <Modal visible={!!editingField} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -582,21 +608,23 @@ export default function ProfileScreen({ navigation }) {
                   editable={!loading}
                   multiline={
                     editingField === "medicalNotes" ||
-                    editingField === "specialNeeds" ||
                     editingField === "streetAddress"
                   }
                   numberOfLines={
                     editingField === "medicalNotes" ||
-                    editingField === "specialNeeds" ||
                     editingField === "streetAddress"
                       ? 3
                       : 1
                   }
                   keyboardType={
-                    editingField === "phoneNumber" ||
-                    editingField === "householdSize"
-                      ? "number-pad"
-                      : "default"
+                    editingField === "phoneNumber"
+                      ? "phone-pad"
+                      : editingField === "householdSize"
+                        ? "number-pad"
+                        : "default"
+                  }
+                  autoCapitalize={
+                    editingField === "fullName" ? "words" : "sentences"
                   }
                 />
               </View>
@@ -620,7 +648,13 @@ export default function ProfileScreen({ navigation }) {
 
   const renderFieldValue = (value, fallback) => {
     if (authLoading) return <Skeleton width={120} height={16} />;
-    return <Text style={styles.fieldValue}>{value || fallback}</Text>;
+    if (value && value.trim())
+      return <Text style={styles.fieldValue}>{value}</Text>;
+    return (
+      <Text style={[styles.fieldValue, { color: COLORS.gray400 }]}>
+        {fallback}
+      </Text>
+    );
   };
 
   return (
@@ -743,7 +777,17 @@ export default function ProfileScreen({ navigation }) {
               />
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Barangay</Text>
-                {renderFieldValue(residentialAddress, "Add barangay")}
+                {residentialAddress ? (
+                  <Text style={styles.fieldValue}>
+                    {BARANGAY_OPTIONS.find(
+                      (b) => String(b.id) === residentialAddress,
+                    )?.label || residentialAddress}
+                  </Text>
+                ) : (
+                  <Text style={[styles.fieldValue, { color: COLORS.gray400 }]}>
+                    Add barangay
+                  </Text>
+                )}
               </View>
             </View>
             <Pressable
@@ -850,15 +894,39 @@ export default function ProfileScreen({ navigation }) {
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Special Needs</Text>
                 {selectedNeeds.length > 0 || needsOther ? (
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                    {formatSpecialNeeds(encodeSpecialNeeds(selectedNeeds, needsOther)).map((label, i) => (
-                      <View key={i} style={{ backgroundColor: "#fef3c7", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
-                        <Text style={{ fontSize: 10, color: "#92400e", fontWeight: "600" }}>{label}</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 4,
+                      marginTop: 4,
+                    }}>
+                    {formatSpecialNeeds(
+                      encodeSpecialNeeds(selectedNeeds, needsOther),
+                    ).map((label, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          backgroundColor: "#fef3c7",
+                          borderRadius: 8,
+                          paddingHorizontal: 8,
+                          paddingVertical: 2,
+                        }}>
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            color: "#92400e",
+                            fontWeight: "600",
+                          }}>
+                          {label}
+                        </Text>
                       </View>
                     ))}
                   </View>
                 ) : (
-                  <Text style={styles.fieldValue}>Add special needs</Text>
+                  <Text style={[styles.fieldValue, { color: COLORS.gray400 }]}>
+                    Add special needs
+                  </Text>
                 )}
               </View>
             </View>
@@ -1074,19 +1142,6 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 12,
     color: COLORS.shieldPrimary,
-    fontWeight: "600",
-  },
-  manageButton: {
-    backgroundColor: COLORS.shieldPrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    minWidth: 60,
-    alignItems: "center",
-  },
-  manageButtonText: {
-    fontSize: 12,
-    color: COLORS.white,
     fontWeight: "600",
   },
 
