@@ -20,6 +20,7 @@ import AdminAlertsView from "../components/AdminAlertsView";
 import AdminAlertDetail from "../components/AdminAlertDetail";
 import AdminRescuersView from "../components/AdminRescuersView";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
+import WaterLevelView from "./waterLevel/WaterLevelView";
 import DataTable from "../components/DataTable";
 export default function AdminDashboard() {
   const { session, logout } = useAuth();
@@ -1310,6 +1311,8 @@ export default function AdminDashboard() {
           {view === "rainviewer" && <RainViewerPage />}
 
           {view === "tide" && <TideView isAdmin={true} />}
+
+          {view === "waterlevel" && <WaterLevelView />}
 
           {view === "rescuers" && <AdminRescuersView />}
 
