@@ -1,43 +1,37 @@
-// HC-SR04 Distance Sensor with MQTT
-// Samples at 50ms internally, publishes smoothed reading every 30s via MQTT/TLS.
+// HC-SR04 MQTT Sketch
+// Reads distance via TRIG/ECHO pulse timing and publishes to MQTT over TLS.
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include <NewPing.h>
 
 #include "secrets.h"
 
-#define TRIG_PIN 26
-#define ECHO_PIN 27
-#define MAX_DISTANCE 450
+#define TRIG_PIN 27
+#define ECHO_PIN 26
+#define SOUND_SPEED 0.034
+#define MAX_TIMEOUT_US 30000
 
-#define PING_INTERVAL_MS 50
 #define PUBLISH_INTERVAL_MS 30000
 #define WIFI_TIMEOUT_MS 20000
-
-#define WINDOW_SIZE 10
-
-NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE);
 
 WiFiClientSecure wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-unsigned int sampleWindow[WINDOW_SIZE];
-int sampleIndex = 0;
-int samplesCollected = 0;
-float smoothedDistance = 60;
-
-unsigned long lastPingTime = 0;
-unsigned long lastPublishTime = 0;
+unsigned long lastPublish = 0;
 unsigned long lastReconnectAttempt = 0;
+unsigned long readingsPublished = 0;
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
   Serial.println(F("\n========== HC-SR04 MQTT =========="));
-  Serial.println(F("TRIG: GPIO26  |  ECHO: GPIO27"));
+  Serial.println(F("TRIG: GPIO27  |  ECHO: GPIO26 (with voltage divider)"));
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(TRIG_PIN, LOW);
 
   connectWiFi();
 
@@ -58,22 +52,8 @@ void loop() {
     mqttClient.loop();
   }
 
-  unsigned long currentTime = millis();
-
-  if (currentTime - lastPingTime >= PING_INTERVAL_MS) {
-    lastPingTime = currentTime;
-
-    unsigned int distance = sonar.ping_cm();
-
-    if (distance > 0) {
-      sampleWindow[sampleIndex] = distance;
-      sampleIndex = (sampleIndex + 1) % WINDOW_SIZE;
-      if (samplesCollected < WINDOW_SIZE) samplesCollected++;
-    }
-  }
-
-  if (currentTime - lastPublishTime >= PUBLISH_INTERVAL_MS) {
-    lastPublishTime = currentTime;
+  if (millis() - lastPublish >= PUBLISH_INTERVAL_MS) {
+    lastPublish = millis();
     publishReading();
   }
 }
@@ -115,43 +95,40 @@ void reconnectMQTT() {
 }
 
 void publishReading() {
-  if (samplesCollected == 0) {
-    Serial.println(F("No samples collected - skipping publish"));
+  float distance = readDistance();
+
+  if (distance < 0) {
+    Serial.println(F("No echo - skipping publish"));
     return;
   }
 
-  unsigned int farthest = 0;
-  for (int i = 0; i < samplesCollected; i++) {
-    if (sampleWindow[i] > farthest) farthest = sampleWindow[i];
-  }
-
-  float diff = abs((float)farthest - smoothedDistance);
-
-  if (diff > 2) {
-    if (diff > 30) {
-      smoothedDistance = (farthest * 0.7) + (smoothedDistance * 0.3);
-    } else {
-      smoothedDistance = (farthest * 0.4) + (smoothedDistance * 0.6);
-    }
-  }
-
-  int distanceMM = (int)(smoothedDistance * 10);
-
-  Serial.print(F("Distance: "));
-  Serial.print(smoothedDistance);
-  Serial.println(F(" cm"));
+  int distanceMM = (int)(distance * 10);
 
   char payload[128];
   snprintf(payload, sizeof(payload),
     "{\"sensor_id\":\"hc-sr04-001\",\"distance_mm\":%d,\"water_level_cm\":%.1f}",
-    distanceMM, smoothedDistance);
+    distanceMM, distance);
 
   if (mqttClient.publish(MQTT_TOPIC, payload)) {
+    readingsPublished++;
     Serial.print(F("Published: "));
     Serial.println(payload);
   } else {
     Serial.println(F("Publish failed"));
   }
+}
+
+float readDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, MAX_TIMEOUT_US);
+  if (duration == 0) return -1;
+
+  return (duration * SOUND_SPEED) / 2.0;
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {

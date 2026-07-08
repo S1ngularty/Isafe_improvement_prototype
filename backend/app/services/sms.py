@@ -10,6 +10,21 @@ SMS_MESSAGE_TEMPLATE = (
     " - CityShield"
 )
 
+FLOOD_ALERT_SMS_TEMPLATE = (
+    "FLOOD ALERT: Water level has reached {water_level_cm:.0f}cm"
+    " at sensor {sensor_id}."
+    " Please take precautionary measures"
+    " and prepare for possible evacuation."
+    " - CityShield"
+)
+
+FLOOD_ALL_CLEAR_SMS_TEMPLATE = (
+    "ALL CLEAR: Water level at sensor {sensor_id}"
+    " has receded to {water_level_cm:.0f}cm."
+    " The immediate danger has passed."
+    " - CityShield"
+)
+
 
 def _format_phone(number: str) -> str | None:
     digits = re.sub(r"\D", "", number)
@@ -83,6 +98,106 @@ async def _fetch_phone_numbers(user_id: str) -> list[str]:
 
     print(f"[sms] Final recipients list for {user_id}: {numbers}")
     return numbers
+
+
+def _send_textbee_sms(recipients: list[str], message: str) -> dict | None:
+    if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        print("[sms] TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID not configured — skipping SMS")
+        return None
+
+    url = f"{TEXTBEE_API_BASE}/{TEXTBEE_DEVICE_ID}/send-sms"
+    payload = {"recipients": recipients, "message": message}
+
+    print(f"[sms] POST {url}")
+    print(f"[sms] Sending to {len(recipients)} recipient(s)")
+
+    try:
+        with httpx.Client(timeout=15.0) as http:
+            resp = http.post(
+                url,
+                json=payload,
+                headers={"Content-Type": "application/json", "x-api-key": TEXTBEE_API_KEY},
+            )
+            print(f"[sms] Response status: {resp.status_code}")
+            print(f"[sms] Response body: {resp.text}")
+
+            if resp.status_code == 422:
+                print(f"[sms] Validation error details: {resp.json()}")
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        print(f"[sms] Failed to send SMS: {e}")
+        return None
+
+
+def send_flood_alert_sms(water_level_cm: float, sensor_id: str) -> dict:
+    if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        print("[sms] TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID not configured — skipping SMS")
+        return {"success": False, "message": "textbee not configured"}
+
+    try:
+        result = client.table("profiles").select("phone_number").execute()
+        raw_numbers = []
+        for row in result.data or []:
+            phone = row.get("phone_number")
+            if phone:
+                formatted = _format_phone(phone)
+                if formatted and formatted not in raw_numbers:
+                    raw_numbers.append(formatted)
+
+        if not raw_numbers:
+            print("[sms] No phone numbers found in profiles")
+            return {"success": False, "message": "no phone numbers"}
+
+        message = FLOOD_ALERT_SMS_TEMPLATE.format(
+            water_level_cm=water_level_cm,
+            sensor_id=sensor_id,
+        )
+
+        resp_data = _send_textbee_sms(raw_numbers, message)
+        if resp_data is None:
+            return {"success": False, "message": "sms send failed"}
+
+        print(f"[sms] Sent flood alert to {len(raw_numbers)} recipient(s)")
+        return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
+
+    except Exception as e:
+        print(f"[sms] Failed to send flood alert SMS: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_flood_all_clear_sms(water_level_cm: float, sensor_id: str) -> dict:
+    if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        return {"success": False, "message": "textbee not configured"}
+
+    try:
+        result = client.table("profiles").select("phone_number").execute()
+        raw_numbers = []
+        for row in result.data or []:
+            phone = row.get("phone_number")
+            if phone:
+                formatted = _format_phone(phone)
+                if formatted and formatted not in raw_numbers:
+                    raw_numbers.append(formatted)
+
+        if not raw_numbers:
+            return {"success": False, "message": "no phone numbers"}
+
+        message = FLOOD_ALL_CLEAR_SMS_TEMPLATE.format(
+            water_level_cm=water_level_cm,
+            sensor_id=sensor_id,
+        )
+
+        resp_data = _send_textbee_sms(raw_numbers, message)
+        if resp_data is None:
+            return {"success": False, "message": "sms send failed"}
+
+        print(f"[sms] Sent all-clear to {len(raw_numbers)} recipient(s)")
+        return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
+
+    except Exception as e:
+        print(f"[sms] Failed to send all-clear SMS: {e}")
+        return {"success": False, "error": str(e)}
 
 
 async def send_status_alert_sms(

@@ -23,6 +23,7 @@ from app.api.rescue import router as rescue_router
 from app.api.admin_rescuers import router as admin_rescuers_router
 from app.api.email import router as email_router
 from app.api.analytics import router as analytics_router
+from app.api.water_level import router as water_level_router
 from app.core.scheduler import start as start_scheduler, stop as stop_scheduler
 from app.api.auth import router as auth_router
 from app.mqtt.client import start_mqtt
@@ -75,6 +76,7 @@ app.include_router(rescue_router)
 app.include_router(admin_rescuers_router)
 app.include_router(email_router)
 app.include_router(analytics_router)
+app.include_router(water_level_router)
 
 
 @app.exception_handler(Exception)

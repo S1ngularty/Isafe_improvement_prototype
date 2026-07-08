@@ -135,9 +135,7 @@ export async function getUserRole() {
 // UNCHANGED: Get profile
 export async function getProfile() {
   const user = await getCurrentUser();
-  console.log("[getProfile] user:", user?.id, user?.email);
   if (!user) {
-    console.log("[getProfile] no user found, returning null");
     return null;
   }
   const { data, error } = await supabase
@@ -145,21 +143,16 @@ export async function getProfile() {
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
-  console.log("[getProfile] query result:", data, "error:", error);
   if (error) {
-    console.log("[getProfile] query error:", error);
     return null;
   }
   if (!data) {
-    console.log("[getProfile] no profile row found for user — attempting insert");
     const { error: insertErr } = await supabase
       .from("profiles")
       .insert({ id: user.id, role: "user" });
-    console.log("[getProfile] insert result error:", insertErr);
     if (insertErr) return null;
     return { id: user.id, role: "user", status: "safe", is_active: true };
   }
-  console.log("[getProfile] profile data:", data);
   return data;
 }
 

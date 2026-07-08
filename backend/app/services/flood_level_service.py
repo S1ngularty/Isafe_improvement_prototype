@@ -1,8 +1,10 @@
 from app.core.supabase import client as supabase
+from app.services.flood_alert_service import check_flood_alert
 
 
 def process_flood_level(data: dict) -> dict:
     level = data.get("water_level_cm") or data.get("level_cm")
+    sensor_id = data.get("sensor_id", "unknown")
     if level is None:
         return data
 
@@ -16,7 +18,7 @@ def process_flood_level(data: dict) -> dict:
     if supabase is not None:
         try:
             record = {
-                "sensor_id": data.get("sensor_id", "unknown"),
+                "sensor_id": sensor_id,
                 "distance_mm": data.get("distance_mm"),
                 "water_level_cm": level,
                 "status": status,
@@ -27,4 +29,10 @@ def process_flood_level(data: dict) -> dict:
             print("Failed to insert water level reading:", e)
 
     data["status"] = status
+
+    try:
+        check_flood_alert(level, sensor_id)
+    except Exception as e:
+        print("Failed to check flood alert:", e)
+
     return data
