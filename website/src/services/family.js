@@ -14,7 +14,6 @@ export async function joinFamily(code) {
 
 export async function getMyFamily() {
   const { data: familyId, error: rpcErr } = await supabase.rpc("get_my_family_id");
-  console.log("[getMyFamily] RPC get_my_family_id:", { familyId, rpcErr });
   if (!familyId) return null;
 
   const { data, error } = await supabase
@@ -23,7 +22,6 @@ export async function getMyFamily() {
     .eq("id", familyId)
     .single();
 
-  console.log("[getMyFamily] families query:", { data, error });
   if (error) return null;
   return data;
 }

@@ -32,8 +32,11 @@ const STATUS_CONFIG = {
 };
 
 export default function StatusWidget() {
-  const { session, profile, refreshProfile } = useAuth();
+  const { session, profile, refreshProfile, role } = useAuth();
   const { showToast } = useToast();
+
+  if (role === "admin") return null;
+
   const [expanded, setExpanded] = useState(false);
   const [pendingStatus, setPendingStatus] = useState(null);
   const containerRef = useRef(null);
