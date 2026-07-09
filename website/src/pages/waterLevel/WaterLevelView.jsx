@@ -4,9 +4,10 @@ import {
   fetchWaterLevelAnalytics,
   fetchUnsafeReadings,
 } from "../../services/waterLevel.js";
-import SensorStatusCards from "./SensorStatusCards";
 import WaterLevelCharts from "./WaterLevelCharts";
+import RealtimeSensorChart from "./RealtimeSensorChart";
 import exportWaterLevelPdf from "../../utils/exportWaterLevelPdf.js";
+import useRealtimeWaterLevel from "../../hooks/useRealtimeWaterLevel.js";
 
 function KpiCard({ label, value, sub, color }) {
   const borderColor =
@@ -197,6 +198,11 @@ export default function WaterLevelView() {
     true,
   );
 
+  const {
+    readings: realtimeReadings,
+    error: realtimeError,
+  } = useRealtimeWaterLevel();
+
   const kpi = useMemo(() => {
     if (!summary) return null;
     return {
@@ -301,14 +307,13 @@ export default function WaterLevelView() {
         ))}
       </div>
 
-      {/* Sensor Status Cards */}
-      <div id="wl-sensor-status">
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Sensor Status</h2>
-        {summaryError ? (
-          <ErrorBanner message={`Could not load sensor status: ${summaryError}`} />
-        ) : (
-          <SensorStatusCards sensors={summary?.sensor_statuses} />
+      {/* Realtime Sensor Chart */}
+      <div id="wl-realtime-chart">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Live Sensor Readings</h2>
+        {realtimeError && (
+          <ErrorBanner message={`Realtime subscription error: ${realtimeError}. Data may be delayed.`} />
         )}
+        <RealtimeSensorChart readings={realtimeReadings} Plot={Plot} />
       </div>
 
       {/* Unsafe Conditions */}
