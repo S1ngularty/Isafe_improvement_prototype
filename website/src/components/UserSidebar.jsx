@@ -87,7 +87,6 @@ export default function UserSidebar({ active, collapsed, onToggle, onNavigate, u
     { id: "alerts", label: "Alerts", icon: (<svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>) },
     { id: "resources", label: "Resources", icon: (<svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>) },
     { id: "contacts", label: "Contacts", icon: (<svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>) },
-    { id: "settings", label: "Settings", disabled: true, badge: "Soon", icon: (<svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>) },
   ];
 
   return (
@@ -101,23 +100,18 @@ export default function UserSidebar({ active, collapsed, onToggle, onNavigate, u
         </button>
       </div>
       <nav className={`flex-1 p-2 space-y-1 overflow-hidden ${collapsed ? "px-1" : ""}`}>
-        {items.map(({ id, label, icon, disabled, badge }) => {
-          const showBadge = id === "alerts" && unreadAlerts > 0 ? String(unreadAlerts) : badge;
-          const badgeStyle = id === "alerts" && unreadAlerts > 0
-            ? "bg-red-500 text-white font-bold"
-            : "bg-gray-100 text-gray-400 font-medium";
-
-          return (
-            <button key={id} onClick={() => { if (disabled) return; onNavigate(id); }} disabled={disabled} title={collapsed ? label : undefined}
-              className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"} ${
-                disabled ? "text-gray-300 cursor-not-allowed" : active === id ? "bg-shield-50 text-shield-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}>
-              {icon}
-              {!collapsed && (<><span className="flex-1 text-left">{label}</span>{showBadge && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${badgeStyle}`}>{showBadge}</span>}</>)}
-            </button>
-          );
-        })}
+        {items.map(({ id, label, icon }) => (
+          <button key={id} onClick={() => onNavigate(id)} title={collapsed ? label : undefined}
+            className={`w-full flex items-center rounded-lg text-sm font-medium transition-colors ${collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5"} ${
+              active === id ? "bg-shield-50 text-shield-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}>
+            {icon}
+            {!collapsed && <span className="flex-1 text-left">{label}</span>}
+            {!collapsed && id === "alerts" && unreadAlerts > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500 text-white font-bold">{unreadAlerts}</span>
+            )}
+          </button>
+        ))}
       </nav>
-      {!collapsed && (<div className="p-4 border-t border-gray-100"><p className="text-[11px] text-gray-400 leading-relaxed">More features coming soon.</p></div>)}
     </aside>
   );
 }
