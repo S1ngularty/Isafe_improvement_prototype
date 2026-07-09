@@ -93,7 +93,7 @@ function UnsafeSection({ unsafeReadings, loading, error }) {
                   r.status === "FLOOD_WARNING" ? "text-red-600" : "text-amber-600"
                 }`}
               >
-                {r.water_level_cm} cm
+                {(r.water_level_cm / 100).toFixed(2)} m
               </span>
               <span
                 className={`block text-[10px] font-semibold ${

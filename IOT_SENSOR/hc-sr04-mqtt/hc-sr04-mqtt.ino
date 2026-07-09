@@ -12,7 +12,7 @@
 #define SOUND_SPEED 0.034
 #define MAX_TIMEOUT_US 30000
 
-#define PUBLISH_INTERVAL_MS 30000
+#define PUBLISH_INTERVAL_MS 10000
 #define WIFI_TIMEOUT_MS 20000
 
 WiFiClientSecure wifiClient;

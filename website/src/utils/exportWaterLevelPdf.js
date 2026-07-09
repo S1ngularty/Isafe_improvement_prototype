@@ -36,7 +36,7 @@ function loadImage(src) {
   });
 }
 
-function addTitlePage(doc, kpi) {
+function addTitlePage(doc) {
   var y = 20;
 
   doc.setFontSize(28);
@@ -59,38 +59,7 @@ function addTitlePage(doc, kpi) {
     y
   );
   doc.setTextColor(0);
-  y += 14;
-
-  if (kpi) {
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Key Performance Indicators", MARGIN, y);
-    y += 8;
-
-    var items = [
-      ["Total Sensors", String(kpi.totalSensors ?? "\u2014")],
-      ["Active Sensors", String(kpi.activeSensors ?? "\u2014") + (kpi.inactiveSensors != null ? " (" + kpi.inactiveSensors + " inactive)" : "")],
-      ["Unsafe Readings", String(kpi.unsafeCount ?? 0)],
-      ["WARNING Count", String(kpi.warningCount ?? 0)],
-      ["FLOOD WARNING Count", String(kpi.floodWarningCount ?? 0)],
-    ];
-    var colW = CONTENT_W / 3;
-    doc.setFontSize(10);
-    items.forEach(function (item, i) {
-      var col = i % 3;
-      var row = Math.floor(i / 3);
-      var x = MARGIN + col * colW;
-      var yy = y + row * 12;
-      doc.setFont("helvetica", "bold");
-      doc.text(item[1], x, yy);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(100);
-      doc.text(item[0], x, yy + 3.5);
-      doc.setTextColor(0);
-      doc.setFontSize(10);
-    });
-  }
+  y += 8;
 
   return y;
 }
@@ -129,54 +98,22 @@ export default async function exportWaterLevelPdf(kpi) {
   var { jsPDF } = await import("jspdf");
   var doc = new jsPDF("p", "mm", "a4");
 
-  var y = addTitlePage(doc, kpi);
+  var y = addTitlePage(doc);
 
-  // KPI section screenshot
+  // KPI grid screenshot — same page, no forced page break
   var kpiImg = await captureSection("wl-kpi-grid");
   if (kpiImg) {
-    if (y + 50 > PAGE_H - MARGIN) {
-      doc.addPage();
-      y = 15;
-    }
-    doc.addPage();
-    y = 15;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Key Performance Indicators", MARGIN, y);
-    y += 5;
-    y = await addImageToDoc(doc, kpiImg, y);
+    y = await addImageToDoc(doc, kpiImg, y + 4);
   }
 
-  // Sensor status screenshot
-  var sensorImg = await captureSection("wl-sensor-status");
-  if (sensorImg) {
-    if (y + 50 > PAGE_H - MARGIN) {
-      doc.addPage();
-      y = 15;
-    }
-    doc.addPage();
-    y = 15;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Sensor Status", MARGIN, y);
-    y += 5;
-    y = await addImageToDoc(doc, sensorImg, y);
-  }
-
-  // Unsafe conditions screenshot
+  // Unsafe conditions screenshot — same page if room, else new page
   var unsafeImg = await captureSection("wl-unsafe-section");
   if (unsafeImg) {
-    if (y + 50 > PAGE_H - MARGIN) {
+    if (y + 20 > PAGE_H - MARGIN) {
       doc.addPage();
       y = 15;
     }
-    doc.addPage();
-    y = 15;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Unsafe Conditions", MARGIN, y);
-    y += 5;
-    y = await addImageToDoc(doc, unsafeImg, y);
+    y = await addImageToDoc(doc, unsafeImg, y + 4);
   }
 
   // Pre-capture all chart images

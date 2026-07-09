@@ -2,18 +2,21 @@ from app.core.supabase import client as supabase
 from app.services.flood_alert_service import check_flood_alert
 
 
+def derive_status(water_level_cm: float) -> str:
+    if water_level_cm < 50:
+        return "FLOOD_WARNING"
+    if water_level_cm <= 70:
+        return "WARNING"
+    return "SAFE"
+
+
 def process_flood_level(data: dict) -> dict:
     level = data.get("water_level_cm") or data.get("level_cm")
     sensor_id = data.get("sensor_id", "unknown")
     if level is None:
         return data
 
-    if level > 150:
-        status = "FLOOD_WARNING"
-    elif level > 100:
-        status = "WARNING"
-    else:
-        status = "SAFE"
+    status = derive_status(level)
 
     if supabase is not None:
         try:

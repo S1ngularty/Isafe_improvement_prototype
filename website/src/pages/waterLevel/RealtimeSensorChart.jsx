@@ -11,8 +11,8 @@ const SENSOR_COLORS = [
   "#f97316",
 ];
 
-const THRESHOLD_WARNING = 100;
-const THRESHOLD_FLOOD = 150;
+const THRESHOLD_WARNING = 0.7;
+const THRESHOLD_FLOOD = 0.5;
 
 const LAYOUT = {
   font: { size: 11, color: "#374151" },
@@ -78,7 +78,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
     });
 
     const xs = readings.map((r) => r.recorded_at);
-    const ys = readings.map((r) => r.water_level_cm);
+    const ys = readings.map((r) => r.water_level_cm / 100);
 
     const minX = xs.length > 0 ? xs[xs.length - 1] : null;
     const maxX = xs.length > 0 ? xs[0] : null;
@@ -89,7 +89,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         type: "scatter",
         mode: "lines+markers",
         x: pts.map((p) => p.recorded_at),
-        y: pts.map((p) => p.water_level_cm),
+        y: pts.map((p) => p.water_level_cm / 100),
         name: sensorId,
         line: { color: colorMap[sensorId], width: 1.5 },
         marker: {
@@ -102,7 +102,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
                 : colorMap[sensorId],
           ),
         },
-        hovertemplate: `%{y:.1f} cm<extra>${sensorId}</extra>`,
+        hovertemplate: `%{y:.2f} m<extra>${sensorId}</extra>`,
       };
     });
 
@@ -113,8 +113,8 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         yref: "y",
         x0: 0,
         x1: 1,
-        y0: THRESHOLD_FLOOD,
-        y1: 999,
+        y0: 0,
+        y1: THRESHOLD_FLOOD,
         fillcolor: "rgba(239,68,68,0.08)",
         line: { width: 0 },
         layer: "below",
@@ -125,8 +125,8 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         yref: "y",
         x0: 0,
         x1: 1,
-        y0: THRESHOLD_WARNING,
-        y1: THRESHOLD_FLOOD,
+        y0: THRESHOLD_FLOOD,
+        y1: THRESHOLD_WARNING,
         fillcolor: "rgba(245,158,11,0.06)",
         line: { width: 0 },
         layer: "below",
@@ -172,7 +172,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         data={traces}
         layout={{
           ...LAYOUT,
-          yaxis: { rangemode: "tozero", title: "cm", fixedrange: false },
+          yaxis: { rangemode: "tozero", title: "m", fixedrange: false },
           xaxis: {
             tickfont: { size: 9 },
             range: [domain.minX, domain.maxX],
