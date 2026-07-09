@@ -68,7 +68,7 @@ export default function SensorStatusCards({ sensors }) {
               <span className="text-xs text-gray-500">Water Level</span>
               <span className="text-lg font-extrabold text-gray-900">
                 {sensor.last_reading_cm != null
-                  ? `${sensor.last_reading_cm} cm`
+                  ? `${(sensor.last_reading_cm / 100).toFixed(2)} m`
                   : "---"}
               </span>
             </div>

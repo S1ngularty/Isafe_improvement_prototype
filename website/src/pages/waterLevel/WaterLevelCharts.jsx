@@ -1,3 +1,6 @@
+const THRESHOLD_WARNING = 0.7;
+const THRESHOLD_FLOOD = 0.5;
+
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
 const RED = "#ef4444";
@@ -74,7 +77,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   type: "scatter",
                   mode: "lines+markers",
                   x: ts.map((p) => p.timestamp),
-                  y: ts.map((p) => p.water_level_cm),
+                  y: ts.map((p) => p.water_level_cm / 100),
                   name: "Water Level",
                   line: { color: BLUE, width: 1.5 },
                   marker: {
@@ -87,14 +90,14 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                           : GREEN
                     ),
                   },
-                  hovertemplate: "%{y:.1f} cm<extra>%{x}</extra>",
+                  hovertemplate: "%{y:.2f} m<extra>%{x}</extra>",
                 },
                 {
                   type: "scatter",
                   mode: "lines",
                   x: [ts[0].timestamp, ts[ts.length - 1].timestamp],
-                  y: [150, 150],
-                  name: "FLOOD WARNING",
+                  y: [THRESHOLD_FLOOD, THRESHOLD_FLOOD],
+                  name: "CRITICAL",
                   line: { color: RED, width: 2, dash: "dash" },
                   hoverinfo: "skip",
                 },
@@ -102,7 +105,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   type: "scatter",
                   mode: "lines",
                   x: [ts[0].timestamp, ts[ts.length - 1].timestamp],
-                  y: [100, 100],
+                  y: [THRESHOLD_WARNING, THRESHOLD_WARNING],
                   name: "WARNING",
                   line: { color: AMBER, width: 2, dash: "dash" },
                   hoverinfo: "skip",
@@ -120,8 +123,8 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                     yref: "y",
                     x0: 0,
                     x1: 1,
-                    y0: 150,
-                    y1: 300,
+                    y0: 0,
+                    y1: THRESHOLD_FLOOD,
                     fillcolor: "rgba(239,68,68,0.08)",
                     line: { width: 0 },
                     layer: "below",
@@ -132,8 +135,8 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                     yref: "y",
                     x0: 0,
                     x1: 1,
-                    y0: 100,
-                    y1: 150,
+                    y0: THRESHOLD_FLOOD,
+                    y1: THRESHOLD_WARNING,
                     fillcolor: "rgba(245,158,11,0.06)",
                     line: { width: 0 },
                     layer: "below",
@@ -184,20 +187,20 @@ export default function WaterLevelCharts({ analytics, Plot }) {
               {
                 type: "bar",
                 x: hp.map((h) => `${h.hour}:00`),
-                y: hp.map((h) => h.avg_water_level_cm),
-                name: "Average",
-                marker: {
-                  color: hp.map((h) =>
-                    h.avg_water_level_cm > 150 ? RED : h.avg_water_level_cm > 100 ? AMBER : BLUE
-                  ),
-                },
-                hovertemplate: "Hour: %{x}<br>Avg: %{y:.1f} cm<br>Max: %{customdata[0]:.1f} cm<br>Min: %{customdata[1]:.1f} cm<extra></extra>",
-                customdata: hp.map((h) => [h.max_water_level_cm, h.min_water_level_cm]),
+                  y: hp.map((h) => h.avg_water_level_cm / 100),
+                  name: "Average",
+                  marker: {
+                    color: hp.map((h) =>
+                      h.avg_water_level_cm / 100 <= THRESHOLD_FLOOD ? RED : h.avg_water_level_cm / 100 <= THRESHOLD_WARNING ? AMBER : BLUE
+                    ),
+                  },
+                  hovertemplate: "Hour: %{x}<br>Avg: %{y:.2f} m<br>Max: %{customdata[0]:.2f} m<br>Min: %{customdata[1]:.2f} m<extra></extra>",
+                  customdata: hp.map((h) => [h.max_water_level_cm / 100, h.min_water_level_cm / 100]),
               },
             ]}
             layout={{
               ...LAYOUT,
-              yaxis: { rangemode: "tozero", title: "cm" },
+              yaxis: { rangemode: "tozero", title: "m" },
               xaxis: { tickfont: { size: 8 }, tickangle: -45, dtick: 3 },
               hovermode: "x",
               showlegend: false,
@@ -214,7 +217,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   type: "scatter",
                   mode: "lines+markers",
                   x: da.map((d) => d.date),
-                  y: da.map((d) => d.avg_water_level_cm),
+                  y: da.map((d) => d.avg_water_level_cm / 100),
                   name: "Average",
                   line: { color: BLUE, width: 2 },
                   marker: { size: 5, color: BLUE },
@@ -225,7 +228,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   type: "scatter",
                   mode: "markers",
                   x: da.map((d) => d.date),
-                  y: da.map((d) => d.max_water_level_cm),
+                  y: da.map((d) => d.max_water_level_cm / 100),
                   name: "Max",
                   line: { color: RED, width: 1, dash: "dot" },
                   marker: { size: 4, color: RED, symbol: "triangle-up" },
@@ -234,7 +237,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   type: "scatter",
                   mode: "markers",
                   x: da.map((d) => d.date),
-                  y: da.map((d) => d.min_water_level_cm),
+                  y: da.map((d) => d.min_water_level_cm / 100),
                   name: "Min",
                   line: { color: GREEN, width: 1, dash: "dot" },
                   marker: { size: 4, color: GREEN, symbol: "triangle-down" },
@@ -242,7 +245,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
               ]}
               layout={{
                 ...LAYOUT,
-                yaxis: { rangemode: "tozero", title: "cm" },
+                yaxis: { rangemode: "tozero", title: "m" },
                 xaxis: { tickfont: { size: 9 } },
                 hovermode: "x",
               }}
@@ -273,7 +276,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
               ]}
               layout={{
                 ...LAYOUT,
-                yaxis: { rangemode: "tozero", dtick: 1 },
+                yaxis: { rangemode: "tozero" },
                 xaxis: { tickfont: { size: 9 } },
                 showlegend: false,
                 hovermode: "x",
@@ -299,7 +302,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
             ]}
             layout={{
               ...LAYOUT,
-              yaxis: { rangemode: "tozero", dtick: 1 },
+              yaxis: { rangemode: "tozero" },
               xaxis: { tickfont: { size: 8 }, tickangle: -45, dtick: 3 },
               showlegend: false,
               hovermode: "x",

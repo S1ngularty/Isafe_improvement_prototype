@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.core.supabase import client as supabase
+from app.services.flood_level_service import derive_status
 from app.models.water_level import (
     WaterLevelReading,
     SensorStatus,
@@ -24,7 +25,7 @@ def _parse_row(row: dict) -> Optional[WaterLevelReading]:
             sensor_id=row.get("sensor_id", "unknown"),
             distance_mm=row.get("distance_mm"),
             water_level_cm=row.get("water_level_cm", 0),
-            status=row.get("status", "SAFE"),
+            status=derive_status(row.get("water_level_cm", 0)),
             samples=row.get("samples"),
             recorded_at=_parse_dt(row.get("recorded_at")),
             created_at=_parse_dt(row.get("created_at")),
@@ -78,28 +79,28 @@ def get_summary() -> WaterLevelSummary:
             .execute()
         readings_24h = result_24h.data if result_24h.data else []
 
-    unsafe_24h = [r for r in readings_24h if r.get("status") in ("WARNING", "FLOOD_WARNING")]
+    unsafe_24h = [r for r in readings_24h if derive_status(r.get("water_level_cm", 0)) in ("WARNING", "FLOOD_WARNING")]
 
     sensor_statuses = []
     for sid in sensor_ids:
         last = sensor_map[sid]
         last_seen = _parse_dt(last.get("recorded_at"))
         readings_for_sensor = [r for r in readings_24h if r.get("sensor_id") == sid]
-        unsafe_for_sensor = [r for r in readings_24h if r.get("sensor_id") == sid and r.get("status") in ("WARNING", "FLOOD_WARNING")]
+        unsafe_for_sensor = [r for r in readings_24h if r.get("sensor_id") == sid and derive_status(r.get("water_level_cm", 0)) in ("WARNING", "FLOOD_WARNING")]
 
         sensor_statuses.append(SensorStatus(
             sensor_id=sid,
             is_active=_is_active(last_seen),
             last_seen=last_seen,
             last_reading_cm=last.get("water_level_cm"),
-            last_status=last.get("status"),
+            last_status=derive_status(last.get("water_level_cm", 0)),
             readings_24h=len(readings_for_sensor),
             unsafe_readings_24h=len(unsafe_for_sensor),
         ))
 
     active_count = sum(1 for s in sensor_statuses if s.is_active)
-    warning_count = sum(1 for r in unsafe_24h if r.get("status") == "WARNING")
-    flood_warning_count = sum(1 for r in unsafe_24h if r.get("status") == "FLOOD_WARNING")
+    warning_count = sum(1 for r in unsafe_24h if derive_status(r.get("water_level_cm", 0)) == "WARNING")
+    flood_warning_count = sum(1 for r in unsafe_24h if derive_status(r.get("water_level_cm", 0)) == "FLOOD_WARNING")
 
     return WaterLevelSummary(
         total_sensors=len(sensor_ids),
@@ -130,7 +131,12 @@ def get_readings(
     if to_date:
         query = query.lte("recorded_at", to_date)
     if status_filter:
-        query = query.eq("status", status_filter)
+        if status_filter == "FLOOD_WARNING":
+            query = query.lt("water_level_cm", 50)
+        elif status_filter == "WARNING":
+            query = query.gte("water_level_cm", 50).lte("water_level_cm", 70)
+        elif status_filter == "SAFE":
+            query = query.gt("water_level_cm", 70)
 
     offset_val = (page - 1) * limit
     result = query.order("recorded_at", desc=True).range(offset_val, offset_val + limit - 1).execute()
@@ -168,7 +174,7 @@ def get_analytics(days: int = DEFAULT_ANALYTICS_DAYS) -> WaterLevelAnalytics:
         TimeSeriesPoint(
             timestamp=r.recorded_at,
             water_level_cm=r.water_level_cm,
-            status=r.status,
+            status=derive_status(r.water_level_cm),
             sensor_id=r.sensor_id,
         ) for r in parsed
     ]
@@ -205,12 +211,12 @@ def get_analytics(days: int = DEFAULT_ANALYTICS_DAYS) -> WaterLevelAnalytics:
         d = r.recorded_at.strftime("%Y-%m-%d")
         if d not in daily_buckets:
             daily_buckets[d] = []
-        daily_buckets[d].append((r.water_level_cm, r.status))
+        daily_buckets[d].append((r.water_level_cm, derive_status(r.water_level_cm)))
 
     daily_aggregates = []
     for d in sorted(daily_buckets.keys()):
         vals = [v[0] for v in daily_buckets[d]]
-        unsafe = sum(1 for v in daily_buckets[d] if v[1] in ("WARNING", "FLOOD_WARNING"))
+        unsafe = sum(1 for v in daily_buckets[d] if derive_status(v[0]) in ("WARNING", "FLOOD_WARNING"))
         daily_aggregates.append(DailyAggregate(
             date=d,
             avg_water_level_cm=round(sum(vals) / len(vals), 2),
@@ -236,7 +242,7 @@ def get_unsafe_readings(
     now = datetime.now(timezone.utc)
     query = supabase.table("water_level_readings") \
         .select("*") \
-        .in_("status", ["WARNING", "FLOOD_WARNING"]) \
+        .lte("water_level_cm", 70) \
         .order("recorded_at", desc=True)
 
     if sensor_id:
@@ -255,7 +261,7 @@ def get_unsafe_readings(
             id=r.get("id"),
             sensor_id=r.get("sensor_id", "unknown"),
             water_level_cm=r.get("water_level_cm", 0),
-            status=r.get("status", "WARNING"),
+            status=derive_status(r.get("water_level_cm", 0)),
             recorded_at=recorded,
             duration_minutes=duration,
         ))

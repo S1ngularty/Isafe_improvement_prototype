@@ -9,7 +9,7 @@ from app.core.supabase import client
 from app.services.sms import send_flood_alert_sms, send_flood_all_clear_sms
 from app.integrations.expo_push import send_expo_push
 
-BLINDSPOT_PLACEHOLDER_CM = 20
+BLINDSPOT_PLACEHOLDER_CM = 50
 
 
 def _fetch_all_push_tokens() -> list[str]:
@@ -70,7 +70,7 @@ def check_flood_alert(water_level_cm: float | None, sensor_id: str):
         actual_reading = water_level_cm
         effective_reading = water_level_cm
 
-    if effective_reading <= FLOOD_ALERT_BLINDSPOT_CM:
+    if effective_reading < FLOOD_ALERT_BLINDSPOT_CM:
         alert_state = "BLINDSPOT"
     elif effective_reading <= FLOOD_ALERT_THRESHOLD_CM:
         alert_state = "ALERT"
@@ -103,7 +103,7 @@ def check_flood_alert(water_level_cm: float | None, sensor_id: str):
 
         tokens = _fetch_all_push_tokens()
         push_body = (
-            f"Water level has reached {display_cm:.0f}cm at sensor {sensor_id}. "
+            f"Water level has reached {display_cm / 100:.2f}m at sensor {sensor_id}. "
             f"Please take precautionary measures."
         )
         for token in tokens:
@@ -121,7 +121,7 @@ def check_flood_alert(water_level_cm: float | None, sensor_id: str):
 
         print(
             f"[flood_alert] {log_type} sent for sensor {sensor_id}"
-            f" (reading={display_cm}cm, sms_recipients={recipients},"
+            f" (reading={display_cm / 100:.2f}m, sms_recipients={recipients},"
             f" push_tokens={len(tokens)})"
         )
 
@@ -137,7 +137,7 @@ def check_flood_alert(water_level_cm: float | None, sensor_id: str):
             tokens = _fetch_all_push_tokens()
             push_body = (
                 f"Water level at sensor {sensor_id} has receded to "
-                f"{display_cm:.0f}cm. The immediate danger has passed."
+                f"{display_cm / 100:.2f}m. The immediate danger has passed."
             )
             for token in tokens:
                 try:
@@ -153,6 +153,6 @@ def check_flood_alert(water_level_cm: float | None, sensor_id: str):
 
             print(
                 f"[flood_alert] ALL_CLEAR sent for sensor {sensor_id}"
-                f" (reading={display_cm}cm, sms_recipients={recipients},"
+                f" (reading={display_cm / 100:.2f}m, sms_recipients={recipients},"
                 f" push_tokens={len(tokens)})"
             )
