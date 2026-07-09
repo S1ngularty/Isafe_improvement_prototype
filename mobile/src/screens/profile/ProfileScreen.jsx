@@ -18,7 +18,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
-import { updateProfile } from "../../services/profile.js";
+import { updateProfile, sendPhoneOtp, verifyPhoneOtp, removePhone } from "../../services/profile.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
 import {
@@ -92,6 +92,9 @@ export default function ProfileScreen({ navigation }) {
   const [editingField, setEditingField] = useState(null);
   const [tempValue, setTempValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneVerifyStep, setPhoneVerifyStep] = useState("idle"); // idle | otp-sent | verified
+  const [phoneVerifying, setPhoneVerifying] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -195,6 +198,9 @@ export default function ProfileScreen({ navigation }) {
           break;
         case "phoneNumber":
           updateData.phone_number = tempValue.trim();
+          if (tempValue.trim() !== (profile?.phone_number || "")) {
+            updateData.phone_verified = false;
+          }
           setPhoneNumber(tempValue.trim());
           break;
         case "bloodType":
@@ -258,6 +264,69 @@ export default function ProfileScreen({ navigation }) {
       showToast(error.message || "Failed to update profile", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (profile?.phone_verified) {
+      setPhoneVerifyStep("verified");
+    } else if (profile?.phone_number) {
+      setPhoneVerifyStep("idle");
+    } else {
+      setPhoneVerifyStep("idle");
+    }
+  }, [profile?.phone_verified, profile?.phone_number]);
+
+  const handleSendPhoneOtp = async () => {
+    if (!phoneNumber || !/^\+63\d{10}$/.test(phoneNumber)) {
+      showToast("Please enter a valid phone number (+639...)", "error");
+      return;
+    }
+    setPhoneVerifying(true);
+    try {
+      await sendPhoneOtp(phoneNumber.trim());
+      setPhoneVerifyStep("otp-sent");
+      setPhoneOtpCode("");
+      showToast("Verification code sent to your phone!", "success");
+    } catch (err) {
+      showToast(err.message || "Failed to send code", "error");
+    } finally {
+      setPhoneVerifying(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneOtpCode || phoneOtpCode.length !== 6) {
+      showToast("Please enter a valid 6-digit code.", "error");
+      return;
+    }
+    setPhoneVerifying(true);
+    try {
+      await verifyPhoneOtp(phoneOtpCode);
+      setPhoneVerifyStep("verified");
+      setPhoneOtpCode("");
+      await refreshProfile();
+      showToast("Phone number verified!", "success");
+    } catch (err) {
+      showToast(err.message || "Verification failed", "error");
+    } finally {
+      setPhoneVerifying(false);
+    }
+  };
+
+  const handleRemovePhone = async () => {
+    setPhoneVerifying(true);
+    try {
+      await removePhone();
+      setPhoneNumber("");
+      setPhoneVerifyStep("idle");
+      setPhoneOtpCode("");
+      await refreshProfile();
+      showToast("Phone number removed.", "info");
+    } catch (err) {
+      showToast(err.message || "Failed to remove phone", "error");
+    } finally {
+      setPhoneVerifying(false);
     }
   };
 
@@ -830,6 +899,12 @@ export default function ProfileScreen({ navigation }) {
               <View style={styles.fieldTextContainer}>
                 <Text style={styles.fieldLabel}>Phone Number</Text>
                 {renderFieldValue(phoneNumber, "Add phone number")}
+                {phoneVerifyStep === "verified" && phoneNumber ? (
+                  <View style={styles.verifiedBadge}>
+                    <MaterialIcons name="check-circle" size={14} color="#16a34a" />
+                    <Text style={styles.verifiedBadgeText}>Verified</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
             <Pressable
@@ -838,6 +913,55 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           </View>
+          {phoneNumber && phoneVerifyStep !== "verified" && phoneVerifyStep !== "otp-sent" && (
+            <Pressable
+              onPress={handleSendPhoneOtp}
+              disabled={phoneVerifying}
+              style={styles.phoneVerifyLink}>
+              <MaterialIcons name="sms" size={16} color={COLORS.shieldPrimary} />
+              <Text style={styles.phoneVerifyLinkText}>
+                {phoneVerifying ? "Sending..." : "Verify Phone via SMS"}
+              </Text>
+            </Pressable>
+          )}
+          {phoneVerifyStep === "otp-sent" && (
+            <View style={styles.phoneOtpRow}>
+              <TextInput
+                style={styles.phoneOtpInput}
+                maxLength={6}
+                keyboardType="number-pad"
+                placeholder="000000"
+                placeholderTextColor={COLORS.gray400}
+                value={phoneOtpCode}
+                onChangeText={(t) => setPhoneOtpCode(t.replace(/\D/g, ""))}
+              />
+              <Pressable
+                onPress={handleVerifyPhoneOtp}
+                disabled={phoneVerifying}
+                style={[styles.phoneOtpButton, phoneVerifying && { opacity: 0.6 }]}>
+                {phoneVerifying ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.phoneOtpButtonText}>Confirm</Text>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={handleSendPhoneOtp}
+                disabled={phoneVerifying}
+                style={styles.phoneOtpResend}>
+                <Text style={styles.phoneOtpResendText}>Resend</Text>
+              </Pressable>
+            </View>
+          )}
+          {phoneVerifyStep === "verified" && phoneNumber && (
+            <Pressable
+              onPress={handleRemovePhone}
+              disabled={phoneVerifying}
+              style={styles.phoneRemoveLink}>
+              <MaterialIcons name="delete-outline" size={16} color={COLORS.alert} />
+              <Text style={styles.phoneRemoveLinkText}>Remove Phone</Text>
+            </Pressable>
+          )}
 
           <Text style={[styles.sectionTitle, { marginTop: 16 }]}>
             MEDICAL & HOUSEHOLD INFO
@@ -1369,6 +1493,91 @@ const styles = StyleSheet.create({
   },
   barangayOptionTextSelected: {
     color: COLORS.shieldPrimary,
+    fontWeight: "600",
+  },
+
+  // Phone Verification
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 2,
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    color: "#16a34a",
+    fontWeight: "600",
+  },
+  phoneVerifyLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  phoneVerifyLinkText: {
+    fontSize: 13,
+    color: COLORS.shieldPrimary,
+    fontWeight: "600",
+  },
+  phoneOtpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  phoneOtpInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.gray300,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 18,
+    letterSpacing: 4,
+    textAlign: "center",
+    color: COLORS.gray900,
+    backgroundColor: COLORS.white,
+  },
+  phoneOtpButton: {
+    backgroundColor: COLORS.shieldPrimary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: "center",
+  },
+  phoneOtpButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  phoneOtpResend: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  phoneOtpResendText: {
+    fontSize: 13,
+    color: COLORS.shieldPrimary,
+    fontWeight: "600",
+  },
+  phoneRemoveLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  phoneRemoveLinkText: {
+    fontSize: 13,
+    color: COLORS.alert,
     fontWeight: "600",
   },
 });

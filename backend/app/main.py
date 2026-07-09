@@ -26,6 +26,7 @@ from app.api.analytics import router as analytics_router
 from app.api.water_level import router as water_level_router
 from app.core.scheduler import start as start_scheduler, stop as stop_scheduler
 from app.api.auth import router as auth_router
+from app.api.profile import router as profile_router
 from app.mqtt.client import start_mqtt
 
 @asynccontextmanager
@@ -91,6 +92,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"data": None, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
     )
 
+app.include_router(profile_router)
 app.include_router(auth_router)
 
 @app.get("/")
