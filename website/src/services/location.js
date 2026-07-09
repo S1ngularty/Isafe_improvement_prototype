@@ -12,7 +12,6 @@ export async function upsertLocation(lat, lng) {
     .eq("id", user.id)
     .select();
 
-  console.log("[upsertLocation] update:", { lat, lng, userId: user.id, data, error });
   if (error) throw error;
 }
 
@@ -56,7 +55,6 @@ async function StatusNotification({ status, userId, profileData }) {
       console.warn("[StatusNotification] notification request failed:", result.status, errorText);
     } else {
       const responseData = await result.json();
-      console.log("[StatusNotification] response:", responseData);
     }
   } catch (err) {
     console.error("[StatusNotification] error:", err);
@@ -97,8 +95,6 @@ export async function updateStatus(status) {
     .eq("id", user.id)
     .select();
 
-  console.log("[updateStatus] update:", { status, userId: user.id, coords: freshCoords, data, error });
-
   const profileData = data && data.length > 0 ? { ...data[0], ...(freshCoords || {}) } : null;
 
   if (profileData) {
@@ -119,6 +115,5 @@ export async function updateLocationSharing(enabled) {
     .update({ location_sharing: enabled })
     .eq("id", user.id);
 
-  console.log("[updateLocationSharing] update:", { enabled, userId: user.id, error });
   if (error) throw error;
 }

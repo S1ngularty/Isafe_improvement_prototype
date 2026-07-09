@@ -26,9 +26,9 @@ function DynamicPlot({ Plot, data, layout, config, style }) {
   );
 }
 
-function ChartCard({ title, subtitle, children }) {
+function ChartCard({ id, title, subtitle, children }) {
   return (
-    <div className="card">
+    <div id={id} className="card">
       <h3 className="font-bold text-gray-900 mb-1">{title}</h3>
       {subtitle && <p className="text-xs text-gray-400 mb-4">{subtitle}</p>}
       {!subtitle && <div className="mb-4" />}
@@ -65,7 +65,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
     <div className="space-y-6">
       {/* Row 1: Time Series + Status Distribution */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <ChartCard title="Water Level Over Time" subtitle="All sensor readings with safety threshold zones">
+        <ChartCard id="wl-chart-timeseries" title="Water Level Over Time" subtitle="All sensor readings with safety threshold zones">
           {hasTimeSeries ? (
             <DynamicPlot
               Plot={Plot}
@@ -146,7 +146,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
           )}
         </ChartCard>
 
-        <ChartCard title="Status Distribution" subtitle="SAFE vs WARNING vs FLOOD_WARNING">
+        <ChartCard id="wl-chart-status-dist" title="Status Distribution" subtitle="SAFE vs WARNING vs FLOOD_WARNING">
           {hasAnyStatus ? (
             <DynamicPlot
               Plot={Plot}
@@ -177,7 +177,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
 
       {/* Row 2: Hourly Pattern + Daily Aggregate */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <ChartCard title="Hourly Water Level Pattern" subtitle="Average water level by hour of day">
+        <ChartCard id="wl-chart-hourly" title="Hourly Water Level Pattern" subtitle="Average water level by hour of day">
           <DynamicPlot
             Plot={Plot}
             data={[
@@ -205,7 +205,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
           />
         </ChartCard>
 
-        <ChartCard title="Daily Water Level Range" subtitle="Min / Avg / Max per day">
+        <ChartCard id="wl-chart-daily-range" title="Daily Water Level Range" subtitle="Min / Avg / Max per day">
           {hasDaily ? (
             <DynamicPlot
               Plot={Plot}
@@ -255,7 +255,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
 
       {/* Row 3: Unsafe Readings Count + Readings per Hour */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <ChartCard title="Unsafe Readings per Day" subtitle="Count of WARNING + FLOOD_WARNING readings">
+        <ChartCard id="wl-chart-unsafe-per-day" title="Unsafe Readings per Day" subtitle="Count of WARNING + FLOOD_WARNING readings">
           {hasDaily ? (
             <DynamicPlot
               Plot={Plot}
@@ -284,7 +284,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
           )}
         </ChartCard>
 
-        <ChartCard title="Reading Count per Hour" subtitle="Sensor sampling frequency by hour">
+        <ChartCard id="wl-chart-readings-per-hour" title="Reading Count per Hour" subtitle="Sensor sampling frequency by hour">
           <DynamicPlot
             Plot={Plot}
             data={[
