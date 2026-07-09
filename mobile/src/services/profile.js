@@ -74,16 +74,16 @@ export async function uploadAvatar(uri) {
   const path = `${user.id}/avatar.${ext}`;
   const mimeType = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
   
-  // Convert URI to blob/arraybuffer for upload
-  const response = await fetch(uri);
-  const blob = await response.blob();
+  const formData = new FormData();
+  formData.append("file", {
+    uri: uri,
+    name: `avatar.${ext}`,
+    type: mimeType,
+  });
   
   const { error: uploadErr } = await supabase.storage
     .from("avatars")
-    .upload(path, blob, { 
-      upsert: true,
-      contentType: mimeType,
-    });
+    .upload(path, formData, { upsert: true });
   
   if (uploadErr) {
     console.error("Upload avatar error:", uploadErr);
