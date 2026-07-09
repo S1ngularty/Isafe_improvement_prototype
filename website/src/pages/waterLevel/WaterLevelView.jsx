@@ -4,8 +4,10 @@ import {
   fetchWaterLevelAnalytics,
   fetchUnsafeReadings,
 } from "../../services/waterLevel.js";
-import SensorStatusCards from "./SensorStatusCards";
 import WaterLevelCharts from "./WaterLevelCharts";
+import RealtimeSensorChart from "./RealtimeSensorChart";
+import exportWaterLevelPdf from "../../utils/exportWaterLevelPdf.js";
+import useRealtimeWaterLevel from "../../hooks/useRealtimeWaterLevel.js";
 
 function KpiCard({ label, value, sub, color }) {
   const borderColor =
@@ -91,7 +93,7 @@ function UnsafeSection({ unsafeReadings, loading, error }) {
                   r.status === "FLOOD_WARNING" ? "text-red-600" : "text-amber-600"
                 }`}
               >
-                {r.water_level_cm} cm
+                {(r.water_level_cm / 100).toFixed(2)} m
               </span>
               <span
                 className={`block text-[10px] font-semibold ${
@@ -169,6 +171,7 @@ function usePolling(fetchFn, intervalMs, deps = [], enabled = true) {
 export default function WaterLevelView() {
   const [Plot, setPlot] = useState(null);
   const [analyticsDays, setAnalyticsDays] = useState(7);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     import("react-plotly.js").then((mod) => setPlot(() => mod.default));
@@ -195,6 +198,11 @@ export default function WaterLevelView() {
     true,
   );
 
+  const {
+    readings: realtimeReadings,
+    error: realtimeError,
+  } = useRealtimeWaterLevel();
+
   const kpi = useMemo(() => {
     if (!summary) return null;
     return {
@@ -206,6 +214,17 @@ export default function WaterLevelView() {
       floodWarningCount: summary.flood_warning_count,
     };
   }, [summary]);
+
+  async function handleExportPdf() {
+    setExporting(true);
+    try {
+      await exportWaterLevelPdf(kpi);
+    } catch (e) {
+      console.warn("PDF export failed:", e);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const analyticsReady = analytics && Array.isArray(analytics.time_series) && analytics.time_series.length > 0;
 
@@ -219,9 +238,19 @@ export default function WaterLevelView() {
             Real-time sensor monitoring and analytics
           </p>
         </div>
-        {summaryLoading && (
-          <span className="text-xs text-gray-400 animate-pulse">Refreshing...</span>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={exporting}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-shield-600 text-white hover:bg-shield-700 disabled:opacity-50 transition-colors"
+          >
+            {exporting ? "Exporting..." : "Export PDF"}
+          </button>
+          {summaryLoading && (
+            <span className="text-xs text-gray-400 animate-pulse">Refreshing...</span>
+          )}
+        </div>
       </div>
 
       {/* Global error state — show if all data sources failed */}
@@ -230,7 +259,7 @@ export default function WaterLevelView() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div id="wl-kpi-grid" className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <KpiCard label="Total Sensors" value={kpi?.totalSensors} color="blue" />
         <KpiCard
           label="Active Sensors"
@@ -278,18 +307,17 @@ export default function WaterLevelView() {
         ))}
       </div>
 
-      {/* Sensor Status Cards */}
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Sensor Status</h2>
-        {summaryError ? (
-          <ErrorBanner message={`Could not load sensor status: ${summaryError}`} />
-        ) : (
-          <SensorStatusCards sensors={summary?.sensor_statuses} />
+      {/* Realtime Sensor Chart */}
+      <div id="wl-realtime-chart">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Live Sensor Readings</h2>
+        {realtimeError && (
+          <ErrorBanner message={`Realtime subscription error: ${realtimeError}. Data may be delayed.`} />
         )}
+        <RealtimeSensorChart readings={realtimeReadings} Plot={Plot} />
       </div>
 
       {/* Unsafe Conditions */}
-      <div>
+      <div id="wl-unsafe-section">
         <h2 className="text-lg font-bold text-gray-900 mb-3">Unsafe Conditions</h2>
         <UnsafeSection
           unsafeReadings={unsafeReadings}

@@ -11,16 +11,33 @@ SMS_MESSAGE_TEMPLATE = (
 )
 
 FLOOD_ALERT_SMS_TEMPLATE = (
-    "FLOOD ALERT: Water level has reached {water_level_cm:.0f}cm"
+    "FLOOD ALERT: Water level has reached {water_level_cm:.2f}m"
     " at sensor {sensor_id}."
     " Please take precautionary measures"
     " and prepare for possible evacuation."
     " - CityShield"
 )
 
+OTP_SMS_TEMPLATE = (
+    "Your CityShield verification code is: {code}. "
+    "This code is valid for 10 minutes. Do not share this code."
+    " - CityShield"
+)
+
+
+def send_otp_sms(phone: str, code: str) -> dict | None:
+    formatted = _format_phone(phone)
+    if not formatted:
+        print(f"[sms] Invalid phone number for OTP: {phone}")
+        return None
+
+    message = OTP_SMS_TEMPLATE.format(code=code)
+    return _send_textbee_sms([formatted], message)
+
+
 FLOOD_ALL_CLEAR_SMS_TEMPLATE = (
     "ALL CLEAR: Water level at sensor {sensor_id}"
-    " has receded to {water_level_cm:.0f}cm."
+    " has receded to {water_level_cm:.2f}m."
     " The immediate danger has passed."
     " - CityShield"
 )
@@ -150,7 +167,7 @@ def send_flood_alert_sms(water_level_cm: float, sensor_id: str) -> dict:
             return {"success": False, "message": "no phone numbers"}
 
         message = FLOOD_ALERT_SMS_TEMPLATE.format(
-            water_level_cm=water_level_cm,
+            water_level_cm=water_level_cm / 100,
             sensor_id=sensor_id,
         )
 
@@ -184,7 +201,7 @@ def send_flood_all_clear_sms(water_level_cm: float, sensor_id: str) -> dict:
             return {"success": False, "message": "no phone numbers"}
 
         message = FLOOD_ALL_CLEAR_SMS_TEMPLATE.format(
-            water_level_cm=water_level_cm,
+            water_level_cm=water_level_cm / 100,
             sensor_id=sensor_id,
         )
 
