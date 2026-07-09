@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { uploadAvatar, removeAvatar, updateProfile } from "../services/profile.js";
+import { uploadAvatar, removeAvatar, updateProfile, sendPhoneOtp, verifyPhoneOtp, removePhone } from "../services/profile.js";
 import { getMyFamily, getFamilyMembers } from "../services/family.js";
 import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds } from "../utils/medicalOptions";
 import { BARANGAY_OPTIONS } from "../utils/barangayOptions";
@@ -38,6 +38,9 @@ export default function UserProfile() {
   const [externalPhone, setExternalPhone] = useState(profile?.external_phone || "");
   const [relationship, setRelationship] = useState(profile?.relationship || "");
   const [saving, setSaving] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneVerifyStep, setPhoneVerifyStep] = useState("idle"); // idle | otp-sent | verifying
+  const [phoneVerifying, setPhoneVerifying] = useState(false);
   const [family, setFamily] = useState(null);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [familyLoaded, setFamilyLoaded] = useState(false);
@@ -83,6 +86,7 @@ export default function UserProfile() {
     if (externalPhone && !/^\+63\d{10}$/.test(externalPhone)) { showToast("External phone must be +63 format.", "error"); return; }
     setSaving(true);
     try {
+      const phoneChanged = phoneNumber.trim() !== (profile?.phone_number || "");
       await updateProfile({
         full_name: fullName.trim(), barangay_id: parseInt(barangay, 10), phone_number: phoneNumber.trim(),
         date_of_birth: dateOfBirth || null,
@@ -90,11 +94,75 @@ export default function UserProfile() {
         special_needs: encodeSpecialNeeds(selectedNeeds, needsOther), street_address: streetAddress.trim(),
         medical_notes: medicalNotes.trim(), external_name: externalName.trim(),
         external_phone: externalPhone.trim(), relationship: relationship.trim(),
+        ...(phoneChanged ? { phone_verified: false } : {}),
       });
       await refreshProfile();
       showToast("Profile saved.", "success");
     } catch (err) { showToast(err.message, "error"); } finally { setSaving(false); }
   }
+
+  async function handleSendPhoneOtp() {
+    if (!phoneNumber || !/^\+63\d{10}$/.test(phoneNumber)) {
+      showToast("Please enter a valid phone number (+639...).", "error");
+      return;
+    }
+    setPhoneVerifying(true);
+    try {
+      await sendPhoneOtp(phoneNumber.trim());
+      setPhoneVerifyStep("otp-sent");
+      setPhoneOtpCode("");
+      showToast("Verification code sent to your phone!", "success");
+    } catch (err) {
+      showToast(err.message || "Failed to send code", "error");
+    } finally {
+      setPhoneVerifying(false);
+    }
+  }
+
+  async function handleVerifyPhoneOtp() {
+    if (!phoneOtpCode || phoneOtpCode.length !== 6) {
+      showToast("Please enter a valid 6-digit code.", "error");
+      return;
+    }
+    setPhoneVerifying(true);
+    try {
+      await verifyPhoneOtp(phoneOtpCode);
+      setPhoneVerifyStep("verified");
+      setPhoneOtpCode("");
+      await refreshProfile();
+      showToast("Phone number verified!", "success");
+    } catch (err) {
+      showToast(err.message || "Verification failed", "error");
+    } finally {
+      setPhoneVerifying(false);
+    }
+  }
+
+  async function handleRemovePhone() {
+    setPhoneVerifying(true);
+    try {
+      await removePhone();
+      setPhoneNumber("");
+      setPhoneVerifyStep("idle");
+      setPhoneOtpCode("");
+      await refreshProfile();
+      showToast("Phone number removed.", "info");
+    } catch (err) {
+      showToast(err.message || "Failed to remove phone", "error");
+    } finally {
+      setPhoneVerifying(false);
+    }
+  }
+
+  useEffect(() => {
+    if (profile?.phone_verified) {
+      setPhoneVerifyStep("verified");
+    } else if (profile?.phone_number) {
+      setPhoneVerifyStep("idle");
+    } else {
+      setPhoneVerifyStep("idle");
+    }
+  }, [profile?.phone_verified, profile?.phone_number]);
 
   const inputCls = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none bg-gray-50 transition-colors";
 
@@ -137,7 +205,47 @@ export default function UserProfile() {
                   <option key={b.id} value={b.id}>{b.label}</option>
                 ))}
               </select>
-              <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className={inputCls} placeholder="Phone (+639...) " />
+              <div className="relative">
+                <input type="tel" value={phoneNumber} onChange={(e) => { setPhoneNumber(e.target.value); if (profile?.phone_verified) setPhoneVerifyStep("idle"); }} className={inputCls} placeholder="Phone (+639...)" />
+                {phoneVerifyStep === "verified" && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-green-600 text-xs font-semibold">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                    Verified
+                  </span>
+                )}
+              </div>
+              {phoneVerifyStep === "otp-sent" && (
+                <div className="sm:col-span-2 flex gap-2 items-center">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    className="input-field w-32 text-center text-lg tracking-widest"
+                    placeholder="000000"
+                    value={phoneOtpCode}
+                    onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, ""))}
+                  />
+                  <button onClick={handleVerifyPhoneOtp} disabled={phoneVerifying} className="px-4 py-2 bg-shield-600 text-white rounded-lg text-sm font-semibold hover:bg-shield-700 disabled:opacity-40 transition-colors shrink-0">
+                    {phoneVerifying ? "Verifying..." : "Confirm Code"}
+                  </button>
+                  <button onClick={handleSendPhoneOtp} disabled={phoneVerifying} className="px-3 py-2 text-sm text-shield-600 hover:text-shield-700 font-medium disabled:opacity-40 shrink-0">
+                    Resend
+                  </button>
+                </div>
+              )}
+              {phoneVerifyStep !== "otp-sent" && phoneNumber && !profile?.phone_verified && (
+                <div className="sm:col-span-2">
+                  <button onClick={handleSendPhoneOtp} disabled={phoneVerifying} className="text-sm text-shield-600 hover:text-shield-700 font-medium disabled:opacity-40">
+                    {phoneVerifying ? "Sending..." : "Verify Phone via SMS"}
+                  </button>
+                </div>
+              )}
+              {phoneVerifyStep === "verified" && phoneNumber && (
+                <div className="sm:col-span-2">
+                  <button onClick={handleRemovePhone} disabled={phoneVerifying} className="text-sm text-red-600 hover:text-red-700 font-medium disabled:opacity-40">
+                    Remove Phone
+                  </button>
+                </div>
+              )}
               <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} className={inputCls} max={new Date().toISOString().split("T")[0]} />
               <select value={bloodType} onChange={(e) => setBloodType(e.target.value)} className={inputCls}>
                 {BLOOD_TYPES.map((t) => <option key={t || "none"} value={t}>{t || "Blood type"}</option>)}

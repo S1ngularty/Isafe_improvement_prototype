@@ -18,6 +18,23 @@ FLOOD_ALERT_SMS_TEMPLATE = (
     " - CityShield"
 )
 
+OTP_SMS_TEMPLATE = (
+    "Your CityShield verification code is: {code}. "
+    "This code is valid for 10 minutes. Do not share this code."
+    " - CityShield"
+)
+
+
+def send_otp_sms(phone: str, code: str) -> dict | None:
+    formatted = _format_phone(phone)
+    if not formatted:
+        print(f"[sms] Invalid phone number for OTP: {phone}")
+        return None
+
+    message = OTP_SMS_TEMPLATE.format(code=code)
+    return _send_textbee_sms([formatted], message)
+
+
 FLOOD_ALL_CLEAR_SMS_TEMPLATE = (
     "ALL CLEAR: Water level at sensor {sensor_id}"
     " has receded to {water_level_cm:.0f}cm."
