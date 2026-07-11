@@ -57,7 +57,7 @@ async def hourly_weather(
     lng: float = Query(..., ge=-180, le=180),
 ):
     try:
-        data = await fetch_weather(lat, lng, include_hourly=True)
+        data = await fetch_weather(lat, lng, include_hourly=True, include_daily=True)
         return {"data": data, "error": None}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Weather service unavailable: {repr(e)}")

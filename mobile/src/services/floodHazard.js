@@ -1,4 +1,4 @@
-import { apiGet } from "./backend.js";
+import { apiGet, apiPost } from "./backend.js";
 import { getBackendUrl } from "./backendConfig.js";
 
 export async function fetchSummary() {
@@ -26,4 +26,13 @@ export async function fetchGeoJSON() {
 export async function fetchAll() {
   const [summary, geojson] = await Promise.all([fetchSummary(), fetchGeoJSON()]);
   return { summary, geojson };
+}
+
+export async function fetchFloodAnalysis(barangay, data, language = "en") {
+  try {
+    return await apiPost("/api/flood-hazard/analyze", { barangay, data, language });
+  } catch (error) {
+    console.warn("Flood hazard fetchAnalysis failed:", error);
+    throw error;
+  }
 }

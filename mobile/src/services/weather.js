@@ -1,4 +1,4 @@
-import { apiGet } from "./backend.js";
+import { apiGet, apiPost } from "./backend.js";
 
 const WMO_CODES = {
   0: { icon: "wb-sunny", description: "Clear sky" },
@@ -64,18 +64,51 @@ export async function fetchHourly(lat, lng) {
       }));
     }
 
-    return (Array.isArray(hourly) ? hourly : []).map((point) => ({
-      time: new Date(point.time).toLocaleTimeString("en-PH", {
-        hour: "2-digit",
-        minute: "2-digit",
+    return {
+      hourly: (Array.isArray(hourly) ? hourly : []).map((point) => {
+        let displayTime = point.time;
+        try {
+          if (typeof point.time === "string" && point.time.includes("T")) {
+            const [datePart, timePart] = point.time.split("T");
+            const [h, m] = timePart.split(":");
+            let hour = parseInt(h, 10);
+            const ampm = hour >= 12 ? "PM" : "AM";
+            hour = hour % 12 || 12;
+            displayTime = `${hour}:${m} ${ampm}`;
+          }
+        } catch (e) {
+          // fallback to raw
+        }
+        return {
+          time: displayTime,
+          weatherCode: point.weatherCode || point.weather_code,
+          icon: WMO_CODES[point.weatherCode || point.weather_code]?.icon || "🌡️",
+          precipitation: point.precipitation || 0,
+          windSpeed: point.windSpeed || point.wind_speed || 0,
+        };
       }),
-      weatherCode: point.weatherCode || point.weather_code,
-      icon: WMO_CODES[point.weatherCode || point.weather_code]?.icon || "🌡️",
-      precipitation: point.precipitation || 0,
-      windSpeed: point.windSpeed || point.wind_speed || 0,
-    }));
+      daily: (data.daily || []).map((point) => ({
+        date: point.time,
+        weatherCode: point.weatherCode || point.weather_code,
+        icon: WMO_CODES[point.weatherCode || point.weather_code]?.icon || "🌡️",
+        description: WMO_CODES[point.weatherCode || point.weather_code]?.description || "Unknown",
+        tempMax: point.tempMax || point.temperature_2m_max || 0,
+        tempMin: point.tempMin || point.temperature_2m_min || 0,
+        precipitation: point.precipitation || point.precipitation_sum || 0,
+        windSpeedMax: point.windSpeedMax || point.wind_speed_10m_max || 0,
+      }))
+    };
   } catch (error) {
     console.warn("[fetchHourly] Warning:", error);
+    throw error;
+  }
+}
+
+export async function fetchAnalysis(current, hourly, language) {
+  try {
+    return await apiPost("/api/weather/analyze", { current, hourly, language });
+  } catch (error) {
+    console.warn("[fetchAnalysis] Warning:", error);
     throw error;
   }
 }

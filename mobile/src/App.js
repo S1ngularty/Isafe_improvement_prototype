@@ -45,8 +45,12 @@ import FirstAidDetail from "./screens/resources/FirstAidDetail.jsx";
 import EvacuationMapScreen from "./screens/resources/EvacuationMap.jsx";
 import FloodHazardScreen from "./screens/resources/FloodHazardScreen.jsx";
 import RainViewerScreen from "./screens/maps/RainViewerScreen.jsx";
+import WaterLevelScreen from "./screens/resources/WaterLevelScreen.jsx";
+import TideScreen from "./screens/resources/TideScreen.jsx";
+import ForecastScreen from "./screens/resources/ForecastScreen.jsx";
 import EmergencyContactsScreen from "./screens/profile/EmergencyContactsScreen.jsx";
 import SettingsScreen from "./screens/profile/SettingsScreen.jsx";
+import AlertsScreen from "./screens/resources/AlertsScreen.jsx";
 import ChatbotWidget from "./components/ChatbotWidget.jsx";
 import { NetworkProvider, useNetwork } from "./context/NetworkContext.jsx";
 
@@ -193,13 +197,33 @@ function HomeStack({ currentStatus, onStatusChange }) {
         options={{ animationEnabled: true }}
       />
       <Stack.Screen
+        name="WaterLevel"
+        component={WaterLevelScreen}
+        options={{ animationEnabled: true }}
+      />
+      <Stack.Screen
+        name="TideInfo"
+        component={TideScreen}
+        options={{ animationEnabled: true }}
+      />
+      <Stack.Screen
         name="EmergencyContacts"
         component={EmergencyContactsScreen}
         options={{ animationEnabled: true }}
       />
       <Stack.Screen
+        name="Forecast"
+        component={ForecastScreen}
+        options={{ animationEnabled: true }}
+      />
+      <Stack.Screen
         name="Settings"
         component={SettingsScreen}
+        options={{ animationEnabled: true }}
+      />
+      <Stack.Screen
+        name="Alerts"
+        component={AlertsScreen}
         options={{ animationEnabled: true }}
       />
     </Stack.Navigator>
@@ -263,7 +287,7 @@ function AppTabs() {
           {
             name: "Alert",
             title: "Alerts",
-            component: EmergencyHistoryScreen,
+            component: AlertsScreen,
           },
           {
             name: "Messages",
