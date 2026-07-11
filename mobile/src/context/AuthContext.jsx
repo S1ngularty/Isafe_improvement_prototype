@@ -57,15 +57,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const { isOffline } = useNetwork();
 
-  const refreshSession = useCallback(async () => {
-    if (isOffline) {
-      setSession(null);
-      setUser(null);
-      setRole(null);
-      setProfile(null);
-      return;
-    }
+  const clearAuthState = useCallback(() => {
+    setSession(null);
+    setUser(null);
+    setRole(null);
+    setProfile(null);
+  }, []);
 
+  const refreshSession = useCallback(async () => {
     try {
       const sess = await getSession();
       if (sess?.user) {
@@ -74,16 +73,16 @@ export function AuthProvider({ children }) {
         setRole(userRole);
         setProfile(userProfile);
         setSession(sess);
-      } else {
-        setSession(null);
-        setUser(null);
-        setRole(null);
-        setProfile(null);
+      } else if (!isOffline) {
+        clearAuthState();
       }
     } catch (error) {
       console.error("[AuthContext] Error refreshing session:", error);
+      if (!isOffline) {
+        clearAuthState();
+      }
     }
-  }, [isOffline]);
+  }, [isOffline, clearAuthState]);
 
   useEffect(() => {
     let isMounted = true;
@@ -106,14 +105,6 @@ export function AuthProvider({ children }) {
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log("[AuthContext] Auth state changed:", event);
 
-      if (isOffline) {
-        setSession(null);
-        setUser(null);
-        setRole(null);
-        setProfile(null);
-        return;
-      }
-
       if (newSession?.user) {
         try {
           const { currentUser, userRole, userProfile } =
@@ -126,7 +117,10 @@ export function AuthProvider({ children }) {
           console.error("[AuthContext] Error updating user data:", error);
           setSession(newSession);
         }
-      } else {
+        return;
+      }
+
+      if (!isOffline) {
         setSession(null);
         setUser(null);
         setRole(null);
