@@ -133,10 +133,13 @@ export default function EvacuationCentersScreen({ navigation }) {
   }, [currentLat, currentLng]);
 
   const handleCenterPress = (center) => {
-    // Navigate to the map screen with center and user location data
+    // Navigate to EvacuationMap screen with center and user location
     navigation.navigate("EvacuationMap", { 
       center,
-      userLocation: { lat: currentLat, lng: currentLng }
+      userLocation: { 
+        lat: Number(currentLat), 
+        lng: Number(currentLng) 
+      }
     });
   };
 
@@ -147,7 +150,6 @@ export default function EvacuationCentersScreen({ navigation }) {
     }
 
     setLoadingRouteId(center.id);
-    setSelectedRoute(null);
 
     try {
       const result = await fetchRoute(
@@ -156,6 +158,7 @@ export default function EvacuationCentersScreen({ navigation }) {
         Number(center.latitude),
         Number(center.longitude),
       );
+      
       if (result) {
         setSelectedRoute({
           ...result,
@@ -163,8 +166,16 @@ export default function EvacuationCentersScreen({ navigation }) {
           distance_km: result.distance_km,
           duration_min: result.duration_min,
         });
-        const url = `https://www.openstreetmap.org/directions?from=${currentLat}%2C${currentLng}&to=${center.latitude}%2C${center.longitude}`;
-        await Linking.openURL(url);
+        
+        // Navigate to EvacuationMap with route data pre-loaded
+        navigation.navigate("EvacuationMap", { 
+          center,
+          userLocation: { 
+            lat: Number(currentLat), 
+            lng: Number(currentLng) 
+          },
+          preloadedRoute: result
+        });
       } else {
         showToast("Route unavailable right now", "error");
       }
@@ -209,34 +220,9 @@ export default function EvacuationCentersScreen({ navigation }) {
         <View style={styles.introContainer}>
           <Text style={styles.introTagline}>Find safe shelter near you</Text>
           <Text style={styles.introDescription}>
-            Nearest evacuation centers and assembly areas
+            Nearest evacuation centers and assembly areas. Tap a center to view directions on the map.
           </Text>
         </View>
-
-        {/* Selected Route Banner */}
-        {selectedRoute && (
-          <View style={styles.routeBox}>
-            <View style={styles.routeHeader}>
-              <Navigation size={20} color={COLORS.primary} />
-              <Text style={styles.routeTitle}>Route ready</Text>
-            </View>
-            <Text style={styles.routeDetail}>{selectedRoute.name}</Text>
-            <View style={styles.routeMeta}>
-              <View style={styles.routeMetaItem}>
-                <Clock size={14} color={COLORS.gray500} />
-                <Text style={styles.routeMetaText}>
-                  ~{selectedRoute.duration_min} min
-                </Text>
-              </View>
-              <View style={styles.routeMetaItem}>
-                <MapPin size={14} color={COLORS.gray500} />
-                <Text style={styles.routeMetaText}>
-                  {selectedRoute.distance_km} km
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* Loading State */}
         {loadingLocation || loadingCenters ? (
@@ -324,10 +310,23 @@ export default function EvacuationCentersScreen({ navigation }) {
                   </View>
 
                   <View style={styles.cardFooter}>
-                    <Text style={styles.cardAction}>
-                      Tap to view on map
-                    </Text>
-                    <Navigation size={18} color={COLORS.primary} />
+                    <Pressable 
+                      style={styles.directionsButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDirections(center);
+                      }}
+                    >
+                      {loadingRouteId === center.id ? (
+                        <ActivityIndicator size="small" color={COLORS.primary} />
+                      ) : (
+                        <>
+                          <Navigation size={16} color={COLORS.primary} />
+                          <Text style={styles.directionsText}>Get Directions</Text>
+                        </>
+                      )}
+                    </Pressable>
+                    <ChevronRight size={18} color={COLORS.gray400} />
                   </View>
                 </View>
               </Pressable>
@@ -415,50 +414,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.gray500,
     lineHeight: 20,
-  },
-  routeBox: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  routeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  routeTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.gray800,
-  },
-  routeDetail: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  routeMeta: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  routeMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  routeMetaText: {
-    fontSize: 12,
-    color: COLORS.gray500,
   },
   centered: {
     paddingVertical: 60,
@@ -575,7 +530,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 56,
   },
-  cardAction: {
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  directionsText: {
     fontSize: 12,
     color: COLORS.primary,
     fontWeight: '600',
