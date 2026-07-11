@@ -5,8 +5,10 @@ import {
   Text,
   Pressable,
   ScrollView,
+  VirtualizedList,
   ActivityIndicator,
   FlatList,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -17,6 +19,8 @@ import {
   fetchUnsafeReadings,
 } from "../../services/waterLevel.js";
 import WATER_LEVEL_CHART_HTML from "../../assets/waterLevelChartHtml.js";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -39,16 +43,6 @@ const COLORS = {
 
 const PERIOD_OPTIONS = [1, 3, 7, 14, 30];
 
-function timeAgo(dateStr) {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  return `${hours}h ${mins % 60}m ago`;
-}
-
 function KpiCard({ label, value, sub, color }) {
   const borderColor =
     color === "red"
@@ -66,6 +60,71 @@ function KpiCard({ label, value, sub, color }) {
       <Text style={styles.kpiLabel}>{label}</Text>
       <Text style={styles.kpiValue}>{value != null ? value : "..."}</Text>
       {sub != null && <Text style={styles.kpiSub}>{sub}</Text>}
+    </View>
+  );
+}
+
+// Unsafe Reading Item Component
+function UnsafeReadingItem({ item }) {
+  return (
+    <View style={styles.unsafeRow}>
+      <View style={styles.unsafeRowMain}>
+        <View style={styles.sensorInfo}>
+          <Text style={styles.sensorId} numberOfLines={1}>
+            {item.sensor_id}
+          </Text>
+          <Text style={styles.readingDate}>
+            {new Date(item.recorded_at).toLocaleString()}
+          </Text>
+        </View>
+        <View style={styles.readingInfo}>
+          <Text
+            style={[
+              styles.readingValue,
+              {
+                color:
+                  item.status === "FLOOD_WARNING"
+                    ? COLORS.red
+                    : COLORS.amber,
+              },
+            ]}
+          >
+            {(item.water_level_cm / 100).toFixed(2)} m
+          </Text>
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor:
+                  item.status === "FLOOD_WARNING"
+                    ? "#fee2e2"
+                    : "#fef3c7",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.readingStatus,
+                {
+                  color:
+                    item.status === "FLOOD_WARNING"
+                      ? COLORS.red
+                      : COLORS.amber,
+                },
+              ]}
+            >
+              {item.status.replace("_", " ")}
+            </Text>
+          </View>
+        </View>
+      </View>
+      {item.duration_minutes != null && (
+        <Text style={styles.durationText}>
+          {item.duration_minutes < 60
+            ? `${item.duration_minutes}m ago`
+            : `${Math.floor(item.duration_minutes / 60)}h ago`}
+        </Text>
+      )}
     </View>
   );
 }
@@ -88,7 +147,7 @@ export default function WaterLevelScreen({ navigation }) {
   const [unsafeError, setUnsafeError] = useState(null);
 
   const [analyticsDays, setAnalyticsDays] = useState(7);
-  const [chartHeight, setChartHeight] = useState(1200);
+  const [chartHeight, setChartHeight] = useState(1800); // Dynamic height
 
   // KPI derived data
   const kpi = useMemo(() => {
@@ -190,6 +249,9 @@ export default function WaterLevelScreen({ navigation }) {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "WEBVIEW_READY") {
         setWebViewReady(true);
+      } else if (data.type === "CHARTS_READY" && data.height) {
+        // Dynamically adjust height based on all charts
+        setChartHeight(data.height + 20);
       }
     } catch (_) {}
   }, []);
@@ -298,7 +360,7 @@ export default function WaterLevelScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Unsafe Conditions */}
+        {/* Unsafe Conditions - Fixed height with scrollable list */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <MaterialIcons
@@ -329,7 +391,7 @@ export default function WaterLevelScreen({ navigation }) {
               Unable to load: {unsafeError}
             </Text>
           ) : unsafeLoading ? (
-            <View style={styles.shimmer} />
+            <View style={[styles.shimmer, { height: 100 }]} />
           ) : !unsafeReadings || unsafeReadings.length === 0 ? (
             <View style={styles.allClearBanner}>
               <MaterialIcons
@@ -345,59 +407,22 @@ export default function WaterLevelScreen({ navigation }) {
               </View>
             </View>
           ) : (
-            <View style={styles.unsafeList}>
-              {unsafeReadings.map((r) => (
-                <View key={r.id} style={styles.unsafeRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.sensorId}>{r.sensor_id}</Text>
-                    <Text style={styles.readingDate}>
-                      {new Date(r.recorded_at).toLocaleString()}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text
-                      style={[
-                        styles.readingValue,
-                        {
-                          color:
-                            r.status === "FLOOD_WARNING"
-                              ? COLORS.red
-                              : COLORS.amber,
-                        },
-                      ]}
-                    >
-                      {(r.water_level_cm / 100).toFixed(2)} m
-                    </Text>
-                    <Text
-                      style={[
-                        styles.readingStatus,
-                        {
-                          color:
-                            r.status === "FLOOD_WARNING"
-                              ? COLORS.red
-                              : COLORS.amber,
-                        },
-                      ]}
-                    >
-                      {r.status}
-                    </Text>
-                  </View>
-                  {r.duration_minutes != null && (
-                    <Text style={styles.durationText}>
-                      {r.duration_minutes < 60
-                        ? `${r.duration_minutes}m ago`
-                        : `${Math.floor(r.duration_minutes / 60)}h ago`}
-                    </Text>
-                  )}
-                </View>
-              ))}
+            <View style={styles.unsafeListContainer}>
+              <FlatList
+                data={unsafeReadings}
+                keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+                renderItem={({ item }) => <UnsafeReadingItem item={item} />}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled={true}
+              />
             </View>
           )}
         </View>
 
-        {/* Analytics Charts via WebView */}
+        {/* Analytics Charts via WebView - Dynamic height */}
         <View style={styles.sectionCard}>
-          <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>
+          <Text style={[styles.sectionTitle, { marginBottom: 12 }]}>
             Analytics Charts
           </Text>
 
@@ -426,12 +451,12 @@ export default function WaterLevelScreen({ navigation }) {
               </Text>
             </View>
           ) : (
-            <View style={{ height: chartHeight, borderRadius: 8, overflow: "hidden" }}>
+            <View style={[styles.chartContainer, { height: chartHeight }]}>
               <WebView
                 ref={webViewRef}
                 originWhitelist={["*"]}
                 source={{ html: WATER_LEVEL_CHART_HTML }}
-                style={{ flex: 1, backgroundColor: "transparent" }}
+                style={styles.webView}
                 javaScriptEnabled
                 domStorageEnabled
                 scrollEnabled={false}
@@ -622,42 +647,72 @@ const styles = StyleSheet.create({
     color: "#15803d",
     marginTop: 1,
   },
-  // Unsafe List
-  unsafeList: {
-    maxHeight: 260,
+  // Unsafe List - Fixed height scrollable container
+  unsafeListContainer: {
+    maxHeight: 300,
   },
   unsafeRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  unsafeRowMain: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray100,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 4,
+  },
+  sensorInfo: {
+    flex: 1,
+    marginRight: 12,
   },
   sensorId: {
     fontSize: 13,
     fontWeight: "600",
     color: COLORS.gray900,
+    marginBottom: 4,
   },
   readingDate: {
     fontSize: 10,
     color: COLORS.gray400,
-    marginTop: 2,
+  },
+  readingInfo: {
+    alignItems: "flex-end",
+    minWidth: 70,
   },
   readingValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "800",
+    marginBottom: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   readingStatus: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "700",
-    marginTop: 1,
   },
   durationText: {
     fontSize: 9,
     color: COLORS.gray400,
-    width: 50,
-    textAlign: "right",
-    marginLeft: 8,
+    marginTop: 2,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: COLORS.gray100,
+  },
+  // Chart Container - Dynamic height
+  chartContainer: {
+    minHeight: 400,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+  },
+  webView: {
+    flex: 1,
+    backgroundColor: "transparent",
   },
   // Empty / Shimmer
   shimmer: {
