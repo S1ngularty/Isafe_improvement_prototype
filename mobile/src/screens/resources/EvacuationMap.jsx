@@ -25,15 +25,17 @@ import {
   ExternalLink,
   X,
   RotateCcw,
+  Wifi,
+  WifiOff,
 } from "lucide-react-native";
 import { useToast } from "../../context/ToastContext.jsx";
-import { fetchRoute } from "../../services/routing.js";
-// Fix: Import stripHtml correctly or define it locally
+import { useOfflineSync } from "../../hooks/useOfflineSync";
+import offlineMapService from "../../services/offlineMap.js";
 import { stripHtml, stepIcon, formatDist } from "../../utils/geo.js";
 import LEAFLET_HTML from "../../assets/leafletMapHtml.js";
 import Skeleton from "../../components/Skeleton";
 
-// Fallback functions in case imports fail
+// Fallback functions
 const fallbackStripHtml = (str) => {
   if (!str) return "";
   return str
@@ -67,7 +69,6 @@ const fallbackFormatDist = (m) => {
   return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`;
 };
 
-// Use fallbacks if imports are undefined
 const safeStripHtml = typeof stripHtml === 'function' ? stripHtml : fallbackStripHtml;
 const safeStepIcon = typeof stepIcon === 'function' ? stepIcon : fallbackStepIcon;
 const safeFormatDist = typeof formatDist === 'function' ? formatDist : fallbackFormatDist;
@@ -96,6 +97,7 @@ const COLORS = {
 const EvacuationMapScreen = ({ route, navigation }) => {
   const { center, userLocation, preloadedRoute } = route?.params || {};
   const { showToast } = useToast();
+  const { isOnline, isOffline } = useOfflineSync();
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [routeData, setRouteData] = useState(preloadedRoute || null);
@@ -107,8 +109,12 @@ const EvacuationMapScreen = ({ route, navigation }) => {
 
   const sendToMap = useCallback((type, payload) => {
     if (!webViewRef.current) return;
-    const js = `(function(){var e=new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ type, payload }))}});document.dispatchEvent(e);window.dispatchEvent(e);})();true;`;
-    webViewRef.current.injectJavaScript(js);
+    try {
+      const js = `(function(){var e=new MessageEvent('message',{data:${JSON.stringify(JSON.stringify({ type, payload }))}});document.dispatchEvent(e);window.dispatchEvent(e);})();true;`;
+      webViewRef.current.injectJavaScript(js);
+    } catch (e) {
+      // Ignore injection errors
+    }
   }, []);
 
   const sendLocations = useCallback(() => {
@@ -167,6 +173,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         setShowSteps(true);
         setSheetExpanded(true);
       } else {
+        // Auto-fetch route when map loads
         setTimeout(() => {
           handleGetRoute();
         }, 800);
@@ -177,7 +184,6 @@ const EvacuationMapScreen = ({ route, navigation }) => {
   useEffect(() => {
     const t = setTimeout(() => {
       if (!mapLoadedRef.current) {
-        showToast("Map taking longer than expected...", "info");
         setMapLoaded(true);
       }
     }, 10000);
@@ -199,10 +205,24 @@ const EvacuationMapScreen = ({ route, navigation }) => {
   };
 
   const handleGetRoute = async () => {
-    const slat = parseFloat(userLocation?.lat || 0);
-    const slng = parseFloat(userLocation?.lng || 0);
+    let slat = parseFloat(userLocation?.lat || 0);
+    let slng = parseFloat(userLocation?.lng || 0);
     const dlat = parseFloat(center?.latitude || 0);
     const dlng = parseFloat(center?.longitude || 0);
+
+    // If no current location, try to get last known location
+    if ((!slat || !slng) && isOffline) {
+      try {
+        const lastLocation = await offlineMapService.getLastKnownLocation();
+        if (lastLocation) {
+          slat = lastLocation.latitude;
+          slng = lastLocation.longitude;
+          showToast("Using last known location", "info");
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
 
     if (!slat || !slng || !dlat || !dlng) {
       showToast("Location coordinates not available", "error");
@@ -212,11 +232,11 @@ const EvacuationMapScreen = ({ route, navigation }) => {
     setRouteLoading(true);
 
     try {
-      console.log("Fetching route:", { slat, slng, dlat, dlng });
-      const result = await fetchRoute(slat, slng, dlat, dlng);
+      console.log("Fetching route:", { slat, slng, dlat, dlng, isOnline });
+      
+      const result = await offlineMapService.fetchRouteWithOffline(slat, slng, dlat, dlng);
       
       if (result && result.coordinates) {
-        // Use safe version of stripHtml
         const stepsClean = (result.steps || []).map((s) => ({
           ...s,
           instruction: safeStripHtml(s.instruction),
@@ -234,13 +254,18 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         loadRouteOnMap(routeWithSteps);
         setShowSteps(true);
         setSheetExpanded(true);
-        showToast("Route found successfully", "success");
+        
+        if (result.fromCache) {
+          showToast("Using cached route", "info");
+        } else {
+          showToast("Route found", "success");
+        }
       } else {
-        showToast("Could not calculate route. Try again.", "error");
+        showToast("Could not calculate route", "error");
       }
     } catch (err) {
       console.error("Route error:", err);
-      showToast("Failed to get route. Please try again.", "error");
+      showToast("Failed to get route", "error");
     } finally {
       setRouteLoading(false);
     }
@@ -257,18 +282,22 @@ const EvacuationMapScreen = ({ route, navigation }) => {
   const handleOpenExternalMap = useCallback(() => {
     if (!userLocation?.lat || !center?.latitude) return;
     const url = `https://www.openstreetmap.org/directions?from=${userLocation.lat}%2C${userLocation.lng}&to=${center.latitude}%2C${center.longitude}`;
-    Linking.openURL(url).catch(() => {
-      showToast("Could not open maps app", "error");
-    });
+    Linking.openURL(url).catch(() => {});
   }, [userLocation, center]);
 
   const handleCallEmergency = useCallback(() => {
-    Linking.openURL(`tel:911`).catch(() => {
-      showToast("Could not open phone app", "error");
-    });
+    Linking.openURL(`tel:911`).catch(() => {});
   }, []);
 
-  if (!center) return null;
+  if (!center) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const bottomSheetHeight = sheetExpanded ? SCREEN_HEIGHT * 0.45 : SCREEN_HEIGHT * 0.25;
 
@@ -284,10 +313,29 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {center.name || "Evacuation Center"}
         </Text>
-        <Pressable style={styles.headerButton} onPress={fitMapBounds}>
-          <RotateCcw color={COLORS.white} size={20} />
-        </Pressable>
+        <View style={styles.headerRight}>
+          <View style={styles.connectivityBadge}>
+            {isOnline ? (
+              <Wifi size={16} color={COLORS.green} />
+            ) : (
+              <WifiOff size={16} color={COLORS.yellow} />
+            )}
+          </View>
+          <Pressable style={styles.headerButton} onPress={fitMapBounds}>
+            <RotateCcw color={COLORS.white} size={20} />
+          </Pressable>
+        </View>
       </View>
+
+      {/* Offline Banner */}
+      {isOffline && (
+        <View style={styles.offlineBanner}>
+          <WifiOff size={16} color={COLORS.white} />
+          <Text style={styles.offlineBannerText}>
+            Offline - Using cached data
+          </Text>
+        </View>
+      )}
 
       {/* Map */}
       <WebView
@@ -300,7 +348,6 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         domStorageEnabled
         mixedContentMode="always"
         onError={() => {
-          showToast("Map failed to load", "error");
           setMapLoaded(true);
         }}
       />
@@ -312,7 +359,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         </View>
       )}
 
-      {/* Floating Action Buttons */}
+      {/* FABs */}
       <View style={styles.fabContainer}>
         <Pressable style={styles.fab} onPress={handleGetRoute} disabled={routeLoading}>
           {routeLoading ? (
@@ -347,7 +394,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Center Header Info */}
+          {/* Center Info */}
           <View style={styles.centerInfo}>
             <View style={styles.centerIconContainer}>
               <Building2 size={24} color={COLORS.white} />
@@ -357,7 +404,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
               <View style={styles.centerDistance}>
                 <MapPin size={14} color={COLORS.gray500} />
                 <Text style={styles.centerDistanceText}>
-                  {center.distance_km ? `${center.distance_km} km away` : "Distance calculating..."}
+                  {center.distance_km ? `${center.distance_km} km away` : "Distance N/A"}
                 </Text>
               </View>
             </View>
@@ -377,6 +424,15 @@ const EvacuationMapScreen = ({ route, navigation }) => {
           {/* Route Info */}
           {(sheetExpanded || routeData) && routeData && (
             <>
+              {routeData.fromCache && (
+                <View style={styles.cacheIndicator}>
+                  <WifiOff size={14} color={COLORS.yellow} />
+                  <Text style={styles.cacheIndicatorText}>
+                    Cached route
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.routeInfoContainer}>
                 <View style={styles.routeInfoGrid}>
                   <View style={styles.routeInfoItem}>
@@ -396,7 +452,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
                 </View>
               </View>
 
-              {/* Route Steps */}
+              {/* Steps */}
               {routeData?.steps && routeData.steps.length > 0 && (
                 <View style={styles.stepsContainer}>
                   <Pressable
@@ -406,7 +462,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
                     <View style={styles.stepsToggleLeft}>
                       <Navigation size={16} color={COLORS.primary} />
                       <Text style={styles.stepsToggleText}>
-                        Turn-by-turn directions ({routeData.steps.length} steps)
+                        Directions ({routeData.steps.length} steps)
                       </Text>
                     </View>
                     {showSteps ? (
@@ -450,15 +506,17 @@ const EvacuationMapScreen = ({ route, navigation }) => {
             </>
           )}
 
-          {/* Loading route indicator */}
+          {/* Loading */}
           {routeLoading && (
             <View style={styles.routeLoadingContainer}>
               <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={styles.routeLoadingText}>Calculating best route...</Text>
+              <Text style={styles.routeLoadingText}>
+                Calculating route...
+              </Text>
             </View>
           )}
 
-          {/* Action Buttons */}
+          {/* Actions */}
           <View style={styles.actionsContainer}>
             <Pressable 
               style={[styles.directionsButton, routeLoading && styles.buttonDisabled]} 
@@ -467,7 +525,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
             >
               <Navigation size={20} color={COLORS.white} />
               <Text style={styles.directionsButtonText}>
-                {routeData ? "Refresh Route" : "Get Directions"}
+                {routeData ? "Refresh" : "Get Directions"}
               </Text>
             </Pressable>
 
@@ -482,12 +540,8 @@ const EvacuationMapScreen = ({ route, navigation }) => {
   );
 };
 
-// ... styles remain the same as previous response
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#1a1a1a",
-  },
+  container: { flex: 1, backgroundColor: "#1a1a1a" },
   header: {
     backgroundColor: COLORS.primary,
     height: 56,
@@ -497,9 +551,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     zIndex: 10,
   },
-  backButton: {
-    padding: 8,
-  },
+  backButton: { padding: 8 },
   headerTitle: {
     color: COLORS.white,
     fontSize: 17,
@@ -508,12 +560,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginHorizontal: 10,
   },
-  headerButton: {
-    padding: 8,
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  connectivityBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  map: {
-    flex: 1,
+  headerButton: { padding: 8 },
+  offlineBanner: {
+    backgroundColor: COLORS.yellow,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    gap: 8,
+    zIndex: 10,
   },
+  offlineBannerText: { color: COLORS.white, fontSize: 12, fontWeight: "600" },
+  map: { flex: 1 },
   loading: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
@@ -521,19 +589,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(26, 26, 26, 0.9)",
     zIndex: 10,
   },
-  loadingText: {
-    color: COLORS.white,
-    fontSize: 14,
-    marginTop: 12,
-    fontWeight: "500",
-  },
-  fabContainer: {
-    position: "absolute",
-    right: 12,
-    top: 72,
-    gap: 8,
-    zIndex: 5,
-  },
+  loadingText: { color: COLORS.white, fontSize: 14, marginTop: 12, fontWeight: "500" },
+  fabContainer: { position: "absolute", right: 12, top: 72, gap: 8, zIndex: 5 },
   fab: {
     width: 44,
     height: 44,
@@ -561,26 +618,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
-  sheetHandleContainer: {
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: COLORS.gray300,
-  },
-  sheetContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  centerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
-  },
+  sheetHandleContainer: { alignItems: "center", paddingVertical: 12 },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.gray300 },
+  sheetContent: { paddingHorizontal: 16, paddingBottom: 20 },
+  centerInfo: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
   centerIconContainer: {
     width: 44,
     height: 44,
@@ -589,63 +630,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  centerTextContainer: {
-    flex: 1,
-  },
-  centerName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.gray900,
-  },
-  centerDistance: {
+  centerTextContainer: { flex: 1 },
+  centerName: { fontSize: 16, fontWeight: "700", color: COLORS.gray900 },
+  centerDistance: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  centerDistanceText: { fontSize: 12, color: COLORS.gray500 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusText: { fontSize: 11, fontWeight: "600" },
+  cacheIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 2,
-  },
-  centerDistanceText: {
-    fontSize: 12,
-    color: COLORS.gray500,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  routeInfoContainer: {
-    padding: 12,
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 10,
+    gap: 6,
+    backgroundColor: "#FEF3C7",
+    padding: 8,
+    borderRadius: 8,
     marginBottom: 10,
   },
-  routeInfoGrid: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  routeInfoItem: {
-    alignItems: "center",
-    gap: 4,
-  },
-  routeInfoLabel: {
-    fontSize: 11,
-    color: COLORS.gray500,
-    fontWeight: "500",
-  },
-  routeInfoValue: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.gray900,
-  },
-  stepsContainer: {
-    backgroundColor: COLORS.gray50,
-    borderRadius: 10,
-    overflow: "hidden",
-    marginBottom: 10,
-  },
+  cacheIndicatorText: { fontSize: 11, color: COLORS.yellow, fontWeight: "500", flex: 1 },
+  routeInfoContainer: { padding: 12, backgroundColor: COLORS.primaryLight, borderRadius: 10, marginBottom: 10 },
+  routeInfoGrid: { flexDirection: "row", justifyContent: "space-around" },
+  routeInfoItem: { alignItems: "center", gap: 4 },
+  routeInfoLabel: { fontSize: 11, color: COLORS.gray500, fontWeight: "500" },
+  routeInfoValue: { fontSize: 16, fontWeight: "700", color: COLORS.gray900 },
+  stepsContainer: { backgroundColor: COLORS.gray50, borderRadius: 10, overflow: "hidden", marginBottom: 10 },
   stepsToggle: {
     flexDirection: "row",
     alignItems: "center",
@@ -653,59 +659,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  stepsToggleLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  stepsToggleText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.gray700,
-  },
-  stepsList: {
-    maxHeight: 200,
-    paddingHorizontal: 14,
-    paddingBottom: 8,
-  },
-  stepItem: {
-    flexDirection: "row",
-    paddingVertical: 6,
-    gap: 10,
-  },
-  stepBarContainer: {
-    width: 20,
-    alignItems: "center",
-  },
-  stepBar: {
-    width: 3,
-    flex: 1,
-    borderRadius: 2,
-  },
-  stepContent: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  stepIcon: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.gray700,
-    lineHeight: 17,
-  },
-  stepDist: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: COLORS.gray500,
-    marginLeft: 8,
-    marginTop: 2,
-  },
+  stepsToggleLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  stepsToggleText: { fontSize: 13, fontWeight: "600", color: COLORS.gray700 },
+  stepsList: { maxHeight: 200, paddingHorizontal: 14, paddingBottom: 8 },
+  stepItem: { flexDirection: "row", paddingVertical: 6, gap: 10 },
+  stepBarContainer: { width: 20, alignItems: "center" },
+  stepBar: { width: 3, flex: 1, borderRadius: 2 },
+  stepContent: { flex: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  stepIcon: { fontSize: 16, fontWeight: "700", color: COLORS.primary },
+  stepText: { flex: 1, fontSize: 12, color: COLORS.gray700, lineHeight: 17 },
+  stepDist: { fontSize: 11, fontWeight: "600", color: COLORS.gray500, marginLeft: 8, marginTop: 2 },
   routeLoadingContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -713,16 +676,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
   },
-  routeLoadingText: {
-    fontSize: 13,
-    color: COLORS.gray600,
-    fontWeight: "500",
-  },
-  actionsContainer: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 8,
-  },
+  routeLoadingText: { fontSize: 13, color: COLORS.gray600, fontWeight: "500" },
+  actionsContainer: { flexDirection: "row", gap: 10, marginTop: 8 },
   directionsButton: {
     flex: 1,
     flexDirection: "row",
@@ -733,14 +688,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  directionsButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  buttonDisabled: { opacity: 0.6 },
+  directionsButtonText: { color: COLORS.white, fontSize: 14, fontWeight: "600" },
   callButton: {
     flex: 0.4,
     flexDirection: "row",
@@ -753,11 +702,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.primary,
   },
-  callButtonText: {
-    color: COLORS.primary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  callButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: "600" },
 });
 
 export default EvacuationMapScreen;

@@ -97,7 +97,8 @@ export default function DashboardScreen({
     };
   }, []);
 
-  const rescueActive = currentStatus === "help" || currentStatus === "emergency";
+  const rescueActive =
+    currentStatus === "help" || currentStatus === "emergency";
 
   const checkRescue = useCallback(async () => {
     if (!rescueActive || !session?.user?.id) {
@@ -312,7 +313,16 @@ export default function DashboardScreen({
 
         {/* Rescue En Route Banner */}
         {rescueEnRoute && (
-          <View style={{ backgroundColor: "#166534", borderRadius: 12, padding: 14, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View
+            style={{
+              backgroundColor: "#166534",
+              borderRadius: 12,
+              padding: 14,
+              marginBottom: 12,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+            }}>
             <MaterialIcons name="emergency" size={24} color="#fff" />
             <View style={{ flex: 1 }}>
               <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>
@@ -320,7 +330,9 @@ export default function DashboardScreen({
               </Text>
               <Text style={{ color: "#bbf7d0", fontSize: 12, marginTop: 2 }}>
                 {rescueEnRoute.rescuer?.full_name || "A rescuer"}
-                {rescueEnRoute.eta_seconds ? ` · ETA ~${Math.round(rescueEnRoute.eta_seconds / 60)} min` : ""}
+                {rescueEnRoute.eta_seconds
+                  ? ` · ETA ~${Math.round(rescueEnRoute.eta_seconds / 60)} min`
+                  : ""}
               </Text>
             </View>
           </View>
@@ -433,7 +445,6 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>Help</Text>
             </Pressable>
-
             <Pressable
               style={styles.quickActionButton}
               onPress={() => navigation.navigate("FirstAidInstructions")}>
@@ -450,7 +461,6 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>First Aid</Text>
             </Pressable>
-
             <Pressable
               style={styles.quickActionButton}
               onPress={() => navigation.navigate("EmergencyGuidance")}>
@@ -463,7 +473,6 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>Emergency</Text>
             </Pressable>
-
             <Pressable
               style={styles.quickActionButton}
               onPress={() => navigation.navigate("EmergencyChecklist")}>
@@ -480,24 +489,15 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>Checklist</Text>
             </Pressable>
-
             <Pressable
-              style={[
-                styles.quickActionButton,
-                isOffline && styles.quickActionButtonDisabled,
-              ]}
+              style={styles.quickActionButton}
               onPress={() => {
-                if (isOffline) {
-                  showToast("Evacuation info is unavailable offline", "info");
-                  return;
-                }
                 navigation.navigate("Evacuation");
-              }}
-              disabled={isOffline}>
+              }}>
               <View
                 style={[
                   styles.quickActionIconContainer,
-                  { backgroundColor: isOffline ? "#64748b" : "#06b6d4" },
+                  { backgroundColor: "#06b6d4" },
                 ]}>
                 <MaterialIcons
                   name="location-city"
@@ -505,15 +505,10 @@ export default function DashboardScreen({
                   color={COLORS.white}
                 />
               </View>
-              <Text
-                style={[
-                  styles.quickActionLabel,
-                  isOffline && styles.quickActionLabelDisabled,
-                ]}>
+              <Text style={styles.quickActionLabel}>
                 {isOffline ? "Evacuation\nOffline" : "Evacuation"}
               </Text>
             </Pressable>
-
             <Pressable
               style={styles.quickActionButton}
               onPress={() => navigation.navigate("RainViewer")}>
@@ -526,7 +521,6 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>Radar</Text>
             </Pressable>
-
             <Pressable
               style={[
                 styles.quickActionButton,
@@ -555,7 +549,6 @@ export default function DashboardScreen({
                 {isOffline ? "Water Level\nOffline" : "Water Level"}
               </Text>
             </Pressable>
-
             <Pressable
               style={[
                 styles.quickActionButton,
@@ -612,7 +605,6 @@ export default function DashboardScreen({
                 {isOffline ? "Forecast\nOffline" : "Forecast"}
               </Text>
             </Pressable>
-
           </View>
         </View>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -20,12 +20,14 @@ import {
   Users,
   Clock,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react-native";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
-import { fetchNearestEvacuationAreas } from "../../services/evacuation.js";
-import { fetchRoute } from "../../services/routing.js";
+import { useOfflineSync } from "../../hooks/useOfflineSync";
+import offlineMapService from "../../services/offlineMap.js";
 import Skeleton from "../../components/Skeleton";
 
 const COLORS = {
@@ -44,96 +46,154 @@ const COLORS = {
   gray900: "#111827",
   success: "#10b981",
   warning: "#f59e0b",
+  yellow: "#d97706",
 };
 
 export default function EvacuationCentersScreen({ navigation }) {
   const { profile } = useAuth();
   const { showToast } = useToast();
+  const { isOnline, isOffline } = useOfflineSync();
 
   const [location, setLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [centers, setCenters] = useState([]);
   const [loadingCenters, setLoadingCenters] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState(null);
-  const [loadingRouteId, setLoadingRouteId] = useState(null);
+  const [usingCachedData, setUsingCachedData] = useState(false);
+  const previousOnlineRef = useRef(isOnline);
+  const navigationInProgressRef = useRef(false);
 
   const currentLat = location?.latitude ?? profile?.lat;
   const currentLng = location?.longitude ?? profile?.lng;
 
+  // Fetch centers function
+  const fetchCenters = useCallback(async (lat, lng) => {
+    if (!lat || !lng) return;
+    
+    setLoadingCenters(true);
+    try {
+      const result = await offlineMapService.getEvacuationCentersWithOffline(
+        Number(lat),
+        Number(lng),
+        5,
+      );
+      
+      setCenters(Array.isArray(result.centers) ? result.centers : []);
+      setUsingCachedData(result.fromCache);
+      
+      // Only show toast if using cached data while online (means server failed)
+      if (result.fromCache && isOnline) {
+        showToast("Using cached data - server unavailable", "info");
+      }
+    } catch (err) {
+      // Fallback to cache
+      const cachedCenters = await offlineMapService.getCachedEvacuationCenters();
+      setCenters(Array.isArray(cachedCenters) ? cachedCenters : []);
+      setUsingCachedData(true);
+      
+      if (isOnline) {
+        showToast("Failed to load centers. Using cached data.", "error");
+      }
+    } finally {
+      setLoadingCenters(false);
+    }
+  }, [isOnline]);
+
+  // Get location
   useEffect(() => {
     let active = true;
 
     (async () => {
       try {
         setLoadingLocation(true);
+        
+        // Try profile location first
         if (profile?.lat && profile?.lng) {
           setLocation({
             latitude: Number(profile.lat),
             longitude: Number(profile.lng),
           });
+          setLoadingLocation(false);
           return;
         }
 
+        // If offline, try cached location
+        if (isOffline) {
+          const cachedLocation = await offlineMapService.getLastKnownLocation();
+          if (cachedLocation && active) {
+            setLocation({
+              latitude: cachedLocation.latitude,
+              longitude: cachedLocation.longitude,
+            });
+          }
+          setLoadingLocation(false);
+          return;
+        }
+
+        // Get fresh location if online
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
-          if (active) {
-            showToast("Location permission denied", "error");
-          }
+          if (active) showToast("Location permission denied", "error");
+          setLoadingLocation(false);
           return;
         }
 
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
         });
-        if (active) {
+        
+        if (active && loc) {
           setLocation(loc.coords);
+          // Cache location in background
+          offlineMapService.saveCurrentLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            accuracy: loc.coords.accuracy,
+          }).catch(console.log);
         }
       } catch (err) {
         if (active) {
-          showToast("Unable to read location", "error");
+          // Try cached location as fallback
+          const cachedLocation = await offlineMapService.getLastKnownLocation();
+          if (cachedLocation) {
+            setLocation({
+              latitude: cachedLocation.latitude,
+              longitude: cachedLocation.longitude,
+            });
+          }
         }
       } finally {
-        if (active) {
-          setLoadingLocation(false);
-        }
+        if (active) setLoadingLocation(false);
       }
     })();
 
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [profile?.lat, profile?.lng]);
 
+  // Fetch centers when location changes
   useEffect(() => {
-    if (!currentLat || !currentLng) {
-      setCenters([]);
-      return;
+    if (currentLat && currentLng) {
+      fetchCenters(currentLat, currentLng);
     }
+  }, [currentLat, currentLng, fetchCenters]);
 
-    let active = true;
-    (async () => {
-      try {
-        setLoadingCenters(true);
-        const data = await fetchNearestEvacuationAreas(
-          Number(currentLat),
-          Number(currentLng),
-          5,
-        );
-        if (active) setCenters(Array.isArray(data) ? data : []);
-      } catch (err) {
-        if (active) setCenters([]);
-      } finally {
-        if (active) setLoadingCenters(false);
-      }
-    })();
+  // Auto-refresh when coming back online
+  useEffect(() => {
+    const wasOffline = previousOnlineRef.current === false;
+    const nowOnline = isOnline === true;
+    previousOnlineRef.current = isOnline;
 
-    return () => {
-      active = false;
-    };
-  }, [currentLat, currentLng]);
+    // If we just came back online and were using cached data, refresh
+    if (wasOffline && nowOnline && usingCachedData && currentLat && currentLng) {
+      showToast("Back online - refreshing data...", "success");
+      fetchCenters(currentLat, currentLng);
+    }
+  }, [isOnline, usingCachedData, currentLat, currentLng]);
 
-  const handleCenterPress = (center) => {
-    // Navigate to EvacuationMap screen with center and user location
+  const handleCenterPress = useCallback((center) => {
+    if (navigationInProgressRef.current) return;
+    navigationInProgressRef.current = true;
+    
+    // Navigate immediately without waiting for route
     navigation.navigate("EvacuationMap", { 
       center,
       userLocation: { 
@@ -141,53 +201,55 @@ export default function EvacuationCentersScreen({ navigation }) {
         lng: Number(currentLng) 
       }
     });
-  };
+    
+    // Reset navigation lock after a short delay
+    setTimeout(() => {
+      navigationInProgressRef.current = false;
+    }, 500);
+  }, [currentLat, currentLng, navigation]);
 
-  const handleDirections = async (center) => {
+  const handleDirections = useCallback(async (center) => {
     if (!currentLat || !currentLng) {
       showToast("Location is not available yet", "info");
       return;
     }
 
-    setLoadingRouteId(center.id);
+    if (navigationInProgressRef.current) return;
+    navigationInProgressRef.current = true;
 
+    // Navigate immediately first (don't wait for route)
+    navigation.navigate("EvacuationMap", { 
+      center,
+      userLocation: { 
+        lat: Number(currentLat), 
+        lng: Number(currentLng) 
+      }
+    });
+
+    // Fetch route in background (will update map when ready)
     try {
-      const result = await fetchRoute(
+      const result = await offlineMapService.fetchRouteWithOffline(
         Number(currentLat),
         Number(currentLng),
         Number(center.latitude),
         Number(center.longitude),
       );
       
-      if (result) {
-        setSelectedRoute({
-          ...result,
-          name: center.name,
-          distance_km: result.distance_km,
-          duration_min: result.duration_min,
-        });
-        
-        // Navigate to EvacuationMap with route data pre-loaded
-        navigation.navigate("EvacuationMap", { 
-          center,
-          userLocation: { 
-            lat: Number(currentLat), 
-            lng: Number(currentLng) 
-          },
-          preloadedRoute: result
-        });
-      } else {
-        showToast("Route unavailable right now", "error");
+      // Route will be handled by EvacuationMap screen
+      if (!result && !isOffline) {
+        showToast("Route calculation in progress...", "info");
       }
     } catch (err) {
-      showToast("Failed to prepare route", "error");
+      console.log("Route fetch error (non-blocking):", err.message);
     } finally {
-      setLoadingRouteId(null);
+      setTimeout(() => {
+        navigationInProgressRef.current = false;
+      }, 500);
     }
-  };
+  }, [currentLat, currentLng, isOffline, navigation]);
 
   const locationText = useMemo(() => {
-    if (!currentLat || !currentLng) return "Using saved location";
+    if (!currentLat || !currentLng) return "Locating...";
     return `${Number(currentLat).toFixed(4)}, ${Number(currentLng).toFixed(4)}`;
   }, [currentLat, currentLng]);
 
@@ -201,8 +263,39 @@ export default function EvacuationCentersScreen({ navigation }) {
           <ArrowLeft color={COLORS.white} size={24} />
         </Pressable>
         <Text style={styles.headerTitle}>Evacuation Centers</Text>
-        <View style={{ width: 24 }} />
+        <Pressable 
+          style={styles.refreshButton}
+          onPress={() => currentLat && currentLng && fetchCenters(currentLat, currentLng)}
+        >
+          <RefreshCw size={20} color={COLORS.white} />
+        </Pressable>
       </View>
+
+      {/* Offline Banner */}
+      {isOffline && (
+        <View style={styles.offlineBanner}>
+          <WifiOff size={16} color={COLORS.white} />
+          <Text style={styles.offlineBannerText}>
+            Offline Mode - Using cached data
+          </Text>
+        </View>
+      )}
+
+      {/* Using cached data while online banner (server issue) */}
+      {usingCachedData && isOnline && (
+        <View style={styles.cachedBanner}>
+          <AlertTriangle size={16} color={COLORS.yellow} />
+          <Text style={styles.cachedBannerText}>
+            Using cached data - Tap refresh to retry
+          </Text>
+          <Pressable 
+            style={styles.retryButton}
+            onPress={() => currentLat && currentLng && fetchCenters(currentLat, currentLng)}
+          >
+            <RefreshCw size={14} color={COLORS.yellow} />
+          </Pressable>
+        </View>
+      )}
 
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
@@ -213,6 +306,9 @@ export default function EvacuationCentersScreen({ navigation }) {
           <View style={styles.locationBadge}>
             <MapPin size={16} color={COLORS.primary} />
             <Text style={styles.locationText}>{locationText}</Text>
+            {loadingLocation && (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            )}
           </View>
         </View>
 
@@ -220,31 +316,32 @@ export default function EvacuationCentersScreen({ navigation }) {
         <View style={styles.introContainer}>
           <Text style={styles.introTagline}>Find safe shelter near you</Text>
           <Text style={styles.introDescription}>
-            Nearest evacuation centers and assembly areas. Tap a center to view directions on the map.
+            {isOffline 
+              ? "Showing cached evacuation centers. Data will refresh when back online."
+              : "Nearest evacuation centers and assembly areas."
+            }
           </Text>
         </View>
 
         {/* Loading State */}
-        {loadingLocation || loadingCenters ? (
+        {loadingCenters ? (
           <View style={styles.list}>
             {[1, 2, 3].map((key) => (
               <View key={key} style={styles.card}>
-                <View style={styles.cardTop}>
-                  <Skeleton width={44} height={44} borderRadius={12} />
-                  <View style={styles.cardHeader}>
-                    <Skeleton width={150} height={18} style={{ marginBottom: 4 }} />
-                    <Skeleton width={80} height={14} />
+                <View style={styles.cardContent}>
+                  <View style={styles.cardTop}>
+                    <Skeleton width={44} height={44} borderRadius={12} />
+                    <View style={styles.cardHeader}>
+                      <Skeleton width={150} height={18} style={{ marginBottom: 4 }} />
+                      <Skeleton width={80} height={14} />
+                    </View>
+                    <Skeleton width={20} height={20} />
                   </View>
-                  <Skeleton width={20} height={20} />
-                </View>
-                <Skeleton width={200} height={14} style={{ marginTop: 10, marginLeft: 56 }} />
-                <View style={[styles.cardMeta, { marginTop: 10 }]}>
-                  <Skeleton width={80} height={14} />
-                  <Skeleton width={60} height={20} borderRadius={12} />
-                </View>
-                <View style={styles.cardFooter}>
-                  <Skeleton width={100} height={14} />
-                  <Skeleton width={18} height={18} />
+                  <Skeleton width={200} height={14} style={{ marginTop: 10, marginLeft: 56 }} />
+                  <View style={[styles.cardMeta, { marginTop: 10 }]}>
+                    <Skeleton width={80} height={14} />
+                    <Skeleton width={60} height={20} borderRadius={12} />
+                  </View>
                 </View>
               </View>
             ))}
@@ -254,8 +351,18 @@ export default function EvacuationCentersScreen({ navigation }) {
             <AlertTriangle size={40} color={COLORS.gray400} />
             <Text style={styles.emptyTitle}>No centers found</Text>
             <Text style={styles.emptyText}>
-              No evacuation centers found nearby. Try checking your location settings.
+              {isOffline 
+                ? "No cached evacuation centers available. Connect to internet to download data."
+                : "No evacuation centers found nearby."
+              }
             </Text>
+            <Pressable 
+              style={styles.retryLoadButton}
+              onPress={() => currentLat && currentLng && fetchCenters(currentLat, currentLng)}
+            >
+              <RefreshCw size={16} color={COLORS.primary} />
+              <Text style={styles.retryLoadText}>Retry</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.list}>
@@ -278,16 +385,18 @@ export default function EvacuationCentersScreen({ navigation }) {
                       <View style={styles.cardDistance}>
                         <MapPin size={14} color={COLORS.gray500} />
                         <Text style={styles.cardDistanceText}>
-                          {center.distance_km} km away
+                          {center.distance_km ? `${center.distance_km} km away` : "Distance N/A"}
                         </Text>
                       </View>
                     </View>
                     <ChevronRight size={20} color={COLORS.gray400} />
                   </View>
 
-                  <Text style={styles.cardDescription}>
-                    {center.description || "Emergency shelter and safe assembly area."}
-                  </Text>
+                  {center.description && (
+                    <Text style={styles.cardDescription} numberOfLines={2}>
+                      {center.description}
+                    </Text>
+                  )}
 
                   <View style={styles.cardMeta}>
                     <View style={styles.cardMetaItem}>
@@ -317,14 +426,10 @@ export default function EvacuationCentersScreen({ navigation }) {
                         handleDirections(center);
                       }}
                     >
-                      {loadingRouteId === center.id ? (
-                        <ActivityIndicator size="small" color={COLORS.primary} />
-                      ) : (
-                        <>
-                          <Navigation size={16} color={COLORS.primary} />
-                          <Text style={styles.directionsText}>Get Directions</Text>
-                        </>
-                      )}
+                      <Navigation size={16} color={COLORS.primary} />
+                      <Text style={styles.directionsText}>
+                        Get Directions
+                      </Text>
                     </Pressable>
                     <ChevronRight size={18} color={COLORS.gray400} />
                   </View>
@@ -372,6 +477,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
+  },
+  refreshButton: {
+    padding: 4,
+    width: 24,
+  },
+  offlineBanner: {
+    backgroundColor: COLORS.yellow,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    gap: 8,
+    zIndex: 10,
+  },
+  offlineBannerText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  cachedBanner: {
+    backgroundColor: '#FEF3C7',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    gap: 8,
+    zIndex: 10,
+  },
+  cachedBannerText: {
+    color: COLORS.yellow,
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  retryButton: {
+    padding: 4,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -433,6 +576,21 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  retryLoadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryLoadText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
   list: {
     gap: 12,
     marginBottom: 16,
@@ -440,7 +598,6 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
-    padding: 0,
     marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
