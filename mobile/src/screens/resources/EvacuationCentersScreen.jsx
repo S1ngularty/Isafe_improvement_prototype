@@ -8,6 +8,7 @@ import {
   Text,
   View,
   StatusBar,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -278,51 +279,56 @@ export default function EvacuationCentersScreen({ navigation }) {
                 style={({ pressed }) => [styles.card, { opacity: pressed ? 0.8 : 1 }]}
                 onPress={() => handleCenterPress(center)}
               >
-                <View style={styles.cardTop}>
-                  <View style={styles.iconWrap}>
-                    <Building2 size={20} color={COLORS.white} />
+                {center.landmark_url ? (
+                  <Image source={{ uri: center.landmark_url }} style={styles.cardImage} />
+                ) : null}
+                <View style={styles.cardContent}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.iconWrap}>
+                      <Building2 size={20} color={COLORS.white} />
+                    </View>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.cardTitle}>{center.name}</Text>
+                      <View style={styles.cardDistance}>
+                        <MapPin size={14} color={COLORS.gray500} />
+                        <Text style={styles.cardDistanceText}>
+                          {center.distance_km} km away
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={20} color={COLORS.gray400} />
                   </View>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardTitle}>{center.name}</Text>
-                    <View style={styles.cardDistance}>
-                      <MapPin size={14} color={COLORS.gray500} />
-                      <Text style={styles.cardDistanceText}>
-                        {center.distance_km} km away
+
+                  <Text style={styles.cardDescription}>
+                    {center.description || "Emergency shelter and safe assembly area."}
+                  </Text>
+
+                  <View style={styles.cardMeta}>
+                    <View style={styles.cardMetaItem}>
+                      <Users size={14} color={COLORS.gray500} />
+                      <Text style={styles.cardMetaText}>
+                        {center.capacity ? `${center.capacity} capacity` : "Capacity N/A"}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: center.status === 'Open' ? '#DCFCE7' : '#FEE2E2' }
+                    ]}>
+                      <Text style={[
+                        styles.statusText,
+                        { color: center.status === 'Open' ? '#15803d' : '#dc2626' }
+                      ]}>
+                        {center.status || "Unknown"}
                       </Text>
                     </View>
                   </View>
-                  <ChevronRight size={20} color={COLORS.gray400} />
-                </View>
 
-                <Text style={styles.cardDescription}>
-                  {center.description || "Emergency shelter and safe assembly area."}
-                </Text>
-
-                <View style={styles.cardMeta}>
-                  <View style={styles.cardMetaItem}>
-                    <Users size={14} color={COLORS.gray500} />
-                    <Text style={styles.cardMetaText}>
-                      {center.capacity ? `${center.capacity} capacity` : "Capacity N/A"}
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cardAction}>
+                      Tap to view on map
                     </Text>
+                    <Navigation size={18} color={COLORS.primary} />
                   </View>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: center.status === 'Open' ? '#DCFCE7' : '#FEE2E2' }
-                  ]}>
-                    <Text style={[
-                      styles.statusText,
-                      { color: center.status === 'Open' ? '#15803d' : '#dc2626' }
-                    ]}>
-                      {center.status || "Unknown"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardAction}>
-                    Tap to view on map
-                  </Text>
-                  <Navigation size={18} color={COLORS.primary} />
                 </View>
               </Pressable>
             ))}
@@ -479,12 +485,22 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
-    padding: 16,
+    padding: 0,
+    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
+    overflow: 'hidden',
+  },
+  cardImage: {
+    width: '100%',
+    height: 140,
+    backgroundColor: COLORS.gray200,
+  },
+  cardContent: {
+    padding: 16,
   },
   cardTop: {
     flexDirection: 'row',

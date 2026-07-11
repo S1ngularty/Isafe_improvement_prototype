@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -155,8 +155,36 @@ const checklists = [
   },
 ];
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 export default function EmergencyChecklist({ navigation }) {
   const [checkedItems, setCheckedItems] = useState({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("emergency_checklist");
+        if (stored) setCheckedItems(JSON.parse(stored));
+      } catch (err) {
+        console.error("Failed to load checklist:", err);
+      }
+    })();
+  }, []);
+
+  const updateCheckedItems = async (newItems) => {
+    let toSave;
+    if (typeof newItems === 'function') {
+      setCheckedItems((prev) => {
+        toSave = newItems(prev);
+        AsyncStorage.setItem("emergency_checklist", JSON.stringify(toSave)).catch(console.error);
+        return toSave;
+      });
+    } else {
+      toSave = newItems;
+      setCheckedItems(toSave);
+      AsyncStorage.setItem("emergency_checklist", JSON.stringify(toSave)).catch(console.error);
+    }
+  };
 
   const getCheckedCount = (checklistId) => {
     let count = 0;
@@ -182,7 +210,7 @@ export default function EmergencyChecklist({ navigation }) {
     navigation.navigate("ChecklistDetail", { 
       checklist,
       checkedItems,
-      setCheckedItems 
+      setCheckedItems: updateCheckedItems 
     });
   };
 

@@ -409,10 +409,12 @@ export default function DashboardScreen({
 
         {/* Weather Panel */}
         {!isOffline && locationEnabled && location && (
-          <WeatherPanel
-            lat={location.coords.latitude}
-            lng={location.coords.longitude}
-          />
+          <Pressable onPress={() => navigation.navigate("Forecast")}>
+            <WeatherPanel
+              lat={location.coords.latitude}
+              lng={location.coords.longitude}
+            />
+          </Pressable>
         )}
 
         {/* Quick Actions */}
@@ -524,10 +526,97 @@ export default function DashboardScreen({
               </View>
               <Text style={styles.quickActionLabel}>Radar</Text>
             </Pressable>
+
+            <Pressable
+              style={[
+                styles.quickActionButton,
+                isOffline && styles.quickActionButtonDisabled,
+              ]}
+              onPress={() => {
+                if (isOffline) {
+                  showToast("Water level data is unavailable offline", "info");
+                  return;
+                }
+                navigation.navigate("WaterLevel");
+              }}
+              disabled={isOffline}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: isOffline ? "#64748b" : "#0ea5e9" },
+                ]}>
+                <MaterialIcons name="water" size={28} color={COLORS.white} />
+              </View>
+              <Text
+                style={[
+                  styles.quickActionLabel,
+                  isOffline && styles.quickActionLabelDisabled,
+                ]}>
+                {isOffline ? "Water Level\nOffline" : "Water Level"}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.quickActionButton,
+                isOffline && styles.quickActionButtonDisabled,
+              ]}
+              onPress={() => {
+                if (isOffline) {
+                  showToast("Tide info is unavailable offline", "info");
+                  return;
+                }
+                navigation.navigate("TideInfo");
+              }}
+              disabled={isOffline}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: isOffline ? "#64748b" : "#6366f1" },
+                ]}>
+                <MaterialIcons name="waves" size={28} color={COLORS.white} />
+              </View>
+              <Text
+                style={[
+                  styles.quickActionLabel,
+                  isOffline && styles.quickActionLabelDisabled,
+                ]}>
+                {isOffline ? "Tide Info\nOffline" : "Tide Info"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.quickActionButton,
+                isOffline && styles.quickActionButtonDisabled,
+              ]}
+              onPress={() => {
+                if (isOffline) {
+                  showToast("Forecast is unavailable offline", "info");
+                  return;
+                }
+                navigation.navigate("Forecast");
+              }}
+              disabled={isOffline}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: isOffline ? "#64748b" : "#3b82f6" },
+                ]}>
+                <MaterialIcons name="wb-sunny" size={28} color={COLORS.white} />
+              </View>
+              <Text
+                style={[
+                  styles.quickActionLabel,
+                  isOffline && styles.quickActionLabelDisabled,
+                ]}>
+                {isOffline ? "Forecast\nOffline" : "Forecast"}
+              </Text>
+            </Pressable>
+
           </View>
         </View>
 
-        {!isOffline && (
+        {/* {!isOffline && (
           <View style={styles.locationSection}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Location Tracking</Text>
@@ -567,7 +656,7 @@ export default function DashboardScreen({
               </View>
             )}
           </View>
-        )}
+        )} */}
 
         {/* Flood Warning (Hidden for now until real API is connected)
         <View style={styles.floodWarningSection}>
@@ -624,7 +713,7 @@ export default function DashboardScreen({
           </View>
         </View>
         */}
-        {!isOffline && (
+        {/* {!isOffline && (
           <View style={styles.aiBotSection}>
             <View style={styles.aiBotHeader}>
               <MaterialIcons name="smart-toy" size={20} color="#800000" />
@@ -642,7 +731,7 @@ export default function DashboardScreen({
               <Text style={styles.aiBotPlaceholderSubtext}>Coming soon</Text>
             </View>
           </View>
-        )}
+        )} */}
       </ScrollView>
     </SafeAreaView>
   );

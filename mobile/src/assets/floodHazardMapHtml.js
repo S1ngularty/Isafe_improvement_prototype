@@ -40,11 +40,13 @@ var map = L.map("map", {
   attributionControl: false
 });
 
-L.tileLayer(SATELLITE_URL, { maxZoom: 18 }).addTo(map);
+var basemapLayer = L.tileLayer(SATELLITE_URL, { maxZoom: 18 }).addTo(map);
 
 var geoLayer = null;
 var summaryData = null;
 var selectedBarangay = null;
+var currentOpacity = 0.65;
+var currentBasemap = "satellite";
 
 function getStyle(feature) {
   var name = (feature.properties && (feature.properties.barangay || feature.properties.NAME_3)) || "";
@@ -58,7 +60,7 @@ function getStyle(feature) {
   var isSelected = selectedBarangay === name;
   return {
     fillColor: color,
-    fillOpacity: 0.65,
+    fillOpacity: currentOpacity,
     weight: isSelected ? 3 : 0.8,
     color: isSelected ? "#fff" : "#555",
     dashArray: isSelected ? "" : "1 1"
@@ -114,12 +116,30 @@ function selectBarangay(name) {
   if (geoLayer) geoLayer.setStyle(getStyle);
 }
 
+function setOpacity(opacity) {
+  currentOpacity = opacity;
+  if (geoLayer) geoLayer.setStyle(getStyle);
+}
+
+function setBasemap(type) {
+  currentBasemap = type;
+  if (basemapLayer) map.removeLayer(basemapLayer);
+  var url = type === "street" ? OSM_URL : SATELLITE_URL;
+  basemapLayer = L.tileLayer(url, { maxZoom: 18 }).addTo(map);
+  // Re-add geoLayer to ensure it's on top
+  if (geoLayer) {
+    geoLayer.bringToFront();
+  }
+}
+
 // Listen for messages from React Native
 document.addEventListener("message", function(e) {
   try {
     var msg = JSON.parse(e.data);
     if (msg.type === "LOAD_DATA") loadData(msg.payload);
     if (msg.type === "SELECT") selectBarangay(msg.name);
+    if (msg.type === "SET_OPACITY") setOpacity(msg.opacity);
+    if (msg.type === "SET_BASEMAP") setBasemap(msg.basemap);
   } catch(err) {}
 });
 window.addEventListener("message", function(e) {
@@ -127,9 +147,11 @@ window.addEventListener("message", function(e) {
     var msg = JSON.parse(e.data);
     if (msg.type === "LOAD_DATA") loadData(msg.payload);
     if (msg.type === "SELECT") selectBarangay(msg.name);
+    if (msg.type === "SET_OPACITY") setOpacity(msg.opacity);
+    if (msg.type === "SET_BASEMAP") setBasemap(msg.basemap);
   } catch(err) {}
 });
-<\/script>
+</script>
 </body>
 </html>`;
 

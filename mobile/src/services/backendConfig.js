@@ -21,6 +21,11 @@ export function getBackendUrl() {
   }
 
   if (__DEV__) {
+    // If it's an Android emulator, always use 10.0.2.2 to bypass Windows Firewall
+    if (Platform.OS === "android" && !Constants.isDevice) {
+      return `http://10.0.2.2:${BACKEND_PORT}`;
+    }
+
     const expoHost = getExpoHost();
     if (expoHost && expoHost !== "localhost" && expoHost !== "127.0.0.1") {
       return `http://${expoHost}:${BACKEND_PORT}`;

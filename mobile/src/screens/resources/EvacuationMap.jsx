@@ -8,6 +8,7 @@ import {
   Linking,
   StatusBar,
   ScrollView,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -217,7 +218,10 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         <View style={styles.sheetHandle} />
 
         {/* Center Details */}
-        <View style={styles.sheetContent}>
+        <ScrollView style={styles.sheetContent}>
+          {center.landmark_url ? (
+            <Image source={{ uri: center.landmark_url }} style={styles.sheetImage} />
+          ) : null}
           <View style={styles.centerInfo}>
             <View style={styles.centerIconContainer}>
               <Building2 size={24} color={COLORS.white} />
@@ -377,7 +381,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
             <Phone size={18} color={COLORS.primary} />
             <Text style={styles.callButtonText}>Call Emergency (911)</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -444,6 +448,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gray300,
     alignSelf: "center",
     marginTop: 10,
+  },
+  sheetImage: {
+    width: "100%",
+    height: 140,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: COLORS.gray200,
   },
   sheetContent: {
     paddingHorizontal: 16,

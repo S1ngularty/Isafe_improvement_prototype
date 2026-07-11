@@ -2,14 +2,18 @@ from app.core.supabase import client
 
 
 async def get_active_alerts() -> list[dict]:
-    result = (
-        client.table("tcws_alerts")
-        .select("*")
-        .eq("is_active", True)
-        .order("signal_level", desc=True)
-        .execute()
-    )
-    return result.data or []
+    try:
+        result = (
+            client.table("tcws_alerts")
+            .select("*")
+            .eq("is_active", True)
+            .order("signal_level", desc=True)
+            .execute()
+        )
+        return result.data or []
+    except Exception as e:
+        print(f"Error fetching active alerts: {e}")
+        return []
 
 
 async def get_all_alerts() -> list[dict]:

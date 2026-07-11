@@ -6,6 +6,7 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 export function useWeather(lat, lng) {
   const [current, setCurrent] = useState(null);
   const [hourly, setHourly] = useState(null);
+  const [daily, setDaily] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const cacheRef = useRef({});
@@ -18,7 +19,7 @@ export function useWeather(lat, lng) {
     }
 
     // Create cache key based on coordinates (rounded to 2 decimals)
-    const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+    const cacheKey = `${Number(lat).toFixed(2)},${Number(lng).toFixed(2)}`;
 
     // Check cache
     if (cacheRef.current[cacheKey]) {
@@ -26,6 +27,7 @@ export function useWeather(lat, lng) {
       if (Date.now() - cached.timestamp < CACHE_DURATION) {
         setCurrent(cached.current);
         setHourly(cached.hourly);
+        setDaily(cached.daily);
         return;
       }
     }
@@ -59,18 +61,28 @@ export function useWeather(lat, lng) {
 
           cacheRef.current[cacheKey] = {
             current: currentData,
-            hourly: hourlyData,
+            hourly: hourlyData.hourly,
+            daily: hourlyData.daily,
             timestamp: Date.now(),
           };
 
           setCurrent(currentData);
-          setHourly(hourlyData);
+          setHourly(hourlyData.hourly);
+          setDaily(hourlyData.daily);
         }
       } catch (err) {
         if (isMounted) {
           const errorMsg = err.message || "Failed to fetch weather";
           setError(errorMsg);
           console.warn("[useWeather] Warning:", errorMsg);
+          
+          // Cache the failure to prevent spam
+          cacheRef.current[cacheKey] = {
+            current: null,
+            hourly: null,
+            daily: null,
+            timestamp: Date.now() - CACHE_DURATION + 60000, // 1 minute cooldown
+          };
         }
       } finally {
         if (isMounted) {
@@ -84,5 +96,5 @@ export function useWeather(lat, lng) {
     };
   }, [lat, lng]);
 
-  return { current, hourly, loading, error };
+  return { current, hourly, daily, loading, error };
 }
