@@ -6,10 +6,16 @@ from app.core.config import (
     FLOOD_ALERT_COOLDOWN_MINUTES,
 )
 from app.core.supabase import client
-from app.services.sms import send_flood_alert_sms, send_flood_all_clear_sms
+from app.services.sms import (
+    send_flood_alert_sms,
+    send_flood_all_clear_sms,
+    send_float_switch_2m_alert_sms,
+    send_float_switch_2m_all_clear_sms,
+)
 from app.integrations.expo_push import send_expo_push
 
 BLINDSPOT_PLACEHOLDER_CM = 50
+FLOAT_SWITCH_2M_COOLDOWN_MINUTES = 30
 
 
 def _fetch_all_push_tokens() -> list[str]:
@@ -156,3 +162,111 @@ def check_flood_alert(water_level_cm: float | None, sensor_id: str):
                 f" (reading={display_cm / 100:.2f}m, sms_recipients={recipients},"
                 f" push_tokens={len(tokens)})"
             )
+
+
+def check_float_switch_2m(sensor_id: str, current_state: bool):
+    if not sensor_id:
+        return
+
+    try:
+        result = (
+            client.table("water_level_readings")
+            .select("float_switch_2m")
+            .eq("sensor_id", sensor_id)
+            .order("recorded_at", desc=True)
+            .limit(2)
+            .execute()
+        )
+        rows = result.data if result.data else []
+    except Exception as e:
+        print(f"[float_switch_2m] Failed to query previous state: {e}")
+        return
+
+    prev_state = None
+    if len(rows) >= 2:
+        prev_state = rows[1].get("float_switch_2m")
+
+    if current_state and prev_state is not True:
+        last_entry = _get_last_alert_entry_for_type(sensor_id, "FLOAT_SWITCH_2M")
+        if last_entry and last_entry.get("triggered_at"):
+            last_time = last_entry["triggered_at"]
+            if isinstance(last_time, str):
+                last_time = datetime.fromisoformat(last_time.replace("Z", "+00:00"))
+            elapsed = datetime.now(timezone.utc) - last_time
+            if elapsed < timedelta(minutes=FLOAT_SWITCH_2M_COOLDOWN_MINUTES):
+                print(f"[float_switch_2m] Cooldown active for sensor {sensor_id}")
+                return
+
+        sms_result = send_float_switch_2m_alert_sms(sensor_id)
+        recipients = 0
+        if isinstance(sms_result, dict) and sms_result.get("success"):
+            recipients = sms_result.get("recipients", 0)
+
+        tokens = _fetch_all_push_tokens()
+        push_body = (
+            f"Water level has reached 2 meters at sensor {sensor_id}."
+            f" Please take precautionary measures and prepare for possible evacuation."
+        )
+        for token in tokens:
+            try:
+                send_expo_push(
+                    token=token,
+                    title="FLOOD ALERT",
+                    body=push_body,
+                )
+            except Exception as e:
+                print(f"[float_switch_2m] Push send failed: {e}")
+
+        _log_alert_entry(sensor_id, None, "FLOAT_SWITCH_2M", recipients)
+        print(
+            f"[float_switch_2m] TRIGGER sent for sensor {sensor_id}"
+            f" (sms_recipients={recipients}, push_tokens={len(tokens)})"
+        )
+
+    elif not current_state and prev_state is True:
+        last_entry = _get_last_alert_entry_for_type(sensor_id, "FLOAT_SWITCH_2M")
+        if not last_entry:
+            return
+
+        sms_result = send_float_switch_2m_all_clear_sms(sensor_id)
+        recipients = 0
+        if isinstance(sms_result, dict) and sms_result.get("success"):
+            recipients = sms_result.get("recipients", 0)
+
+        tokens = _fetch_all_push_tokens()
+        push_body = (
+            f"Water level at sensor {sensor_id} has dropped below 2 meters."
+            f" The immediate danger has passed."
+        )
+        for token in tokens:
+            try:
+                send_expo_push(
+                    token=token,
+                    title="ALL CLEAR",
+                    body=push_body,
+                )
+            except Exception as e:
+                print(f"[float_switch_2m] Push send failed: {e}")
+
+        _log_alert_entry(sensor_id, None, "FLOAT_SWITCH_2M_ALL_CLEAR", recipients)
+        print(
+            f"[float_switch_2m] ALL_CLEAR sent for sensor {sensor_id}"
+            f" (sms_recipients={recipients}, push_tokens={len(tokens)})"
+        )
+
+
+def _get_last_alert_entry_for_type(sensor_id: str, alert_type: str) -> dict | None:
+    try:
+        result = (
+            client.table("flood_alert_log")
+            .select("alert_type, triggered_at")
+            .eq("sensor_id", sensor_id)
+            .eq("alert_type", alert_type)
+            .order("triggered_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        return result.data[0] if result.data else None
+    except Exception as e:
+        print(f"[flood_alert] Failed to query log for type {alert_type}: {e}")
+        return None
