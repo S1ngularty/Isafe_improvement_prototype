@@ -36,7 +36,7 @@ class WaterLevelSummary(BaseModel):
     sensor_statuses: list[SensorStatus]
     unsafe_count: int
     warning_count: int
-    flood_warning_count: int
+    critical_count: int
 
 
 class TimeSeriesPoint(BaseModel):

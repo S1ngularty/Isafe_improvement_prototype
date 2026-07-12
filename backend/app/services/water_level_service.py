@@ -81,14 +81,14 @@ def get_summary() -> WaterLevelSummary:
             .execute()
         readings_24h = result_24h.data if result_24h.data else []
 
-    unsafe_24h = [r for r in readings_24h if derive_status(r.get("water_level_cm", 0)) in ("WARNING", "FLOOD_WARNING")]
+    unsafe_24h = [r for r in readings_24h if derive_status(r.get("water_level_cm", 0)) in ("WARNING", "CRITICAL")]
 
     sensor_statuses = []
     for sid in sensor_ids:
         last = sensor_map[sid]
         last_seen = _parse_dt(last.get("recorded_at"))
         readings_for_sensor = [r for r in readings_24h if r.get("sensor_id") == sid]
-        unsafe_for_sensor = [r for r in readings_24h if r.get("sensor_id") == sid and derive_status(r.get("water_level_cm", 0)) in ("WARNING", "FLOOD_WARNING")]
+        unsafe_for_sensor = [r for r in readings_24h if r.get("sensor_id") == sid and derive_status(r.get("water_level_cm", 0)) in ("WARNING", "CRITICAL")]
 
         sensor_statuses.append(SensorStatus(
             sensor_id=sid,
@@ -104,7 +104,7 @@ def get_summary() -> WaterLevelSummary:
 
     active_count = sum(1 for s in sensor_statuses if s.is_active)
     warning_count = sum(1 for r in unsafe_24h if derive_status(r.get("water_level_cm", 0)) == "WARNING")
-    flood_warning_count = sum(1 for r in unsafe_24h if derive_status(r.get("water_level_cm", 0)) == "FLOOD_WARNING")
+    critical_count = sum(1 for r in unsafe_24h if derive_status(r.get("water_level_cm", 0)) == "CRITICAL")
 
     return WaterLevelSummary(
         total_sensors=len(sensor_ids),
@@ -114,7 +114,7 @@ def get_summary() -> WaterLevelSummary:
         sensor_statuses=sensor_statuses,
         unsafe_count=len(unsafe_24h),
         warning_count=warning_count,
-        flood_warning_count=flood_warning_count,
+        critical_count=critical_count,
     )
 
 
@@ -135,12 +135,12 @@ def get_readings(
     if to_date:
         query = query.lte("recorded_at", to_date)
     if status_filter:
-        if status_filter == "FLOOD_WARNING":
-            query = query.lt("water_level_cm", 50)
+        if status_filter == "CRITICAL":
+            query = query.lt("water_level_cm", 30)
         elif status_filter == "WARNING":
-            query = query.gte("water_level_cm", 50).lte("water_level_cm", 70)
+            query = query.gte("water_level_cm", 30).lte("water_level_cm", 130)
         elif status_filter == "SAFE":
-            query = query.gt("water_level_cm", 70)
+            query = query.gt("water_level_cm", 130)
 
     offset_val = (page - 1) * limit
     result = query.order("recorded_at", desc=True).range(offset_val, offset_val + limit - 1).execute()
@@ -222,7 +222,7 @@ def get_analytics(days: int = DEFAULT_ANALYTICS_DAYS) -> WaterLevelAnalytics:
     daily_aggregates = []
     for d in sorted(daily_buckets.keys()):
         vals = [v[0] for v in daily_buckets[d]]
-        unsafe = sum(1 for v in daily_buckets[d] if derive_status(v[0]) in ("WARNING", "FLOOD_WARNING"))
+        unsafe = sum(1 for v in daily_buckets[d] if derive_status(v[0]) in ("WARNING", "CRITICAL"))
         daily_aggregates.append(DailyAggregate(
             date=d,
             avg_water_level_cm=round(sum(vals) / len(vals), 2),
@@ -248,7 +248,7 @@ def get_unsafe_readings(
     now = datetime.now(timezone.utc)
     query = supabase.table("water_level_readings") \
         .select("*") \
-        .lte("water_level_cm", 70) \
+        .lte("water_level_cm", 130) \
         .order("recorded_at", desc=True)
 
     if sensor_id:

@@ -116,6 +116,16 @@ export default async function exportWaterLevelPdf(kpi) {
     y = await addImageToDoc(doc, unsafeImg, y + 4);
   }
 
+  // Float Switch History — same page if room, else new page
+  var floatSwitchImg = await captureSection("wl-float-switch-section");
+  if (floatSwitchImg) {
+    if (y + 20 > PAGE_H - MARGIN) {
+      doc.addPage();
+      y = 15;
+    }
+    y = await addImageToDoc(doc, floatSwitchImg, y + 4);
+  }
+
   // Pre-capture all chart images
   var chartPages = [];
   for (var i = 0; i < CHART_SECTIONS.length; i++) {

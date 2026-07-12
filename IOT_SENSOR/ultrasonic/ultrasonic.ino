@@ -165,7 +165,7 @@ void publishReading() {
 
   char payload[196];
   snprintf(payload, sizeof(payload),
-    "{\"sensor_id\":\"hc-sr04-001\",\"distance_mm\":%d,\"water_level_cm\":%.1f,"
+    "{\"sensor_id\":\"SR04M-2\",\"distance_mm\":%d,\"water_level_cm\":%.1f,"
     "\"float_switch_1m\":%s,\"float_switch_2m\":%s}",
     distanceMM, displayCm,
     floatSwitch1mState ? "true" : "false",

@@ -6,8 +6,11 @@ import {
 } from "../../services/waterLevel.js";
 import WaterLevelCharts from "./WaterLevelCharts";
 import RealtimeSensorChart from "./RealtimeSensorChart";
+import WaterDepthChart from "./WaterDepthChart";
 import exportWaterLevelPdf from "../../utils/exportWaterLevelPdf.js";
 import useRealtimeWaterLevel from "../../hooks/useRealtimeWaterLevel.js";
+
+const FLOAT_SWITCH_SENSOR_ID = "SR04M-2";
 
 function KpiCard({ label, value, sub, color }) {
   const borderColor =
@@ -90,14 +93,14 @@ function UnsafeSection({ unsafeReadings, loading, error }) {
             <div className="text-right shrink-0 ml-4">
               <span
                 className={`text-sm font-extrabold ${
-                  r.status === "FLOOD_WARNING" ? "text-red-600" : "text-amber-600"
+                  r.status === "CRITICAL" ? "text-red-600" : "text-amber-600"
                 }`}
               >
                 {(r.water_level_cm / 100).toFixed(2)} m
               </span>
               <span
                 className={`block text-[10px] font-semibold ${
-                  r.status === "FLOOD_WARNING" ? "text-red-500" : "text-amber-500"
+                  r.status === "CRITICAL" ? "text-red-500" : "text-amber-500"
                 }`}
               >
                 {r.status}
@@ -211,7 +214,7 @@ export default function WaterLevelView() {
       inactiveSensors: summary.inactive_sensors,
       unsafeCount: summary.unsafe_count,
       warningCount: summary.warning_count,
-      floodWarningCount: summary.flood_warning_count,
+      criticalCount: summary.critical_count,
     };
   }, [summary]);
 
@@ -237,6 +240,7 @@ export default function WaterLevelView() {
       .filter((r) => r.float_switch_1m !== null || r.float_switch_2m !== null)
       .map((r) => ({
         timestamp: r.recorded_at,
+        sensor_id: r.sensor_id,
         float_switch_1m: r.float_switch_1m,
         float_switch_2m: r.float_switch_2m,
       }));
@@ -254,7 +258,52 @@ export default function WaterLevelView() {
     return merged;
   }, [analytics, realtimeReadings]);
 
-  const hasFloatSwitch = fsData.length > 0;
+  const todayFSData = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return fsData.filter((p) => {
+      const isToday = new Date(p.timestamp) >= startOfDay;
+      const isCorrectSensor = p.sensor_id === FLOAT_SWITCH_SENSOR_ID;
+      return isToday && isCorrectSensor;
+    });
+  }, [fsData]);
+
+  const stateChangeEvents = useMemo(() => {
+    if (todayFSData.length < 2) return [];
+    const events = [];
+    for (let i = 1; i < todayFSData.length; i++) {
+      const prev = todayFSData[i - 1];
+      const curr = todayFSData[i];
+      if (curr.float_switch_1m !== null && prev.float_switch_1m !== null && curr.float_switch_1m !== prev.float_switch_1m) {
+        events.push({ timestamp: curr.timestamp, switch: "1m", from: prev.float_switch_1m ? "Triggered" : "At Rest", to: curr.float_switch_1m ? "Triggered" : "At Rest" });
+      }
+      if (curr.float_switch_2m !== null && prev.float_switch_2m !== null && curr.float_switch_2m !== prev.float_switch_2m) {
+        events.push({ timestamp: curr.timestamp, switch: "2m", from: prev.float_switch_2m ? "Triggered" : "At Rest", to: curr.float_switch_2m ? "Triggered" : "At Rest" });
+      }
+    }
+    return events;
+  }, [todayFSData]);
+
+  const transitionShapes = useMemo(() => {
+    return stateChangeEvents.map((e) => ({
+      type: "line",
+      xref: "x",
+      yref: "paper",
+      x0: e.timestamp,
+      x1: e.timestamp,
+      y0: 0,
+      y1: 1,
+      line: { color: e.switch === "1m" ? "#6366f1" : "#ef4444", width: 1, dash: "dot" },
+      layer: "below",
+    }));
+  }, [stateChangeEvents]);
+
+  const hasFloatSwitch = todayFSData.length > 0;
+
+  const currentDepth = useMemo(() => {
+    if (!realtimeReadings || realtimeReadings.length === 0) return null;
+    return 2.29 - (realtimeReadings[0].water_level_cm / 100);
+  }, [realtimeReadings]);
 
   return (
     <div className="space-y-6">
@@ -287,7 +336,7 @@ export default function WaterLevelView() {
       )}
 
       {/* KPI Cards */}
-      <div id="wl-kpi-grid" className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div id="wl-kpi-grid" className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
         <KpiCard label="Total Sensors" value={kpi?.totalSensors} color="blue" />
         <KpiCard
           label="Active Sensors"
@@ -303,9 +352,14 @@ export default function WaterLevelView() {
         />
         <KpiCard label="WARNING Count" value={kpi?.warningCount ?? 0} color="amber" />
         <KpiCard
-          label="FLOOD WARNING Count"
-          value={kpi?.floodWarningCount ?? 0}
+          label="CRITICAL Count"
+          value={kpi?.criticalCount ?? 0}
           color="red"
+        />
+        <KpiCard
+          label="Current Depth"
+          value={currentDepth != null ? `${currentDepth.toFixed(2)} m` : "..."}
+          color={currentDepth >= 1.99 ? "red" : currentDepth >= 0.99 ? "amber" : "green"}
         />
         <KpiCard
           label="Analytics Period"
@@ -337,11 +391,29 @@ export default function WaterLevelView() {
 
       {/* Realtime Sensor Chart */}
       <div id="wl-realtime-chart">
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Live Sensor Readings</h2>
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Live: Distance from Sensor to Water</h2>
         {realtimeError && (
           <ErrorBanner message={`Realtime subscription error: ${realtimeError}. Data may be delayed.`} />
         )}
         <RealtimeSensorChart readings={realtimeReadings} Plot={Plot} />
+      </div>
+
+      {/* Side-by-side: Freeboard + Actual Depth */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">Distance from Sensor (Freeboard)</h2>
+          {realtimeError && (
+            <ErrorBanner message={`Realtime subscription error: ${realtimeError}. Data may be delayed.`} />
+          )}
+          <RealtimeSensorChart readings={realtimeReadings} Plot={Plot} />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 mb-3">Actual Water Depth</h2>
+          {realtimeError && (
+            <ErrorBanner message={`Realtime subscription error: ${realtimeError}. Data may be delayed.`} />
+          )}
+          <WaterDepthChart readings={realtimeReadings} Plot={Plot} />
+        </div>
       </div>
 
       {/* Float Switch History */}
@@ -352,45 +424,46 @@ export default function WaterLevelView() {
           {!Plot ? (
             <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
           ) : hasFloatSwitch ? (
+            <>
             <Plot
               data={[
                 {
                   type: "scatter",
                   mode: "lines+markers",
-                  x: fsData.map((p) => p.timestamp),
-                  y: fsData.map((p) => (p.float_switch_1m ? 1 : 0)),
+                  x: todayFSData.map((p) => p.timestamp),
+                  y: todayFSData.map((p) => (p.float_switch_1m ? 1 : 0)),
                   name: "1m Switch",
                   line: { shape: "hv", color: "#6366f1", width: 2 },
                   marker: {
                     size: 4,
-                    color: fsData.map((p) =>
-                      p.float_switch_1m ? "#ef4444" : "#9ca3af"
-                    ),
+                    color: todayFSData.map((p) => (p.float_switch_1m ? "#ef4444" : "#9ca3af")),
                     symbol: "circle",
                   },
-                  hovertemplate: "%{x}<br>1m: %{customdata}<extra></extra>",
-                  customdata: fsData.map((p) =>
-                    p.float_switch_1m ? "Triggered" : "At Rest"
-                  ),
+                  hovertemplate: "<b>1m</b>: %{customdata}<br>%{x}<extra></extra>",
+                  customdata: todayFSData.map((p, i) => {
+                    const state = p.float_switch_1m ? "Triggered" : "At Rest";
+                    if (i > 0 && p.float_switch_1m !== todayFSData[i - 1].float_switch_1m) return state + " ← State changed";
+                    return state;
+                  }),
                 },
                 {
                   type: "scatter",
                   mode: "lines+markers",
-                  x: fsData.map((p) => p.timestamp),
-                  y: fsData.map((p) => (p.float_switch_2m ? 3 : 2)),
+                  x: todayFSData.map((p) => p.timestamp),
+                  y: todayFSData.map((p) => (p.float_switch_2m ? 3 : 2)),
                   name: "2m Switch",
                   line: { shape: "hv", color: "#ef4444", width: 2 },
                   marker: {
                     size: 4,
-                    color: fsData.map((p) =>
-                      p.float_switch_2m ? "#ef4444" : "#9ca3af"
-                    ),
+                    color: todayFSData.map((p) => (p.float_switch_2m ? "#ef4444" : "#9ca3af")),
                     symbol: "diamond",
                   },
-                  hovertemplate: "%{x}<br>2m: %{customdata}<extra></extra>",
-                  customdata: fsData.map((p) =>
-                    p.float_switch_2m ? "Triggered" : "At Rest"
-                  ),
+                  hovertemplate: "<b>2m</b>: %{customdata}<br>%{x}<extra></extra>",
+                  customdata: todayFSData.map((p, i) => {
+                    const state = p.float_switch_2m ? "Triggered" : "At Rest";
+                    if (i > 0 && p.float_switch_2m !== todayFSData[i - 1].float_switch_2m) return state + " ← State changed";
+                    return state;
+                  }),
                 },
               ]}
               layout={{
@@ -406,12 +479,57 @@ export default function WaterLevelView() {
                   ticktext: ["1m At Rest", "1m Triggered", "2m At Rest", "2m Triggered"],
                   range: [-0.15, 3.15],
                 },
-                xaxis: { tickfont: { size: 9 } },
+                xaxis: { tickfont: { size: 9 }, tickformat: "%H:%M", hoverformat: "%b %e, %Y %H:%M" },
                 hovermode: "x unified",
+                shapes: transitionShapes,
               }}
               config={{ displayModeBar: false, responsive: true }}
               style={{ width: "100%", height: 300 }}
             />
+            {stateChangeEvents.length > 0 && (
+              <div className="mt-4 border-t border-gray-100 pt-3">
+                <details className="group">
+                  <summary className="text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none">
+                    State Change Events ({stateChangeEvents.length})
+                  </summary>
+                  <div className="mt-2 max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-1.5 pr-3 font-semibold text-gray-400">Time</th>
+                          <th className="text-left py-1.5 pr-3 font-semibold text-gray-400">Switch</th>
+                          <th className="text-left py-1.5 font-semibold text-gray-400">Change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stateChangeEvents.map((e, i) => (
+                          <tr key={i} className="border-b border-gray-50">
+                            <td className="py-1.5 pr-3 text-gray-600 whitespace-nowrap">
+                              {new Date(e.timestamp).toLocaleString()}
+                            </td>
+                            <td className="py-1.5 pr-3">
+                              <span className={`font-semibold ${e.switch === "1m" ? "text-indigo-600" : "text-red-600"}`}>
+                                {e.switch}
+                              </span>
+                            </td>
+                            <td className="py-1.5">
+                              <span className={`inline-flex items-center gap-1 ${e.to === "Triggered" ? "text-red-600" : "text-gray-500"}`}>
+                                <span>{e.from}</span>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                                <span className="font-semibold">{e.to}</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              </div>
+            )}
+          </>
           ) : (
             <div className="h-64 flex items-center justify-center text-gray-400">
               <p className="text-sm">No float switch data available</p>
