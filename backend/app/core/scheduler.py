@@ -3,6 +3,8 @@ from datetime import date, datetime, timedelta, timezone
 
 SCHEDULER_RUNNING = False
 
+TIDE_ALERT_HOURS = [0, 4, 10]  # UTC — corresponds to 8am, 12pm, 6pm PHT
+
 
 async def _daily_job():
     yesterday = date.today() - timedelta(days=1)
@@ -80,6 +82,89 @@ async def _build_weekly_metrics(start: date, end: date):
     ).execute()
 
 
+async def _send_tide_alerts():
+    from app.services.tide import get_tide_data, get_current_tide_status
+    from app.integrations.expo_push import send_expo_push
+    from app.core.supabase import client
+
+    try:
+        data = await get_tide_data()
+        if data is None:
+            print("[scheduler] No tide data available for alert")
+            return
+
+        status = get_current_tide_status(data)
+        if status is None or status["next"] is None:
+            print("[scheduler] Could not compute tide status for alert")
+            return
+
+        current = status["current"]
+        next_extreme = status["next"]
+        direction = "Rising" if status["rising"] else "Falling"
+        current_type = "High" if current["type"] == "high" else "Low"
+        next_type = "high" if next_extreme["type"] == "high" else "low"
+        next_time = _format_local_time(next_extreme.get("localTime", ""))
+
+        title = "Tide update"
+        body = (
+            f"Current status: {current_type} tide - {direction} at "
+            f"{current['height']}m. Next {next_type} tide at {next_time}"
+        )
+
+        subscribed = client.table("profiles").select("id").eq("tide_alerts_enabled", True).execute()
+        subscribed_ids = [row["id"] for row in (subscribed.data or [])]
+        if not subscribed_ids:
+            print("[scheduler] No subscribed users for tide alert")
+            return
+
+        tokens_result = client.table("notification").select("push_token").in_("user_id", subscribed_ids).execute()
+        tokens = [row["push_token"] for row in (tokens_result.data or []) if row.get("push_token")]
+        if not tokens:
+            print("[scheduler] No push tokens for subscribed users")
+            return
+
+        for token in tokens:
+            try:
+                send_expo_push(token=token, title=title, body=body)
+            except Exception as e:
+                print(f"[scheduler] Failed to send push to token: {e}")
+
+        print(f"[scheduler] Tide alert sent to {len(tokens)} devices: {body}")
+
+    except Exception as e:
+        print(f"[scheduler] Failed to send tide alert: {e}")
+
+
+def _format_local_time(local_time_str):
+    try:
+        dt = datetime.fromisoformat(local_time_str)
+        return dt.strftime("%I:%M %p").lstrip("0")
+    except (ValueError, TypeError):
+        return local_time_str
+
+
+def _next_tide_alert_delay():
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    for h in TIDE_ALERT_HOURS:
+        target = datetime(today.year, today.month, today.day, h, 0, 0, tzinfo=timezone.utc)
+        if target > now:
+            return (target - now).total_seconds()
+    tomorrow = today + timedelta(days=1)
+    target = datetime(tomorrow.year, tomorrow.month, tomorrow.day, TIDE_ALERT_HOURS[0], 0, 0, tzinfo=timezone.utc)
+    return (target - now).total_seconds()
+
+
+async def _tide_alert_loop():
+    global SCHEDULER_RUNNING
+    while SCHEDULER_RUNNING:
+        delay = _next_tide_alert_delay()
+        await asyncio.sleep(delay)
+        if not SCHEDULER_RUNNING:
+            break
+        await _send_tide_alerts()
+
+
 async def _run_loop():
     global SCHEDULER_RUNNING
     SCHEDULER_RUNNING = True
@@ -98,6 +183,7 @@ async def _run_loop():
 async def start():
     loop = asyncio.get_event_loop()
     loop.create_task(_run_loop())
+    loop.create_task(_tide_alert_loop())
 
 
 async def stop():

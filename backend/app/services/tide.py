@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timezone
 import httpx
 
 from app.core.config import TIDECHECK_API_KEY, TIDECHECK_API_URL, TIDECHECK_DEFAULT_PARAMS, TIDE_CACHE_TTL
@@ -67,3 +68,37 @@ async def refresh_tide_data():
     CACHE["data"] = body
 
     return body
+
+
+def get_current_tide_status(data):
+    extremes = data.get("extremes", [])
+    if len(extremes) < 2:
+        return None
+
+    now = datetime.now(timezone.utc).timestamp() * 1000
+
+    for i in range(len(extremes) - 1):
+        a = _parse_iso_ms(extremes[i]["time"])
+        b = _parse_iso_ms(extremes[i + 1]["time"])
+        if now >= a and now <= b:
+            rising = extremes[i + 1]["height"] > extremes[i]["height"]
+            return {
+                "current": extremes[i],
+                "next": extremes[i + 1],
+                "rising": rising,
+                "elapsed": (now - a) / (b - a) if b > a else 0,
+            }
+
+    last = extremes[-1]
+    prev = extremes[-2]
+    return {
+        "current": last,
+        "next": None,
+        "rising": last["height"] > prev["height"],
+        "elapsed": 1,
+    }
+
+
+def _parse_iso_ms(iso_str):
+    dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+    return dt.timestamp() * 1000

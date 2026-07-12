@@ -17,6 +17,7 @@ import TcwsBanner from "../components/TcwsBanner";
 import FamilySetup from "../components/FamilySetup";
 import FamilyMemberList from "../components/FamilyMemberList";
 import UserProfile from "../components/UserProfile";
+import UserSettings from "../components/UserSettings";
 import RouteSteps from "../components/RouteSteps";
 import EvacMarker from "../components/EvacMarker";
 import ForecastPage from "../components/ForecastPage";
@@ -220,6 +221,8 @@ export default function Dashboard() {
           })}
 
           {view === "profile" && <UserProfile />}
+
+          {view === "settings" && <UserSettings />}
 
           {view === "family" && (
             <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-7rem)]">
