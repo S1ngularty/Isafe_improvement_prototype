@@ -761,7 +761,7 @@ export default function ProfileScreen({ navigation }) {
               />
             ) : (
               <Image
-                source={{ uri: getDefaultAvatar(fullName) }}
+                source={{ uri:profile.avatar_url }}
                 style={styles.profileAvatarImage}
               />
             )}
