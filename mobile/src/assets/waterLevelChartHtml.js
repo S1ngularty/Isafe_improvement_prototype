@@ -233,6 +233,21 @@ function renderCharts(analytics) {
   }
   html += '</div>';
 
+  // 6. Float Switch History
+  var fsData = ts.filter(function(p){ return p.float_switch_1m !== null || p.float_switch_2m !== null; });
+  var hasFS = fsData.length > 0;
+  html += '<div class="chart-card">';
+  html += '<div class="chart-header">';
+  html += '<div class="chart-title">Float Switch History</div>';
+  html += '<div class="chart-sub">1m and 2m float switch state over time</div>';
+  html += '</div>';
+  if (hasFS) {
+    html += '<div id="chart-float-switch" class="chart-container"></div>';
+  } else {
+    html += '<div class="empty-msg">No float switch data available</div>';
+  }
+  html += '</div>';
+
   root.innerHTML = html;
 
   // Render Time Series
@@ -512,6 +527,67 @@ function renderCharts(analytics) {
     }), CONFIG);
   }
 
+  // Render Float Switch History
+  if (hasFS) {
+    var fsTrace1 = {
+      type: 'scatter',
+      mode: 'lines+markers',
+      x: fsData.map(function(p){ return p.timestamp; }),
+      y: fsData.map(function(p){ return p.float_switch_1m ? 1 : 0; }),
+      name: '1m Switch',
+      line: { shape: 'hv', color: '#6366f1', width: 2 },
+      marker: {
+        size: 5,
+        color: fsData.map(function(p){
+          return p.float_switch_1m ? COLORS.red : COLORS.gray;
+        }),
+        line: { width: 1, color: '#ffffff' },
+      },
+      hovertemplate: '<b>1m: %{customdata}</b><br>%{x}<extra></extra>',
+      customdata: fsData.map(function(p){
+        return p.float_switch_1m ? 'Triggered' : 'At Rest';
+      }),
+    };
+
+    var fsTrace2 = {
+      type: 'scatter',
+      mode: 'lines+markers',
+      x: fsData.map(function(p){ return p.timestamp; }),
+      y: fsData.map(function(p){ return p.float_switch_2m ? 3 : 2; }),
+      name: '2m Switch',
+      line: { shape: 'hv', color: COLORS.red, width: 2 },
+      marker: {
+        size: 5,
+        color: fsData.map(function(p){
+          return p.float_switch_2m ? COLORS.red : COLORS.gray;
+        }),
+        symbol: 'diamond',
+        line: { width: 1, color: '#ffffff' },
+      },
+      hovertemplate: '<b>2m: %{customdata}</b><br>%{x}<extra></extra>',
+      customdata: fsData.map(function(p){
+        return p.float_switch_2m ? 'Triggered' : 'At Rest';
+      }),
+    };
+
+    Plotly.newPlot('chart-float-switch', [fsTrace1, fsTrace2], getLayout('Float Switch', {
+      yaxis: {
+        tickvals: [0, 1, 2, 3],
+        ticktext: ['1m At Rest', '1m Triggered', '2m At Rest', '2m Triggered'],
+        range: [-0.15, 3.15],
+        gridcolor: '#e5e7eb',
+        tickfont: { size: 10 }
+      },
+      xaxis: {
+        title: { text: 'Time', font: { size: 12, weight: 'bold' } },
+        tickfont: { size: 10 },
+        gridcolor: '#e5e7eb',
+        tickangle: -30,
+      },
+      hovermode: 'x unified',
+    }), CONFIG);
+  }
+
   // Calculate total height and notify React Native
   setTimeout(function() {
     var totalHeight = root.scrollHeight + 40;
@@ -548,7 +624,7 @@ window.addEventListener('load', function() {
 
 // Handle orientation changes
 window.addEventListener('resize', function() {
-  var chartIds = ['chart-ts', 'chart-status', 'chart-hourly', 'chart-daily', 'chart-unsafe'];
+  var chartIds = ['chart-ts', 'chart-status', 'chart-hourly', 'chart-daily', 'chart-unsafe', 'chart-float-switch'];
   chartIds.forEach(function(id) {
     var el = document.getElementById(id);
     if (el && el._fullLayout) {

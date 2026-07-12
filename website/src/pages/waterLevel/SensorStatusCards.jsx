@@ -90,6 +90,27 @@ export default function SensorStatusCards({ sensors }) {
               </div>
             )}
 
+            <div className="flex gap-2 pt-1">
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  sensor.float_switch_1m
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                1m: {sensor.float_switch_1m ? "TRIGGERED" : "At Rest"}
+              </span>
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  sensor.float_switch_2m
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-500"
+                }`}
+              >
+                2m: {sensor.float_switch_2m ? "TRIGGERED" : "At Rest"}
+              </span>
+            </div>
+
             <div className="flex justify-between items-center text-xs text-gray-400 pt-1 border-t border-gray-50">
               <span>24h: {sensor.readings_24h} readings</span>
               <span>

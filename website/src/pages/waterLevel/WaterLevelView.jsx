@@ -228,6 +228,34 @@ export default function WaterLevelView() {
 
   const analyticsReady = analytics && Array.isArray(analytics.time_series) && analytics.time_series.length > 0;
 
+  const fsData = useMemo(() => {
+    const historical = (analytics?.time_series || []).filter(
+      (p) => p.float_switch_1m !== null || p.float_switch_2m !== null
+    );
+
+    const rt = (realtimeReadings || [])
+      .filter((r) => r.float_switch_1m !== null || r.float_switch_2m !== null)
+      .map((r) => ({
+        timestamp: r.recorded_at,
+        float_switch_1m: r.float_switch_1m,
+        float_switch_2m: r.float_switch_2m,
+      }));
+
+    const seen = new Set(historical.map((p) => p.timestamp));
+    const merged = [...historical];
+    for (const r of rt) {
+      if (!seen.has(r.timestamp)) {
+        merged.push(r);
+        seen.add(r.timestamp);
+      }
+    }
+
+    merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    return merged;
+  }, [analytics, realtimeReadings]);
+
+  const hasFloatSwitch = fsData.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -314,6 +342,82 @@ export default function WaterLevelView() {
           <ErrorBanner message={`Realtime subscription error: ${realtimeError}. Data may be delayed.`} />
         )}
         <RealtimeSensorChart readings={realtimeReadings} Plot={Plot} />
+      </div>
+
+      {/* Float Switch History */}
+      <div id="wl-float-switch-section">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Float Switch History</h2>
+        <div className="card">
+          <p className="text-xs text-gray-400 mb-4">1m and 2m float switch state over time</p>
+          {!Plot ? (
+            <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />
+          ) : hasFloatSwitch ? (
+            <Plot
+              data={[
+                {
+                  type: "scatter",
+                  mode: "lines+markers",
+                  x: fsData.map((p) => p.timestamp),
+                  y: fsData.map((p) => (p.float_switch_1m ? 1 : 0)),
+                  name: "1m Switch",
+                  line: { shape: "hv", color: "#6366f1", width: 2 },
+                  marker: {
+                    size: 4,
+                    color: fsData.map((p) =>
+                      p.float_switch_1m ? "#ef4444" : "#9ca3af"
+                    ),
+                    symbol: "circle",
+                  },
+                  hovertemplate: "%{x}<br>1m: %{customdata}<extra></extra>",
+                  customdata: fsData.map((p) =>
+                    p.float_switch_1m ? "Triggered" : "At Rest"
+                  ),
+                },
+                {
+                  type: "scatter",
+                  mode: "lines+markers",
+                  x: fsData.map((p) => p.timestamp),
+                  y: fsData.map((p) => (p.float_switch_2m ? 3 : 2)),
+                  name: "2m Switch",
+                  line: { shape: "hv", color: "#ef4444", width: 2 },
+                  marker: {
+                    size: 4,
+                    color: fsData.map((p) =>
+                      p.float_switch_2m ? "#ef4444" : "#9ca3af"
+                    ),
+                    symbol: "diamond",
+                  },
+                  hovertemplate: "%{x}<br>2m: %{customdata}<extra></extra>",
+                  customdata: fsData.map((p) =>
+                    p.float_switch_2m ? "Triggered" : "At Rest"
+                  ),
+                },
+              ]}
+              layout={{
+                font: { size: 11, color: "#374151" },
+                margin: { l: 40, r: 10, t: 10, b: 30 },
+                plot_bgcolor: "transparent",
+                paper_bgcolor: "transparent",
+                showlegend: true,
+                legend: { orientation: "h", y: 1.2, x: 0.5, xanchor: "center", font: { size: 10 } },
+                height: 280,
+                yaxis: {
+                  tickvals: [0, 1, 2, 3],
+                  ticktext: ["1m At Rest", "1m Triggered", "2m At Rest", "2m Triggered"],
+                  range: [-0.15, 3.15],
+                },
+                xaxis: { tickfont: { size: 9 } },
+                hovermode: "x unified",
+              }}
+              config={{ displayModeBar: false, responsive: true }}
+              style={{ width: "100%", height: 300 }}
+            />
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-400">
+              <p className="text-sm">No float switch data available</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Unsafe Conditions */}

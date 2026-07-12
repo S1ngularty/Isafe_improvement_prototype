@@ -12,6 +12,9 @@
 #define ECHO_PIN 27
 #define MAX_DISTANCE 450
 
+#define FLOAT_SWITCH_1M 33
+#define FLOAT_SWITCH_2M 32
+
 #define PING_INTERVAL_MS 50
 #define PUBLISH_INTERVAL_MS 10000
 #define WIFI_TIMEOUT_MS 20000
@@ -32,12 +35,19 @@ unsigned long lastPingTime = 0;
 unsigned long lastPublishTime = 0;
 unsigned long lastReconnectAttempt = 0;
 
+bool floatSwitch1mState = false;
+bool floatSwitch2mState = false;
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
 
   Serial.println(F("\n========== HC-SR04 MQTT =========="));
   Serial.println(F("TRIG: GPIO26  |  ECHO: GPIO27"));
+  Serial.println(F("Float1: GPIO33 (1m) | Float2: GPIO32 (2m)"));
+
+  pinMode(FLOAT_SWITCH_1M, INPUT_PULLUP);
+  pinMode(FLOAT_SWITCH_2M, INPUT_PULLUP);
 
   connectWiFi();
 
@@ -59,6 +69,9 @@ void loop() {
   }
 
   unsigned long currentTime = millis();
+
+  floatSwitch1mState = digitalRead(FLOAT_SWITCH_1M) == HIGH;
+  floatSwitch2mState = digitalRead(FLOAT_SWITCH_2M) == HIGH;
 
   if (currentTime - lastPingTime >= PING_INTERVAL_MS) {
     lastPingTime = currentTime;
@@ -115,36 +128,48 @@ void reconnectMQTT() {
 }
 
 void publishReading() {
-  if (samplesCollected == 0) {
-    Serial.println(F("No samples collected - skipping publish"));
-    return;
-  }
+  int distanceMM = 0;
+  float displayCm = 0.0;
 
-  unsigned int farthest = 0;
-  for (int i = 0; i < samplesCollected; i++) {
-    if (sampleWindow[i] > farthest) farthest = sampleWindow[i];
-  }
-
-  float diff = abs((float)farthest - smoothedDistance);
-
-  if (diff > 2) {
-    if (diff > 30) {
-      smoothedDistance = (farthest * 0.7) + (smoothedDistance * 0.3);
-    } else {
-      smoothedDistance = (farthest * 0.4) + (smoothedDistance * 0.6);
+  if (samplesCollected > 0) {
+    unsigned int farthest = 0;
+    for (int i = 0; i < samplesCollected; i++) {
+      if (sampleWindow[i] > farthest) farthest = sampleWindow[i];
     }
+
+    float diff = abs((float)farthest - smoothedDistance);
+
+    if (diff > 2) {
+      if (diff > 30) {
+        smoothedDistance = (farthest * 0.7) + (smoothedDistance * 0.3);
+      } else {
+        smoothedDistance = (farthest * 0.4) + (smoothedDistance * 0.6);
+      }
+    }
+
+    distanceMM = (int)(smoothedDistance * 10);
+    displayCm = smoothedDistance;
   }
 
-  int distanceMM = (int)(smoothedDistance * 10);
+  Serial.print(F("Dist: "));
+  if (samplesCollected > 0) {
+    Serial.print(displayCm);
+    Serial.print(F(" cm"));
+  } else {
+    Serial.print(F("NO RD"));
+  }
+  Serial.print(F("  |  Float1: "));
+  Serial.print(floatSwitch1mState ? "TRIGGERED" : "at rest");
+  Serial.print(F("  |  Float2: "));
+  Serial.println(floatSwitch2mState ? "TRIGGERED" : "at rest");
 
-  Serial.print(F("Distance: "));
-  Serial.print(smoothedDistance);
-  Serial.println(F(" cm"));
-
-  char payload[128];
+  char payload[196];
   snprintf(payload, sizeof(payload),
-    "{\"sensor_id\":\"hc-sr04-001\",\"distance_mm\":%d,\"water_level_cm\":%.1f}",
-    distanceMM, smoothedDistance);
+    "{\"sensor_id\":\"hc-sr04-001\",\"distance_mm\":%d,\"water_level_cm\":%.1f,"
+    "\"float_switch_1m\":%s,\"float_switch_2m\":%s}",
+    distanceMM, displayCm,
+    floatSwitch1mState ? "true" : "false",
+    floatSwitch2mState ? "true" : "false");
 
   if (mqttClient.publish(MQTT_TOPIC, payload)) {
     Serial.print(F("Published: "));

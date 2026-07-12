@@ -334,6 +334,79 @@ export default function WaterLevelScreen({ navigation }) {
           />
         </ScrollView>
 
+        {/* Sensor Status Cards - includes float switch */}
+        {summary?.sensor_statuses && summary.sensor_statuses.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="sensors" size={20} color={COLORS.gray700} />
+              <Text style={styles.sectionTitle}>Sensor Status</Text>
+            </View>
+            {summary.sensor_statuses.map((s) => (
+              <View key={s.sensor_id} style={styles.sensorStatusRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sensorStatusId} numberOfLines={1}>
+                    {s.sensor_id}
+                  </Text>
+                  <View style={styles.floatSwitchRow}>
+                    <Text
+                      style={[
+                        styles.floatSwitchBadge,
+                        {
+                          backgroundColor: s.float_switch_1m
+                            ? "#fee2e2"
+                            : "#f3f4f6",
+                          color: s.float_switch_1m
+                            ? COLORS.red
+                            : COLORS.gray500,
+                        },
+                      ]}
+                    >
+                      1m: {s.float_switch_1m ? "TRIGGERED" : "At Rest"}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.floatSwitchBadge,
+                        {
+                          backgroundColor: s.float_switch_2m
+                            ? "#fee2e2"
+                            : "#f3f4f6",
+                          color: s.float_switch_2m
+                            ? COLORS.red
+                            : COLORS.gray500,
+                        },
+                      ]}
+                    >
+                      2m: {s.float_switch_2m ? "TRIGGERED" : "At Rest"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.sensorStatusValue}>
+                    {s.last_reading_cm != null
+                      ? `${(s.last_reading_cm / 100).toFixed(2)} m`
+                      : "---"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.sensorStatusBadge,
+                      {
+                        color:
+                          s.last_status === "FLOOD_WARNING"
+                            ? COLORS.red
+                            : s.last_status === "WARNING"
+                              ? COLORS.amber
+                              : COLORS.green,
+                      },
+                    ]}
+                  >
+                    {s.last_status || "UNKNOWN"}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Period Selector */}
         <View style={styles.periodSection}>
           <Text style={styles.periodLabel}>CHART PERIOD</Text>
@@ -733,5 +806,42 @@ const styles = StyleSheet.create({
   mutedText: {
     fontSize: 12,
     color: COLORS.gray400,
+  },
+  sensorStatusRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray100,
+  },
+  sensorStatusId: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.gray900,
+    marginBottom: 4,
+  },
+  sensorStatusValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.gray900,
+    marginBottom: 2,
+  },
+  sensorStatusBadge: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  floatSwitchRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 2,
+  },
+  floatSwitchBadge: {
+    fontSize: 9,
+    fontWeight: "700",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: "hidden",
   },
 });

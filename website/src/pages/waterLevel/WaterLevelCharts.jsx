@@ -310,6 +310,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
           />
         </ChartCard>
       </div>
+
     </div>
   );
 }

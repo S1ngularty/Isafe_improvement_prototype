@@ -29,6 +29,8 @@ export default function useRealtimeWaterLevel() {
             water_level_cm: payload.new.water_level_cm,
             status: payload.new.status,
             recorded_at: payload.new.recorded_at,
+            float_switch_1m: payload.new.float_switch_1m,
+            float_switch_2m: payload.new.float_switch_2m,
           };
           readingsRef.current = [newReading, ...readingsRef.current].slice(
             0,
