@@ -21,7 +21,7 @@ const COLORS = {
   errorText: "#dc2626",
 };
 
-export default function WeatherPanel({ lat, lng }) {
+export default function WeatherPanel({ lat, lng, onPress }) {
   const { current, hourly, loading, error } = useWeather(lat, lng);
   const [showHourly, setShowHourly] = useState(false);
 
@@ -101,7 +101,7 @@ export default function WeatherPanel({ lat, lng }) {
       )}
 
       {/* Current Weather */}
-      <View style={styles.currentSection}>
+      <Pressable style={styles.currentSection} onPress={onPress}>
         <View style={styles.currentLeft}>
           <MaterialIcons name={current.icon} size={48} color={COLORS.shieldPrimary} />
           <Text style={styles.temperature}>{current.temperature != null ? Math.round(current.temperature) : "--"}°C</Text>
@@ -125,7 +125,7 @@ export default function WeatherPanel({ lat, lng }) {
             <Text style={styles.metricValue}>{current.windGusts != null ? Math.round(current.windGusts) : 0} km/h</Text>
           </View>
         </View>
-      </View>
+      </Pressable>
 
       {/* Hourly Toggle */}
       {hourly && hourly.length > 0 && (
