@@ -1,5 +1,5 @@
-const THRESHOLD_WARNING = 0.7;
-const THRESHOLD_FLOOD = 0.5;
+const THRESHOLD_WARNING = 1.3;
+const THRESHOLD_CRITICAL = 0.3;
 
 const GREEN = "#22c55e";
 const AMBER = "#f59e0b";
@@ -60,7 +60,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
   const statusCounts = {
     safe: ts.filter((p) => p.status === "SAFE").length,
     warning: ts.filter((p) => p.status === "WARNING").length,
-    flood: ts.filter((p) => p.status === "FLOOD_WARNING").length,
+    flood: ts.filter((p) => p.status === "CRITICAL").length,
   };
   const hasAnyStatus = statusCounts.safe > 0 || statusCounts.warning > 0 || statusCounts.flood > 0;
 
@@ -75,7 +75,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
               data={[
                 {
                   type: "scatter",
-                  mode: "lines+markers",
+                  mode: "lines",
                   x: ts.map((p) => p.timestamp),
                   y: ts.map((p) => p.water_level_cm / 100),
                   name: "Water Level",
@@ -83,7 +83,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   marker: {
                     size: 3,
                     color: ts.map((p) =>
-                      p.status === "FLOOD_WARNING"
+                      p.status === "CRITICAL"
                         ? RED
                         : p.status === "WARNING"
                           ? AMBER
@@ -96,7 +96,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   type: "scatter",
                   mode: "lines",
                   x: [ts[0].timestamp, ts[ts.length - 1].timestamp],
-                  y: [THRESHOLD_FLOOD, THRESHOLD_FLOOD],
+                  y: [THRESHOLD_CRITICAL, THRESHOLD_CRITICAL],
                   name: "CRITICAL",
                   line: { color: RED, width: 2, dash: "dash" },
                   hoverinfo: "skip",
@@ -124,7 +124,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                     x0: 0,
                     x1: 1,
                     y0: 0,
-                    y1: THRESHOLD_FLOOD,
+                    y1: THRESHOLD_CRITICAL,
                     fillcolor: "rgba(239,68,68,0.08)",
                     line: { width: 0 },
                     layer: "below",
@@ -135,7 +135,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                     yref: "y",
                     x0: 0,
                     x1: 1,
-                    y0: THRESHOLD_FLOOD,
+                    y0: THRESHOLD_CRITICAL,
                     y1: THRESHOLD_WARNING,
                     fillcolor: "rgba(245,158,11,0.06)",
                     line: { width: 0 },
@@ -149,14 +149,14 @@ export default function WaterLevelCharts({ analytics, Plot }) {
           )}
         </ChartCard>
 
-        <ChartCard id="wl-chart-status-dist" title="Status Distribution" subtitle="SAFE vs WARNING vs FLOOD_WARNING">
+        <ChartCard id="wl-chart-status-dist" title="Status Distribution" subtitle="SAFE vs WARNING vs CRITICAL">
           {hasAnyStatus ? (
             <DynamicPlot
               Plot={Plot}
               data={[
                 {
                   type: "pie",
-                  labels: ["SAFE", "WARNING", "FLOOD WARNING"],
+                  labels: ["SAFE", "WARNING", "CRITICAL"],
                   values: [statusCounts.safe, statusCounts.warning, statusCounts.flood],
                   marker: { colors: [GREEN, AMBER, RED] },
                   hole: 0.45,
@@ -191,7 +191,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
                   name: "Average",
                   marker: {
                     color: hp.map((h) =>
-                      h.avg_water_level_cm / 100 <= THRESHOLD_FLOOD ? RED : h.avg_water_level_cm / 100 <= THRESHOLD_WARNING ? AMBER : BLUE
+                      h.avg_water_level_cm / 100 <= THRESHOLD_CRITICAL ? RED : h.avg_water_level_cm / 100 <= THRESHOLD_WARNING ? AMBER : BLUE
                     ),
                   },
                   hovertemplate: "Hour: %{x}<br>Avg: %{y:.2f} m<br>Max: %{customdata[0]:.2f} m<br>Min: %{customdata[1]:.2f} m<extra></extra>",
@@ -258,7 +258,7 @@ export default function WaterLevelCharts({ analytics, Plot }) {
 
       {/* Row 3: Unsafe Readings Count + Readings per Hour */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <ChartCard id="wl-chart-unsafe-per-day" title="Unsafe Readings per Day" subtitle="Count of WARNING + FLOOD_WARNING readings">
+        <ChartCard id="wl-chart-unsafe-per-day" title="Unsafe Readings per Day" subtitle="Count of WARNING + CRITICAL readings">
           {hasDaily ? (
             <DynamicPlot
               Plot={Plot}

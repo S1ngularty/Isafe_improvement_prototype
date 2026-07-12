@@ -83,7 +83,7 @@ function UnsafeReadingItem({ item }) {
               styles.readingValue,
               {
                 color:
-                  item.status === "FLOOD_WARNING"
+                  item.status === "CRITICAL"
                     ? COLORS.red
                     : COLORS.amber,
               },
@@ -96,7 +96,7 @@ function UnsafeReadingItem({ item }) {
               styles.statusBadge,
               {
                 backgroundColor:
-                  item.status === "FLOOD_WARNING"
+                  item.status === "CRITICAL"
                     ? "#fee2e2"
                     : "#fef3c7",
               },
@@ -107,7 +107,7 @@ function UnsafeReadingItem({ item }) {
                 styles.readingStatus,
                 {
                   color:
-                    item.status === "FLOOD_WARNING"
+                    item.status === "CRITICAL"
                       ? COLORS.red
                       : COLORS.amber,
                 },
@@ -158,7 +158,7 @@ export default function WaterLevelScreen({ navigation }) {
       inactiveSensors: summary.inactive_sensors,
       unsafeCount: summary.unsafe_count,
       warningCount: summary.warning_count,
-      floodWarningCount: summary.flood_warning_count,
+      criticalCount: summary.critical_count,
     };
   }, [summary]);
 
@@ -322,8 +322,8 @@ export default function WaterLevelScreen({ navigation }) {
             color="amber"
           />
           <KpiCard
-            label="FLOOD WARNING"
-            value={kpi?.floodWarningCount ?? 0}
+            label="CRITICAL"
+            value={kpi?.criticalCount ?? 0}
             color="red"
           />
           <KpiCard
@@ -391,7 +391,7 @@ export default function WaterLevelScreen({ navigation }) {
                       styles.sensorStatusBadge,
                       {
                         color:
-                          s.last_status === "FLOOD_WARNING"
+                          s.last_status === "CRITICAL"
                             ? COLORS.red
                             : s.last_status === "WARNING"
                               ? COLORS.amber
