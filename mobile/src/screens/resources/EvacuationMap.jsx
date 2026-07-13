@@ -258,7 +258,7 @@ const EvacuationMapScreen = ({ route, navigation }) => {
         if (result.fromCache) {
           showToast("Using cached route", "info");
         } else {
-          showToast("Route found", "success");
+          // showToast("Route found", "success");
         }
       } else {
         showToast("Could not calculate route", "error");

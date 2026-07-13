@@ -27,6 +27,8 @@ def _parse_row(row: dict) -> Optional[WaterLevelReading]:
             water_level_cm=row.get("water_level_cm", 0),
             status=derive_status(row.get("water_level_cm", 0)),
             samples=row.get("samples"),
+            float_switch_1m=row.get("float_switch_1m"),
+            float_switch_2m=row.get("float_switch_2m"),
             recorded_at=_parse_dt(row.get("recorded_at")),
             created_at=_parse_dt(row.get("created_at")),
         )
@@ -94,6 +96,8 @@ def get_summary() -> WaterLevelSummary:
             last_seen=last_seen,
             last_reading_cm=last.get("water_level_cm"),
             last_status=derive_status(last.get("water_level_cm", 0)),
+            float_switch_1m=last.get("float_switch_1m"),
+            float_switch_2m=last.get("float_switch_2m"),
             readings_24h=len(readings_for_sensor),
             unsafe_readings_24h=len(unsafe_for_sensor),
         ))
@@ -176,6 +180,8 @@ def get_analytics(days: int = DEFAULT_ANALYTICS_DAYS) -> WaterLevelAnalytics:
             water_level_cm=r.water_level_cm,
             status=derive_status(r.water_level_cm),
             sensor_id=r.sensor_id,
+            float_switch_1m=r.float_switch_1m,
+            float_switch_2m=r.float_switch_2m,
         ) for r in parsed
     ]
 

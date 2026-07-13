@@ -10,6 +10,8 @@ class WaterLevelReading(BaseModel):
     water_level_cm: float
     status: str
     samples: Optional[int] = None
+    float_switch_1m: Optional[bool] = None
+    float_switch_2m: Optional[bool] = None
     recorded_at: datetime
     created_at: datetime
 
@@ -20,6 +22,8 @@ class SensorStatus(BaseModel):
     last_seen: Optional[datetime] = None
     last_reading_cm: Optional[float] = None
     last_status: Optional[str] = None
+    float_switch_1m: Optional[bool] = None
+    float_switch_2m: Optional[bool] = None
     readings_24h: int = 0
     unsafe_readings_24h: int = 0
 
@@ -40,6 +44,8 @@ class TimeSeriesPoint(BaseModel):
     water_level_cm: float
     status: str
     sensor_id: str
+    float_switch_1m: Optional[bool] = None
+    float_switch_2m: Optional[bool] = None
 
 
 class HourlyPattern(BaseModel):
