@@ -9,8 +9,8 @@ export async function fetchEvacuationAreas() {
   }
 }
 
-export async function fetchAllEvacuationAreas(page = 1, limit = 10, search = "", orderBy = null, orderDir = null) {
-  const params = { page, limit };
+export async function fetchAllEvacuationAreas(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false) {
+  const params = { page, limit, include_deleted: includeDeleted };
   if (search) params.search = search;
   if (orderBy) params.order_by = orderBy;
   if (orderDir) params.order_dir = orderDir;
@@ -27,6 +27,10 @@ export async function updateEvacuationArea(id, formData) {
 
 export async function deleteEvacuationArea(id) {
   return apiDelete(`/api/evacuation-areas/${id}`);
+}
+
+export async function restoreEvacuationArea(id) {
+  return apiPost(`/api/evacuation-areas/${id}/restore`);
 }
 
 export async function uploadLandmarkImage(file, evacId) {

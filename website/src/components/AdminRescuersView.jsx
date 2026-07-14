@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useToast } from "../context/ToastContext";
 import { fetchAllProfiles, updateUserRole } from "../services/auth";
 import { adminUpdateRescuer, fetchAdminRescuers, fetchRescueActivity } from "../services/rescue";
@@ -26,7 +26,11 @@ export default function AdminRescuersView() {
   const { showToast } = useToast();
   const [tab, setTab] = useState("roster");
   const [rescuers, setRescuers] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
+  const [promoteUsers, setPromoteUsers] = useState([]);
+  const [promoteTotal, setPromoteTotal] = useState(0);
+  const [promotePage, setPromotePage] = useState(1);
+  const [promoteLoading, setPromoteLoading] = useState(false);
+  const [promoteSearch, setPromoteSearch] = useState("");
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [promoteModal, setPromoteModal] = useState(false);
@@ -38,6 +42,12 @@ export default function AdminRescuersView() {
     contact_number: "",
   });
   const [promoting, setPromoting] = useState(false);
+  const promoteSearchTimer = useRef(null);
+  useEffect(() => {
+    return () => {
+      if (promoteSearchTimer.current) clearTimeout(promoteSearchTimer.current);
+    };
+  }, []);
   const [search, setSearch] = useState("");
   const [detailUser, setDetailUser] = useState(null);
   const [rosterTotal, setRosterTotal] = useState(0);
@@ -116,18 +126,24 @@ export default function AdminRescuersView() {
     }
   }
 
-  const loadAllUsers = useCallback(async () => {
+  const loadPromoteUsers = useCallback(async (page = 1) => {
+    setPromoteLoading(true);
+    setPromotePage(page);
     try {
-      const data = await fetchAllProfiles(1, 500, null);
-      setAllUsers(data?.data || []);
-    } catch (_) {}
-  }, []);
+      const data = await fetchAllProfiles(page, 10, promoteSearch || null);
+      setPromoteUsers(data?.data || []);
+      setPromoteTotal(data?.total || 0);
+    } catch (_) {
+    } finally {
+      setPromoteLoading(false);
+    }
+  }, [promoteSearch]);
 
   useEffect(() => {
     if (tab === "roster") loadRescuers(1);
     if (tab === "activity") loadActivity(1);
-    if (tab === "promote") loadAllUsers();
-  }, [tab, loadRescuers, loadActivity, loadAllUsers]);
+    if (tab === "promote") loadPromoteUsers(1);
+  }, [tab, loadRescuers, loadActivity, loadPromoteUsers]);
 
   useRealtimeRefresh(
     tab === "activity"
@@ -514,10 +530,30 @@ export default function AdminRescuersView() {
           <p className="text-sm text-gray-500 mb-4">
             Select a user to promote to rescuer. Rescuers cannot self-register.
           </p>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={promoteSearch}
+              onChange={(e) => {
+                setPromoteSearch(e.target.value);
+                if (promoteSearchTimer.current) clearTimeout(promoteSearchTimer.current);
+                promoteSearchTimer.current = setTimeout(() => {
+                  loadPromoteUsers(1);
+                }, 300);
+              }}
+              className="input max-w-xs"
+            />
+          </div>
           <DataTable
             columns={promoteColumns}
-            data={allUsers.filter((u) => u.role !== "admin")}
+            data={promoteUsers}
+            totalCount={promoteTotal}
+            pageIndex={promotePage - 1}
             pageSize={10}
+            isLoading={promoteLoading}
+            serverSide
+            onPageChange={(p) => loadPromoteUsers(p)}
             emptyMessage="No users available to promote"
           />
         </div>

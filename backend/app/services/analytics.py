@@ -72,7 +72,7 @@ def _age_group(age):
 
 @cached(ttl=120)
 async def get_kpi() -> KpiResponse:
-    profiles = (client.table("profiles").select(PROFILE_BASE_FIELDS).execute())
+    profiles = (client.table("profiles").select(PROFILE_BASE_FIELDS).range(0, 9999).execute())
     rows = profiles.data or []
     total = len(rows)
     active = sum(1 for r in rows if r.get("is_active"))
@@ -91,7 +91,7 @@ async def get_kpi() -> KpiResponse:
         )
     )
 
-    rescuers_result = client.table("rescuers").select("availability").execute()
+    rescuers_result = client.table("rescuers").select("availability").range(0, 9999).execute()
     rescuers = rescuers_result.data or []
     active_rescuers = len(rescuers)
     available = sum(
@@ -354,6 +354,7 @@ async def get_temporal_heatmap() -> TemporalHeatmapResponse:
         client.table("status_history")
         .select("created_at, new_status")
         .gte("created_at", cutoff)
+        .limit(5000)
         .execute()
     )
     rows = result.data or []
@@ -496,6 +497,7 @@ async def get_demographics() -> DemographicResponse:
         .select(
             "gender, blood_type, date_of_birth, special_needs, special_needs_other"
         )
+        .limit(9999)
         .execute()
     )
     rows = result.data or []
@@ -561,6 +563,7 @@ async def get_evacuation_status() -> EvacuationResponse:
         .select("id, lat, lng")
         .not_.is_("lat", "null")
         .not_.is_("lng", "null")
+        .limit(9999)
         .execute()
     )
     profiles = profiles_result.data or []

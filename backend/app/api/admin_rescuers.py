@@ -115,6 +115,7 @@ async def rescue_activity(
             "target:target_user_id(id, full_name, status, barangay_id, barangays(name), lat, lng)",
             count="exact",
         )
+        .is_("deleted_at", "null")
     )
 
     if state and state in ("helped", "en_route", "on_scene", "dispatched"):
@@ -153,6 +154,20 @@ async def rescue_activity(
         enriched.append(item)
 
     return {"data": {"assignments": enriched, "total": total, "page": page, "limit": limit}, "error": None}
+
+
+@router.delete("/rescue-assignments/{assignment_id}", response_model=dict)
+async def soft_delete_rescue_assignment(
+    assignment_id: str,
+    current_user: dict = Depends(require_admin_only),
+):
+    try:
+        client.table("rescue_assignments").update(
+            {"deleted_at": "now()"}
+        ).eq("id", assignment_id).execute()
+        return {"data": None, "error": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.put("/rescuers/{user_id}")

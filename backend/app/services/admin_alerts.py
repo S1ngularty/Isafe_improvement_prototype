@@ -2,6 +2,7 @@ from app.core.supabase import client
 from app.models.notification_model import NotifyContactUserModel
 from app.services.notification import NotificationService
 from app.db.pagination import paginate_query
+from app.core.cache import cached
 
 
 def _flatten_barangay(rows: list[dict]):
@@ -58,9 +59,10 @@ ALLOWED_STATUS_USER_SORT_COLUMNS = {
 }
 
 
+@cached(ttl=30)
 async def get_profiles(
     page: int = 1,
-    limit: int = 50,
+    limit: int = 10,
     search: str | None = None,
     order_by: str = "created_at",
     order_dir: str = "DESC",
@@ -85,24 +87,12 @@ async def get_profiles(
 
     if rows:
         _flatten_barangay(rows)
-        emails_map = {}
-        try:
-            for r in rows:
-                uid = r["id"]
-                if uid not in emails_map:
-                    auth_user = client.auth.admin.get_user_by_id(uid)
-                    if auth_user and auth_user.user:
-                        emails_map[uid] = auth_user.user.email
-        except Exception:
-            pass
-
-        for r in rows:
-            r["email"] = emails_map.get(r["id"])
 
     result["data"] = rows
     return result
 
 
+@cached(ttl=30)
 async def get_status_overview() -> dict:
     result = client.table("profiles").select("status").execute()
     rows = result.data or []
@@ -114,11 +104,12 @@ async def get_status_overview() -> dict:
     return counts
 
 
+@cached(ttl=30)
 async def get_status_users(
     status_filter: str | None = None,
     search: str | None = None,
     page: int = 1,
-    limit: int = 50,
+    limit: int = 10,
     order_by: str = "last_seen_at",
     order_dir: str = "DESC",
 ) -> dict:
@@ -159,19 +150,8 @@ async def get_status_users(
             if fam:
                 family_names_map[p["id"]] = fam.get("name")
 
-        emails_map = {}
-        try:
-            for uid in user_ids:
-                if uid not in emails_map:
-                    auth_user = client.auth.admin.get_user_by_id(uid)
-                    if auth_user and auth_user.user:
-                        emails_map[uid] = auth_user.user.email
-        except Exception:
-            pass
-
         for r in rows:
             r["family_name"] = family_names_map.get(r["id"])
-            r["email"] = emails_map.get(r["id"])
 
     result["data"] = rows
     return result
@@ -213,13 +193,6 @@ async def get_user_profile(user_id: str) -> dict | None:
         fam = fam_result.data.get("families")
         if fam:
             profile["family_name"] = fam.get("name")
-
-    try:
-        auth_user = client.auth.admin.get_user_by_id(user_id)
-        if auth_user and auth_user.user:
-            profile["email"] = auth_user.user.email
-    except Exception:
-        pass
 
     return profile
 

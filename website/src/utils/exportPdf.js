@@ -3,6 +3,8 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 const CONTENT_W = PAGE_W - 2 * MARGIN;
 
+import { Chart } from "chart.js";
+
 const CHART_INSIGHT_MAP = {
   "chart-status-distribution": "status_distribution",
   "chart-trend": "incident_trend",
@@ -31,16 +33,11 @@ function getChartImageData(id) {
   const container = document.getElementById(id);
   if (!container) return null;
   if (id === "map-heatmap") return null;
-  const plotDiv = container.querySelector(".js-plotly-plot");
-  if (!plotDiv || typeof window.Plotly?.toImage !== "function") return null;
-  const rect = plotDiv.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return null;
-  return window.Plotly.toImage(plotDiv, {
-    format: "png",
-    scale: 2,
-    width: Math.round(rect.width),
-    height: Math.round(rect.height),
-  });
+  const canvas = container.querySelector("canvas");
+  if (!canvas) return null;
+  const chart = Chart.getChart(canvas);
+  if (!chart) return null;
+  return chart.toBase64Image("image/png", 2);
 }
 
 async function getMapImageData(id) {

@@ -5,10 +5,10 @@ import { useToast } from "../context/ToastContext";
 import { useNavigate } from "react-router-dom";
 
 import { fetchAllProfiles, updateUserRole, toggleUserActive } from "../services/auth";
-import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement } from "../services/announcements";
-import { fetchAllAlerts, createAlert, updateAlert, deleteAlert } from "../services/tcws";
-import { fetchAllEvacuationAreas, createEvacuationArea, updateEvacuationArea, deleteEvacuationArea, uploadLandmarkImage } from "../services/evac";
-import { fetchAllHotlines, createHotline, updateHotline, deleteHotline } from "../services/hotlines";
+import { fetchAllAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement, restoreAnnouncement } from "../services/announcements";
+import { fetchAllAlerts, createAlert, updateAlert, deleteAlert, restoreAlert } from "../services/tcws";
+import { fetchAllEvacuationAreas, createEvacuationArea, updateEvacuationArea, deleteEvacuationArea, uploadLandmarkImage, restoreEvacuationArea } from "../services/evac";
+import { fetchAllHotlines, createHotline, updateHotline, deleteHotline, restoreHotline } from "../services/hotlines";
 import { formatSpecialNeeds } from "../utils/medicalOptions";
 
 import AdminSidebar from "../components/AdminSidebar";
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersPage, setUsersPage] = useState(1);
   const [usersTotal, setUsersTotal] = useState(0);
-  const USERS_PER_PAGE = 50;
+  const USERS_PER_PAGE = 10;
   const [userSearch, setUserSearch] = useState("");
   const [userSortBy, setUserSortBy] = useState(null);
   const [userSortDesc, setUserSortDesc] = useState(false);
@@ -53,6 +53,8 @@ export default function AdminDashboard() {
   const [announceSortBy, setAnnounceSortBy] = useState(null);
   const [announceSortDesc, setAnnounceSortDesc] = useState(false);
   const ANNOUNCE_PAGE_SIZE = 10;
+  const [announceFilter, setAnnounceFilter] = useState("active");
+  const [announceRestoreConfirm, setAnnounceRestoreConfirm] = useState(null);
 
   const [tcwsAlerts, setTcwsAlerts] = useState([]);
   const [tcwsLoading, setTcwsLoading] = useState(false);
@@ -61,6 +63,14 @@ export default function AdminDashboard() {
   const [tcwsForm, setTcwsForm] = useState({ signal_level: 1, description: "", wind_speed: "30-60 km/h" });
   const [tcwsDeleteConfirm, setTcwsDeleteConfirm] = useState(null);
   const [tcwsSaving, setTcwsSaving] = useState(false);
+  const [tcwsPage, setTcwsPage] = useState(1);
+  const [tcwsTotal, setTcwsTotal] = useState(0);
+  const [tcwsSearch, setTcwsSearch] = useState("");
+  const [tcwsSortBy, setTcwsSortBy] = useState(null);
+  const [tcwsSortDesc, setTcwsSortDesc] = useState(false);
+  const TCWS_PAGE_SIZE = 10;
+  const [tcwsFilter, setTcwsFilter] = useState("active");
+  const [tcwsRestoreConfirm, setTcwsRestoreConfirm] = useState(null);
 
   const [evacAreas, setEvacAreas] = useState([]);
   const [evacLoading, setEvacLoading] = useState(false);
@@ -77,6 +87,8 @@ export default function AdminDashboard() {
   const [evacSortBy, setEvacSortBy] = useState(null);
   const [evacSortDesc, setEvacSortDesc] = useState(false);
   const EVAC_PAGE_SIZE = 10;
+  const [evacFilter, setEvacFilter] = useState("active");
+  const [evacRestoreConfirm, setEvacRestoreConfirm] = useState(null);
 
   const [hotlines, setHotlines] = useState([]);
   const [hotlinesLoading, setHotlinesLoading] = useState(false);
@@ -91,6 +103,8 @@ export default function AdminDashboard() {
   const [hotlineSortBy, setHotlineSortBy] = useState(null);
   const [hotlineSortDesc, setHotlineSortDesc] = useState(false);
   const HOTLINE_PAGE_SIZE = 10;
+  const [hotlineFilter, setHotlineFilter] = useState("active");
+  const [hotlineRestoreConfirm, setHotlineRestoreConfirm] = useState(null);
 
   const loadUsers = useCallback(async (page = 1, sortBy = userSortBy, sortDesc = userSortDesc) => {
     setUsersLoading(true);
@@ -182,11 +196,31 @@ export default function AdminDashboard() {
     }
   }
 
+  const TCWS_SORT_FIELD_MAP = {
+    signal_level: "signal_level",
+    area: "area",
+    status: "is_active",
+  };
+
+  function handleTcwsSortChange(sorting) {
+    if (sorting && sorting.length > 0) {
+      const field = TCWS_SORT_FIELD_MAP[sorting[0].id] || "created_at";
+      setTcwsSortBy(field);
+      setTcwsSortDesc(sorting[0].desc);
+      loadTcws(1, field, sorting[0].desc);
+    } else {
+      setTcwsSortBy(null);
+      setTcwsSortDesc(false);
+      loadTcws(1, null, false);
+    }
+  }
+
   const loadAnnouncements = useCallback(async (page = 1, sortBy = announceSortBy, sortDesc = announceSortDesc) => {
     setAnnouncementsLoading(true);
     setAnnouncePage(page);
     try {
-      const data = await fetchAllAnnouncements(page, ANNOUNCE_PAGE_SIZE, announceSearch, sortBy, sortDesc ? "DESC" : "ASC");
+      const includeDeleted = announceFilter !== "active";
+      const data = await fetchAllAnnouncements(page, ANNOUNCE_PAGE_SIZE, announceSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
       if (Array.isArray(data)) {
         setAnnouncements(data);
         setAnnounceTotal(data.length);
@@ -199,25 +233,34 @@ export default function AdminDashboard() {
     } finally {
       setAnnouncementsLoading(false);
     }
-  }, [showToast, announceSearch, announceSortBy, announceSortDesc]);
+  }, [showToast, announceSearch, announceSortBy, announceSortDesc, announceFilter]);
 
-  const loadTcws = useCallback(async () => {
+  const loadTcws = useCallback(async (page = 1, sortBy = tcwsSortBy, sortDesc = tcwsSortDesc) => {
     setTcwsLoading(true);
+    setTcwsPage(page);
     try {
-      const data = await fetchAllAlerts();
-      setTcwsAlerts(data);
+      const includeDeleted = tcwsFilter !== "active";
+      const data = await fetchAllAlerts(page, TCWS_PAGE_SIZE, tcwsSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
+      if (Array.isArray(data)) {
+        setTcwsAlerts(data);
+        setTcwsTotal(data.length);
+      } else {
+        setTcwsAlerts(data?.alerts || []);
+        setTcwsTotal(data?.total || 0);
+      }
     } catch (err) {
       showToast("Failed to load TCWS alerts: " + err.message, "error");
     } finally {
       setTcwsLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, tcwsSearch, tcwsSortBy, tcwsSortDesc, tcwsFilter]);
 
   const loadEvacuationAreas = useCallback(async (page = 1, sortBy = evacSortBy, sortDesc = evacSortDesc) => {
     setEvacLoading(true);
     setEvacPage(page);
     try {
-      const data = await fetchAllEvacuationAreas(page, EVAC_PAGE_SIZE, evacSearch, sortBy, sortDesc ? "DESC" : "ASC");
+      const includeDeleted = evacFilter !== "active";
+      const data = await fetchAllEvacuationAreas(page, EVAC_PAGE_SIZE, evacSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
       if (Array.isArray(data)) {
         setEvacAreas(data);
         setEvacTotal(data.length);
@@ -230,13 +273,14 @@ export default function AdminDashboard() {
     } finally {
       setEvacLoading(false);
     }
-  }, [showToast, evacSearch, evacSortBy, evacSortDesc]);
+  }, [showToast, evacSearch, evacSortBy, evacSortDesc, evacFilter]);
 
   const loadHotlines = useCallback(async (page = 1, sortBy = hotlineSortBy, sortDesc = hotlineSortDesc) => {
     setHotlinesLoading(true);
     setHotlinesPage(page);
     try {
-      const data = await fetchAllHotlines(page, HOTLINE_PAGE_SIZE, hotlineSearch, sortBy, sortDesc ? "DESC" : "ASC");
+      const includeDeleted = hotlineFilter !== "active";
+      const data = await fetchAllHotlines(page, HOTLINE_PAGE_SIZE, hotlineSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
       if (Array.isArray(data)) {
         setHotlines(data);
         setHotlinesTotal(data.length);
@@ -249,7 +293,7 @@ export default function AdminDashboard() {
     } finally {
       setHotlinesLoading(false);
     }
-  }, [showToast, hotlineSearch, hotlineSortBy, hotlineSortDesc]);
+  }, [showToast, hotlineSearch, hotlineSortBy, hotlineSortDesc, hotlineFilter]);
 
   useEffect(() => {
     if (view === "users") loadUsers(1);
@@ -267,22 +311,28 @@ export default function AdminDashboard() {
   }, [userSearch]);
 
   useEffect(() => {
-    if (view !== "hotlines") return;
-    const timer = setTimeout(() => loadHotlines(1), 300);
+    if (view !== "announcements") return;
+    const timer = setTimeout(() => loadAnnouncements(1), 300);
     return () => clearTimeout(timer);
-  }, [hotlineSearch]);
+  }, [announceSearch, announceFilter]);
+
+  useEffect(() => {
+    if (view !== "tcws") return;
+    const timer = setTimeout(() => loadTcws(1), 300);
+    return () => clearTimeout(timer);
+  }, [tcwsSearch, tcwsFilter]);
 
   useEffect(() => {
     if (view !== "evacuation") return;
     const timer = setTimeout(() => loadEvacuationAreas(1), 300);
     return () => clearTimeout(timer);
-  }, [evacSearch]);
+  }, [evacSearch, evacFilter]);
 
   useEffect(() => {
-    if (view !== "announcements") return;
-    const timer = setTimeout(() => loadAnnouncements(1), 300);
+    if (view !== "hotlines") return;
+    const timer = setTimeout(() => loadHotlines(1), 300);
     return () => clearTimeout(timer);
-  }, [announceSearch]);
+  }, [hotlineSearch, hotlineFilter]);
 
   function openCreateModal() {
     setEditingAnnouncement(null);
@@ -642,6 +692,58 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleAnnounceRestore() {
+    if (!announceRestoreConfirm) return;
+    try {
+      await restoreAnnouncement(announceRestoreConfirm.id);
+      showToast("Announcement restored.", "success");
+      loadAnnouncements();
+    } catch (err) {
+      showToast("Failed to restore: " + err.message, "error");
+    } finally {
+      setAnnounceRestoreConfirm(null);
+    }
+  }
+
+  async function handleTcwsRestore() {
+    if (!tcwsRestoreConfirm) return;
+    try {
+      await restoreAlert(tcwsRestoreConfirm);
+      showToast("TCWS alert restored.", "success");
+      loadTcws();
+    } catch (err) {
+      showToast("Failed to restore: " + err.message, "error");
+    } finally {
+      setTcwsRestoreConfirm(null);
+    }
+  }
+
+  async function handleEvacRestore() {
+    if (!evacRestoreConfirm) return;
+    try {
+      await restoreEvacuationArea(evacRestoreConfirm);
+      showToast("Evacuation center restored.", "success");
+      loadEvacuationAreas();
+    } catch (err) {
+      showToast("Failed to restore: " + err.message, "error");
+    } finally {
+      setEvacRestoreConfirm(null);
+    }
+  }
+
+  async function handleHotlineRestore() {
+    if (!hotlineRestoreConfirm) return;
+    try {
+      await restoreHotline(hotlineRestoreConfirm);
+      showToast("Hotline restored.", "success");
+      loadHotlines();
+    } catch (err) {
+      showToast("Failed to restore: " + err.message, "error");
+    } finally {
+      setHotlineRestoreConfirm(null);
+    }
+  }
+
   const TITLE_MAX = 100;
   const SHORT_MAX = 200;
   const LONG_MAX = 2000;
@@ -852,6 +954,13 @@ export default function AdminDashboard() {
       enableSorting: false,
       cell: ({ row }) => {
         const h = row.original;
+        if (h.deleted_at) {
+          return (
+            <button onClick={() => setHotlineRestoreConfirm(h.id)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">
+              Restore
+            </button>
+          );
+        }
         return (
           <div className="flex items-center gap-2">
             <button onClick={() => openHotlineEdit(h)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
@@ -934,6 +1043,13 @@ export default function AdminDashboard() {
       enableSorting: false,
       cell: ({ row }) => {
         const a = row.original;
+        if (a.deleted_at) {
+          return (
+            <button onClick={() => setEvacRestoreConfirm(a.id)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">
+              Restore
+            </button>
+          );
+        }
         return (
           <div className="flex items-center gap-2">
             <button onClick={() => openEvacEdit(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
@@ -1023,12 +1139,100 @@ export default function AdminDashboard() {
       enableSorting: false,
       cell: ({ row }) => {
         const a = row.original;
+        const isDeleted = !!a.deleted_at;
+        if (isDeleted) {
+          return (
+            <button onClick={() => setAnnounceRestoreConfirm(a)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">
+              Restore
+            </button>
+          );
+        }
         return (
           <div className="flex items-center gap-2">
             <button onClick={() => openEditModal(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
               Edit
             </button>
             <button onClick={() => handleDeleteClick(a)} className="text-xs text-red-500 hover:text-red-700 font-medium">
+              Delete
+            </button>
+          </div>
+        );
+      },
+    },
+  ], []);
+
+  const tcwsColumns = useMemo(() => [
+    {
+      id: "signal_level",
+      header: "Signal",
+      accessorKey: "signal_level",
+      cell: ({ getValue }) => {
+        const lvl = getValue();
+        const colors = { 1: "bg-cyan-100 text-cyan-700", 2: "bg-blue-100 text-blue-700", 3: "bg-amber-100 text-amber-700", 4: "bg-orange-100 text-orange-700", 5: "bg-red-100 text-red-700" };
+        return <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${colors[lvl] || "bg-gray-100 text-gray-600"}`}>#{lvl}</span>;
+      },
+    },
+    {
+      id: "area",
+      header: "Area",
+      accessorKey: "area",
+      cell: ({ getValue }) => <span className="text-gray-900 font-medium">{getValue()}</span>,
+    },
+    {
+      id: "wind_speed",
+      header: "Wind Speed",
+      accessorKey: "wind_speed",
+      meta: { responsive: true },
+    },
+    {
+      id: "description",
+      header: "Description",
+      accessorKey: "description",
+      meta: { responsive: true },
+      enableSorting: false,
+      cell: ({ getValue }) => {
+        const val = getValue();
+        return <span className="text-xs text-gray-500 truncate max-w-[200px] block">{val || "\u2014"}</span>;
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessorKey: "is_active",
+      cell: ({ row }) => {
+        const a = row.original;
+        if (a.deleted_at) return <span className="text-xs text-gray-400 font-medium">Deleted</span>;
+        return (
+          <button
+            onClick={() => handleTcwsToggle(a)}
+            className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              a.is_active ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            {a.is_active ? "Active" : "Hidden"}
+          </button>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        if (a.deleted_at) {
+          return (
+            <button onClick={() => setTcwsRestoreConfirm(a.id)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">
+              Restore
+            </button>
+          );
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <button onClick={() => openTcwsEdit(a)} className="text-xs text-shield-600 hover:text-shield-800 font-medium">
+              Edit
+            </button>
+            <button onClick={() => setTcwsDeleteConfirm(a.id)} className="text-xs text-red-500 hover:text-red-700 font-medium">
               Delete
             </button>
           </div>
@@ -1153,6 +1357,21 @@ export default function AdminDashboard() {
                     aria-label="Search announcements"
                     className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
                   />
+                </div>
+                <div className="flex gap-1.5">
+                  {["active", "deleted", "all"].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => { setAnnounceFilter(f); loadAnnouncements(1); }}
+                      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                        announceFilter === f
+                          ? "bg-shield-100 text-shield-700"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }`}
+                    >
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1303,6 +1522,17 @@ export default function AdminDashboard() {
                   onCancel={() => setDeleteConfirm(null)}
                 />
               )}
+
+              {announceRestoreConfirm && (
+                <ConfirmDialog
+                  title="Restore Announcement"
+                  message={`Restore "${announceRestoreConfirm.title}"? It will become visible to users again.`}
+                  confirmLabel="Restore"
+                  confirmClass="bg-emerald-600 hover:bg-emerald-700"
+                  onConfirm={handleAnnounceRestore}
+                  onCancel={() => setAnnounceRestoreConfirm(null)}
+                />
+              )}
             </>
           )}
 
@@ -1352,6 +1582,21 @@ export default function AdminDashboard() {
                     aria-label="Search hotlines"
                     className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
                   />
+                </div>
+                <div className="flex gap-1.5">
+                  {["active", "deleted", "all"].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => { setHotlineFilter(f); loadHotlines(1); }}
+                      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                        hotlineFilter === f
+                          ? "bg-shield-100 text-shield-700"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }`}
+                    >
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1514,6 +1759,17 @@ export default function AdminDashboard() {
                   onCancel={() => setHotlineDeleteConfirm(null)}
                 />
               )}
+
+              {hotlineRestoreConfirm && (
+                <ConfirmDialog
+                  title="Restore Hotline"
+                  message="Restore this hotline? It will become visible to users again."
+                  confirmLabel="Restore"
+                  confirmClass="bg-emerald-600 hover:bg-emerald-700"
+                  onConfirm={() => { handleHotlineRestore(); }}
+                  onCancel={() => setHotlineRestoreConfirm(null)}
+                />
+              )}
             </>
           )}
 
@@ -1545,6 +1801,21 @@ export default function AdminDashboard() {
                     aria-label="Search evacuation centers"
                     className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
                   />
+                </div>
+                <div className="flex gap-1.5">
+                  {["active", "deleted", "all"].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => { setEvacFilter(f); loadEvacuationAreas(1); }}
+                      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                        evacFilter === f
+                          ? "bg-shield-100 text-shield-700"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }`}
+                    >
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1719,6 +1990,17 @@ export default function AdminDashboard() {
                   onCancel={() => setEvacDeleteConfirm(null)}
                 />
               )}
+
+              {evacRestoreConfirm && (
+                <ConfirmDialog
+                  title="Restore Evacuation Center"
+                  message="Restore this evacuation center? It will become visible to users again."
+                  confirmLabel="Restore"
+                  confirmClass="bg-emerald-600 hover:bg-emerald-700"
+                  onConfirm={() => { handleEvacRestore(); }}
+                  onCancel={() => setEvacRestoreConfirm(null)}
+                />
+              )}
             </>
           )}
 
@@ -1737,133 +2019,49 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {!tcwsLoading && tcwsAlerts.length > 0 && (
-                <div className="grid sm:grid-cols-3 gap-3 mb-6">
-                  {(() => {
-                    const active = tcwsAlerts.filter((a) => a.is_active);
-                    const highest = active.length > 0
-                      ? active.reduce((max, a) => a.signal_level > max.signal_level ? a : max, active[0])
-                      : null;
-                    const SIGNAL_COLOR = {
-                      1: "border-yellow-500 bg-yellow-50",
-                      2: "border-orange-400 bg-orange-50",
-                      3: "border-orange-600 bg-orange-50",
-                      4: "border-red-600 bg-red-50",
-                      5: "border-red-900 bg-red-50",
-                    };
-                    return (
-                      <>
-                        <div className={`rounded-xl border-2 ${highest ? SIGNAL_COLOR[highest.signal_level] || "border-gray-200 bg-gray-50" : "border-gray-200 bg-gray-50"} px-4 py-3`}>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Highest Active</p>
-                          {highest ? (
-                            <>
-                              <p className="text-2xl font-extrabold text-gray-900 mt-1">TCWS #{highest.signal_level}</p>
-                              <p className="text-xs text-gray-600 mt-0.5">Quezon, Tagkawayan</p>
-                            </>
-                          ) : (
-                            <p className="text-lg font-bold text-gray-400 mt-1">None</p>
-                          )}
-                        </div>
-                        <div className="rounded-xl border-2 border-green-200 bg-green-50 px-4 py-3">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Active Alerts</p>
-                          <p className="text-2xl font-extrabold text-gray-900 mt-1">{active.length}</p>
-                          <p className="text-xs text-gray-600 mt-0.5">of {tcwsAlerts.length} total</p>
-                        </div>
-                        <div className="rounded-xl border-2 border-gray-200 bg-gray-50 px-4 py-3">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Signal Levels</p>
-                          <div className="flex items-center gap-1 mt-1.5">
-                            {[1,2,3,4,5].map((lvl) => {
-                              const has = active.some((a) => a.signal_level === lvl);
-                              return (
-                                <div key={lvl} className={`flex-1 h-6 rounded ${has ? (lvl === 1 ? "bg-yellow-500" : lvl === 2 ? "bg-orange-400" : lvl === 3 ? "bg-orange-600" : lvl === 4 ? "bg-red-600" : "bg-red-900") : "bg-gray-200"} flex items-center justify-center`} title={`TCWS #${lvl}${has ? " — active" : " — inactive"}`}>
-                                  <span className={`text-[10px] font-bold ${has ? "text-white" : "text-gray-400"}`}>{lvl}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-
-              {tcwsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="w-8 h-8 border-4 border-shield-600 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : tcwsAlerts.length === 0 ? (
-                <div className="card py-16 text-center text-gray-400">
-                  <svg className="w-14 h-14 mx-auto mb-3 opacity-25" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-sm font-medium">No TCWS alerts yet</p>
-                  <p className="text-xs mt-1">Click "New Alert" to create your first TCWS advisory.</p>
+                  <input
+                    type="text"
+                    value={tcwsSearch}
+                    onChange={(e) => setTcwsSearch(e.target.value)}
+                    placeholder="Search by area or description..."
+                    aria-label="Search TCWS alerts"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm focus:ring-2 focus:ring-shield-500 focus:border-shield-500 focus:bg-white outline-none transition-colors"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {tcwsAlerts.map((a) => (
-                    <div
-                      key={a.id}
-                      className={`bg-white rounded-xl shadow-sm border transition-colors ${
-                        a.is_active ? "border-gray-200" : "border-gray-100 opacity-60"
+                <div className="flex gap-1.5">
+                  {["active", "deleted", "all"].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => { setTcwsFilter(f); loadTcws(1); }}
+                      className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                        tcwsFilter === f
+                          ? "bg-shield-100 text-shield-700"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                       }`}
                     >
-                      <div className="flex items-center gap-4 px-5 py-4">
-                        <div className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-white font-extrabold text-lg ${
-                          a.signal_level === 1 ? "bg-yellow-500" :
-                          a.signal_level === 2 ? "bg-orange-400" :
-                          a.signal_level === 3 ? "bg-orange-600" :
-                          a.signal_level === 4 ? "bg-red-600" : "bg-red-900"
-                        }`}>
-                          {a.signal_level}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <h3 className="text-base font-bold text-gray-900">TCWS #{a.signal_level}</h3>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                              a.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
-                            }`}>
-                              {a.is_active ? "Active" : "Hidden"}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 font-medium">Quezon, Tagkawayan</p>
-                          <div className="flex items-center gap-3 mt-1">
-                            <span className="text-xs text-gray-500">{a.wind_speed}</span>
-                            {a.description && (
-                              <span className="text-xs text-gray-400 truncate hidden sm:inline">{a.description}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => openTcwsEdit(a)}
-                            className="px-3 py-1.5 text-xs font-medium text-shield-600 hover:bg-shield-50 rounded-lg transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleTcwsToggle(a)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                              a.is_active ? "text-gray-500 hover:bg-gray-100" : "text-green-600 hover:bg-green-50"
-                            }`}
-                          >
-                            {a.is_active ? "Hide" : "Show"}
-                          </button>
-                          <button
-                            onClick={() => setTcwsDeleteConfirm(a.id)}
-                            className="px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
                   ))}
                 </div>
-              )}
+              </div>
+
+              <DataTable
+                columns={tcwsColumns}
+                data={tcwsAlerts}
+                totalCount={tcwsTotal}
+                pageIndex={tcwsPage - 1}
+                pageSize={TCWS_PAGE_SIZE}
+                isLoading={tcwsLoading}
+                serverSide
+                onPageChange={(p) => loadTcws(p)}
+                onSortChange={handleTcwsSortChange}
+                emptyMessage='No TCWS alerts yet. Click "New Alert" to create your first TCWS advisory.'
+              />
 
               {tcwsModal && (
                 <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] bg-black/50 backdrop-blur-sm" onClick={closeTcwsModal}>
@@ -1958,6 +2156,17 @@ export default function AdminDashboard() {
                   confirmClass="bg-red-600 hover:bg-red-700"
                   onConfirm={() => handleTcwsDelete(tcwsDeleteConfirm)}
                   onCancel={() => setTcwsDeleteConfirm(null)}
+                />
+              )}
+
+              {tcwsRestoreConfirm && (
+                <ConfirmDialog
+                  title="Restore TCWS Alert"
+                  message="Restore this TCWS alert? It will become visible to users again."
+                  confirmLabel="Restore"
+                  confirmClass="bg-emerald-600 hover:bg-emerald-700"
+                  onConfirm={() => { handleTcwsRestore(); }}
+                  onCancel={() => setTcwsRestoreConfirm(null)}
                 />
               )}
             </>

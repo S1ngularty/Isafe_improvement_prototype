@@ -80,8 +80,11 @@ async def get_all_hotlines_paginated(
     search: str | None = None,
     order_by: str = "sort_order",
     order_dir: str = "ASC",
+    include_deleted: bool = False,
 ) -> dict:
-    query = client.table("hotlines").select("*", count="exact").is_("deleted_at", "null")
+    query = client.table("hotlines").select("*", count="exact")
+    if not include_deleted:
+        query = query.is_("deleted_at", "null")
 
     if search and search.strip():
         q = search.strip()
@@ -190,3 +193,7 @@ async def update_hotline(
 
 async def soft_delete_hotline(hotline_id: int) -> None:
     client.table("hotlines").update({"deleted_at": "now()"}).eq("id", hotline_id).execute()
+
+
+async def restore_hotline(hotline_id: int) -> None:
+    client.table("hotlines").update({"deleted_at": None}).eq("id", hotline_id).execute()

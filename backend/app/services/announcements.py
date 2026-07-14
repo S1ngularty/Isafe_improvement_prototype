@@ -69,8 +69,11 @@ async def get_all_announcements_paginated(
     search: str | None = None,
     order_by: str = "created_at",
     order_dir: str = "DESC",
+    include_deleted: bool = False,
 ) -> dict:
-    query = client.table("announcements").select("*", count="exact").is_("deleted_at", "null")
+    query = client.table("announcements").select("*", count="exact")
+    if not include_deleted:
+        query = query.is_("deleted_at", "null")
 
     if search and search.strip():
         q = search.strip()
@@ -207,4 +210,10 @@ async def update_announcement(
 async def soft_delete_announcement(announcement_id: str) -> None:
     client.table("announcements").update(
         {"deleted_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("id", announcement_id).execute()
+
+
+async def restore_announcement(announcement_id: str) -> None:
+    client.table("announcements").update(
+        {"deleted_at": None}
     ).eq("id", announcement_id).execute()
