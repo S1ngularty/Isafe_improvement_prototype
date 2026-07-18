@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useToast } from "../../context/ToastContext.jsx";
+import { normalizePhone } from "../../utils/phone";
 import {
   getEmergencyContacts,
   addEmergencyContact,
@@ -89,14 +90,14 @@ export default function EmergencyContactsScreen({ navigation }) {
 
   const handleSave = async () => {
     const name = formName.trim();
-    const number = formNumber.trim();
+    const number = normalizePhone(formNumber.trim());
 
     if (!name) {
       showToast("Name is required", "error");
       return;
     }
-    if (!number || number.length < 7) {
-      showToast("Valid phone number is required", "error");
+    if (!number || !/^\+63\d{10}$/.test(number)) {
+      showToast("Valid phone number (+63...) required", "error");
       return;
     }
 
@@ -305,15 +306,21 @@ export default function EmergencyContactsScreen({ navigation }) {
               />
 
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
-                value={formNumber}
-                onChangeText={setFormNumber}
-                placeholder="e.g. +639123456789"
-                placeholderTextColor={COLORS.gray400}
-                keyboardType="phone-pad"
-                maxLength={20}
-              />
+              <View style={styles.phoneInputRow}>
+                <View style={styles.countryCodeBadge}>
+                  <Text style={styles.countryCodeText}>PH +63</Text>
+                </View>
+                <TextInput
+                  style={[styles.input, styles.phoneInput]}
+                  value={formNumber}
+                  onChangeText={setFormNumber}
+                  onBlur={() => setFormNumber(normalizePhone(formNumber))}
+                  placeholder="912 345 6789"
+                  placeholderTextColor={COLORS.gray400}
+                  keyboardType="phone-pad"
+                  maxLength={20}
+                />
+              </View>
             </View>
 
             <Pressable
@@ -533,6 +540,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.gray700,
     marginBottom: 6,
+  },
+  phoneInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  countryCodeBadge: {
+    backgroundColor: COLORS.gray300,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  countryCodeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.gray600,
+  },
+  phoneInput: {
+    flex: 1,
   },
   input: {
     borderWidth: 1,

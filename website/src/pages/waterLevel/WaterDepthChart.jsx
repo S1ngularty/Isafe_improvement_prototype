@@ -1,5 +1,9 @@
 import { useMemo } from "react";
 
+const SENSOR_HEIGHT_M = 2.29;
+const THRESHOLD_CRITICAL_DEPTH = 1.99;
+const THRESHOLD_WARNING_DEPTH = 0.99;
+
 const SENSOR_COLORS = [
   "#3b82f6",
   "#f59e0b",
@@ -10,9 +14,6 @@ const SENSOR_COLORS = [
   "#ec4899",
   "#f97316",
 ];
-
-const THRESHOLD_WARNING = 1.3;
-const THRESHOLD_CRITICAL = 0.3;
 
 const LAYOUT = {
   font: { size: 11, color: "#374151" },
@@ -56,7 +57,7 @@ function EmptyState() {
   );
 }
 
-export default function RealtimeSensorChart({ readings, Plot }) {
+export default function WaterDepthChart({ readings, Plot }) {
   const { sensorIds, traces, domain } = useMemo(() => {
     if (!readings || readings.length === 0) {
       return { sensorIds: [], traces: [], domain: null };
@@ -78,7 +79,6 @@ export default function RealtimeSensorChart({ readings, Plot }) {
     });
 
     const xs = readings.map((r) => r.recorded_at);
-    const ys = readings.map((r) => r.water_level_cm / 100);
 
     const minX = xs.length > 0 ? xs[xs.length - 1] : null;
     const maxX = xs.length > 0 ? xs[0] : null;
@@ -89,7 +89,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         type: "scatter",
         mode: "lines+markers",
         x: pts.map((p) => p.recorded_at),
-        y: pts.map((p) => p.water_level_cm / 100),
+        y: pts.map((p) => SENSOR_HEIGHT_M - p.water_level_cm / 100),
         name: sensorId,
         line: { color: colorMap[sensorId], width: 1.5 },
         marker: {
@@ -114,8 +114,8 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         x0: 0,
         x1: 1,
         y0: 0,
-        y1: THRESHOLD_CRITICAL,
-        fillcolor: "rgba(239,68,68,0.08)",
+        y1: THRESHOLD_WARNING_DEPTH,
+        fillcolor: "rgba(34,197,94,0.06)",
         line: { width: 0 },
         layer: "below",
       },
@@ -125,9 +125,21 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         yref: "y",
         x0: 0,
         x1: 1,
-        y0: THRESHOLD_CRITICAL,
-        y1: THRESHOLD_WARNING,
+        y0: THRESHOLD_WARNING_DEPTH,
+        y1: THRESHOLD_CRITICAL_DEPTH,
         fillcolor: "rgba(245,158,11,0.06)",
+        line: { width: 0 },
+        layer: "below",
+      },
+      {
+        type: "rect",
+        xref: "paper",
+        yref: "y",
+        x0: 0,
+        x1: 1,
+        y0: THRESHOLD_CRITICAL_DEPTH,
+        y1: SENSOR_HEIGHT_M,
+        fillcolor: "rgba(239,68,68,0.08)",
         line: { width: 0 },
         layer: "below",
       },
@@ -138,7 +150,16 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         type: "scatter",
         mode: "lines",
         x: [minX, maxX],
-        y: [THRESHOLD_CRITICAL, THRESHOLD_CRITICAL],
+        y: [SENSOR_HEIGHT_M, SENSOR_HEIGHT_M],
+        name: "Sensor @ 2.29m",
+        line: { color: "#6b7280", width: 1.5, dash: "dot" },
+        hoverinfo: "skip",
+      },
+      {
+        type: "scatter",
+        mode: "lines",
+        x: [minX, maxX],
+        y: [THRESHOLD_CRITICAL_DEPTH, THRESHOLD_CRITICAL_DEPTH],
         name: "CRITICAL",
         line: { color: "#ef4444", width: 2, dash: "dash" },
         hoverinfo: "skip",
@@ -147,7 +168,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         type: "scatter",
         mode: "lines",
         x: [minX, maxX],
-        y: [THRESHOLD_WARNING, THRESHOLD_WARNING],
+        y: [THRESHOLD_WARNING_DEPTH, THRESHOLD_WARNING_DEPTH],
         name: "WARNING",
         line: { color: "#f59e0b", width: 2, dash: "dash" },
         hoverinfo: "skip",
@@ -172,7 +193,7 @@ export default function RealtimeSensorChart({ readings, Plot }) {
         data={traces}
         layout={{
           ...LAYOUT,
-          yaxis: { rangemode: "tozero", title: "m", fixedrange: false },
+          yaxis: { range: [0, SENSOR_HEIGHT_M], title: "m", fixedrange: false },
           xaxis: {
             tickfont: { size: 9 },
             range: [domain.minX, domain.maxX],

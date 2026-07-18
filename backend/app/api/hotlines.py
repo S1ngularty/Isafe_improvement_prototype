@@ -35,11 +35,15 @@ async def list_all(
     search: Optional[str] = Query(None),
     order_by: str = Query("sort_order"),
     order_dir: str = Query("ASC"),
+    include_deleted: bool = Query(False),
+    deleted_only: bool = Query(False),
     current_user: dict = Depends(require_admin_only),
 ):
     data = await service.get_all_hotlines_paginated(
         page=page, limit=limit, search=search,
         order_by=order_by, order_dir=order_dir,
+        include_deleted=include_deleted,
+        deleted_only=deleted_only,
     )
     return {"data": data, "error": None}
 
@@ -127,6 +131,18 @@ async def delete(
 ):
     try:
         await service.soft_delete_hotline(hotline_id)
+        return {"data": None, "error": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{hotline_id}/restore", response_model=dict)
+async def restore(
+    hotline_id: int,
+    current_user: dict = Depends(require_admin_only),
+):
+    try:
+        await service.restore_hotline(hotline_id)
         return {"data": None, "error": None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

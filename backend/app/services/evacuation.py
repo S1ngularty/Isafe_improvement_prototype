@@ -90,8 +90,14 @@ async def get_all_areas_paginated(
     search: str | None = None,
     order_by: str = "created_at",
     order_dir: str = "DESC",
+    include_deleted: bool = False,
+    deleted_only: bool = False,
 ) -> dict:
-    query = client.table("evacuation_areas").select("*", count="exact").is_("deleted_at", "null")
+    query = client.table("evacuation_areas").select("*", count="exact")
+    if deleted_only:
+        query = query.not_.is_("deleted_at", "null")
+    elif not include_deleted:
+        query = query.is_("deleted_at", "null")
 
     if search and search.strip():
         q = search.strip()
@@ -226,3 +232,7 @@ async def update_evacuation_area(
 
 async def soft_delete_evacuation_area(area_id: int) -> None:
     client.table("evacuation_areas").update({"deleted_at": "now()"}).eq("id", area_id).execute()
+
+
+async def restore_evacuation_area(area_id: int) -> None:
+    client.table("evacuation_areas").update({"deleted_at": None}).eq("id", area_id).execute()

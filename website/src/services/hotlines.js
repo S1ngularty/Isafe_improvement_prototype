@@ -8,8 +8,8 @@ export async function fetchHotlines() {
   }
 }
 
-export async function fetchAllHotlines(page = 1, limit = 10, search = "", orderBy = null, orderDir = null) {
-  const params = { page, limit };
+export async function fetchAllHotlines(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false, deletedOnly = false) {
+  const params = { page, limit, include_deleted: includeDeleted, deleted_only: deletedOnly };
   if (search) params.search = search;
   if (orderBy) params.order_by = orderBy;
   if (orderDir) params.order_dir = orderDir;
@@ -26,4 +26,8 @@ export async function updateHotline(id, formData) {
 
 export async function deleteHotline(id) {
   return apiDelete(`/api/hotlines/${id}`);
+}
+
+export async function restoreHotline(id) {
+  return apiPost(`/api/hotlines/${id}/restore`);
 }

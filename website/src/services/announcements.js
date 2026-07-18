@@ -8,9 +8,9 @@ export async function fetchActiveAnnouncements() {
   }
 }
 
-export async function fetchAllAnnouncements(page = 1, limit = 10, search = "", orderBy = null, orderDir = null) {
+export async function fetchAllAnnouncements(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false, deletedOnly = false) {
   try {
-    const params = { page, limit };
+    const params = { page, limit, include_deleted: includeDeleted, deleted_only: deletedOnly };
     if (search) params.search = search;
     if (orderBy) params.order_by = orderBy;
     if (orderDir) params.order_dir = orderDir;
@@ -43,4 +43,8 @@ export async function updateAnnouncement(id, { title, short_description, long_de
 
 export async function deleteAnnouncement(id) {
   return apiDelete(`/api/announcements/${id}`);
+}
+
+export async function restoreAnnouncement(id) {
+  return apiPost(`/api/announcements/${id}/restore`);
 }

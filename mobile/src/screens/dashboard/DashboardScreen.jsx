@@ -22,6 +22,7 @@ import {
   updateLocationSharing,
 } from "../../services/location.js";
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
+import AnnouncementDetailModal from "../../components/AnnouncementDetailModal.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
 import TcwsBanner from "../../components/TcwsBanner.jsx";
@@ -83,6 +84,7 @@ export default function DashboardScreen({
   const [rescueEnRoute, setRescueEnRoute] = useState(null);
   const [waterLevelSummary, setWaterLevelSummary] = useState(null);
   const [tideData, setTideData] = useState(null);
+  const [detailAnnouncement, setDetailAnnouncement] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -403,7 +405,7 @@ export default function DashboardScreen({
         ) : null}
 
         {/* Announcement Banner */}
-        <AnnouncementBanner />
+        <AnnouncementBanner onPress={setDetailAnnouncement} />
 
         {/* Emergency Alert Section */}
         <View style={styles.emergencyAlertSection}>
@@ -779,6 +781,11 @@ export default function DashboardScreen({
           </View>
         )} */}
       </ScrollView>
+
+      <AnnouncementDetailModal
+        announcement={detailAnnouncement}
+        onClose={() => setDetailAnnouncement(null)}
+      />
     </SafeAreaView>
   );
 }

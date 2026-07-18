@@ -3,11 +3,11 @@ import { useMemo } from "react";
 const STATUS_COLORS = {
   SAFE: "bg-green-500",
   WARNING: "bg-amber-500",
-  FLOOD_WARNING: "bg-red-500",
+  CRITICAL: "bg-red-500",
 };
 
 function getBorderColor(status) {
-  if (status === "FLOOD_WARNING") return "border-red-500";
+  if (status === "CRITICAL") return "border-red-500";
   if (status === "WARNING") return "border-amber-500";
   return "border-green-500";
 }
@@ -78,7 +78,7 @@ export default function SensorStatusCards({ sensors }) {
                 <span className="text-xs text-gray-500">Status</span>
                 <span
                   className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                    sensor.last_status === "FLOOD_WARNING"
+                    sensor.last_status === "CRITICAL"
                       ? "bg-red-100 text-red-700"
                       : sensor.last_status === "WARNING"
                         ? "bg-amber-100 text-amber-700"

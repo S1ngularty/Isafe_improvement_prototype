@@ -85,6 +85,48 @@ const WATER_LEVEL_CHART_HTML = `
     100% { transform: rotate(360deg); }
   }
   
+  .fs-events-container {
+    margin-top: 12px;
+    border-top: 1px solid #f3f4f6;
+    padding-top: 8px;
+  }
+  .fs-events-details {
+    font-size: 11px;
+  }
+  .fs-events-summary {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    user-select: none;
+  }
+  .fs-events-table-wrap {
+    margin-top: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .fs-events-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .fs-events-table th {
+    text-align: left;
+    padding: 4px 8px 4px 0;
+    font-weight: 600;
+    color: #9ca3af;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .fs-events-table td {
+    padding: 4px 8px 4px 0;
+    border-bottom: 1px solid #f9fafb;
+    white-space: nowrap;
+  }
+  .fs-events-time {
+    color: #6b7280;
+  }
   @media (max-width: 400px) {
     body { padding: 12px 8px; }
     .chart-card { padding: 12px; margin-bottom: 16px; }
@@ -109,8 +151,8 @@ var COLORS = {
   lightGray: '#f3f4f6'
 };
 
-var THRESHOLD_WARNING = 0.7;
-var THRESHOLD_FLOOD = 0.5;
+var THRESHOLD_WARNING = 1.3;
+var THRESHOLD_CRITICAL = 0.3;
 
 function getLayout(title, customOptions) {
   var base = {
@@ -166,7 +208,7 @@ function renderCharts(analytics) {
   var statusCounts = {
     safe: ts.filter(function(p){ return p.status === 'SAFE'; }).length,
     warning: ts.filter(function(p){ return p.status === 'WARNING'; }).length,
-    flood: ts.filter(function(p){ return p.status === 'FLOOD_WARNING'; }).length,
+    flood: ts.filter(function(p){ return p.status === 'CRITICAL'; }).length,
   };
   var hasAnyStatus = statusCounts.safe > 0 || statusCounts.warning > 0 || statusCounts.flood > 0;
 
@@ -189,7 +231,7 @@ function renderCharts(analytics) {
   html += '<div class="chart-card">';
   html += '<div class="chart-header">';
   html += '<div class="chart-title">Status Distribution</div>';
-  html += '<div class="chart-sub">Current sensor status breakdown (SAFE, WARNING, FLOOD)</div>';
+  html += '<div class="chart-sub">Current sensor status breakdown (SAFE, WARNING, CRITICAL)</div>';
   html += '</div>';
   if (hasAnyStatus) {
     html += '<div id="chart-status" class="chart-container"></div>';
@@ -224,7 +266,7 @@ function renderCharts(analytics) {
   html += '<div class="chart-card">';
   html += '<div class="chart-header">';
   html += '<div class="chart-title">Unsafe Readings per Day</div>';
-  html += '<div class="chart-sub">Daily count of WARNING and FLOOD_WARNING readings</div>';
+  html += '<div class="chart-sub">Daily count of WARNING and CRITICAL readings</div>';
   html += '</div>';
   if (hasDaily) {
     html += '<div id="chart-unsafe" class="chart-container"></div>';
@@ -234,8 +276,27 @@ function renderCharts(analytics) {
   html += '</div>';
 
   // 6. Float Switch History
+  var FLOAT_SWITCH_SENSOR_ID = 'SR04M-2';
   var fsData = ts.filter(function(p){ return p.float_switch_1m !== null || p.float_switch_2m !== null; });
-  var hasFS = fsData.length > 0;
+  var todayFSData = fsData.filter(function(p){
+    var d = new Date(p.timestamp);
+    var now = new Date();
+    return d >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) && p.sensor_id === FLOAT_SWITCH_SENSOR_ID;
+  });
+  var hasFS = todayFSData.length > 0;
+  var fsEvents = [];
+  if (hasFS && todayFSData.length >= 2) {
+    for (var fi = 1; fi < todayFSData.length; fi++) {
+      var fsprev = todayFSData[fi - 1];
+      var fscurr = todayFSData[fi];
+      if (fscurr.float_switch_1m !== null && fsprev.float_switch_1m !== null && fscurr.float_switch_1m !== fsprev.float_switch_1m) {
+        fsEvents.push({ timestamp: fscurr.timestamp, switch: '1m', from: fsprev.float_switch_1m ? 'Triggered' : 'At Rest', to: fscurr.float_switch_1m ? 'Triggered' : 'At Rest' });
+      }
+      if (fscurr.float_switch_2m !== null && fsprev.float_switch_2m !== null && fscurr.float_switch_2m !== fsprev.float_switch_2m) {
+        fsEvents.push({ timestamp: fscurr.timestamp, switch: '2m', from: fsprev.float_switch_2m ? 'Triggered' : 'At Rest', to: fscurr.float_switch_2m ? 'Triggered' : 'At Rest' });
+      }
+    }
+  }
   html += '<div class="chart-card">';
   html += '<div class="chart-header">';
   html += '<div class="chart-title">Float Switch History</div>';
@@ -243,6 +304,25 @@ function renderCharts(analytics) {
   html += '</div>';
   if (hasFS) {
     html += '<div id="chart-float-switch" class="chart-container"></div>';
+    if (fsEvents.length > 0) {
+      html += '<div class="fs-events-container">';
+      html += '<details class="fs-events-details">';
+      html += '<summary class="fs-events-summary">State Change Events (' + fsEvents.length + ')</summary>';
+      html += '<div class="fs-events-table-wrap">';
+      html += '<table class="fs-events-table">';
+      html += '<thead><tr><th>Time</th><th>Switch</th><th>Change</th></tr></thead>';
+      html += '<tbody>';
+      for (var fe = 0; fe < fsEvents.length; fe++) {
+        var evt = fsEvents[fe];
+        var swColor = evt.switch === '1m' ? '#6366f1' : '#ef4444';
+        html += '<tr>';
+        html += '<td class="fs-events-time">' + new Date(evt.timestamp).toLocaleString() + '</td>';
+        html += '<td><span style="color:' + swColor + ';font-weight:700">' + evt.switch + '</span></td>';
+        html += '<td style="color:' + (evt.to === 'Triggered' ? '#ef4444' : '#6b7280') + '">' + evt.from + ' \u2192 ' + evt.to + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table></div></details></div>';
+    }
   } else {
     html += '<div class="empty-msg">No float switch data available</div>';
   }
@@ -254,7 +334,7 @@ function renderCharts(analytics) {
   if (hasTS) {
     var tsTrace1 = {
       type: 'scatter', 
-      mode: 'lines+markers',
+      mode: 'lines',
       x: ts.map(function(p){ return p.timestamp; }),
       y: ts.map(function(p){ return p.water_level_cm / 100; }),
       name: 'Water Level (m)',
@@ -262,7 +342,7 @@ function renderCharts(analytics) {
       marker: {
         size: 5,
         color: ts.map(function(p){
-          return p.status === 'FLOOD_WARNING' ? COLORS.red : 
+          return p.status === 'CRITICAL' ? COLORS.red : 
                  p.status === 'WARNING' ? COLORS.amber : COLORS.green;
         }),
         line: { width: 1, color: '#ffffff' }
@@ -274,11 +354,11 @@ function renderCharts(analytics) {
       type: 'scatter', 
       mode: 'lines',
       x: [ts[0].timestamp, ts[ts.length-1].timestamp],
-      y: [THRESHOLD_FLOOD, THRESHOLD_FLOOD],
+      y: [THRESHOLD_CRITICAL, THRESHOLD_CRITICAL],
       name: 'Critical Level',
       line: { color: COLORS.red, width: 2, dash: 'dash' }, 
       hoverinfo: 'text',
-      hovertext: 'Critical threshold: ' + THRESHOLD_FLOOD + 'm'
+      hovertext: 'Critical threshold: ' + THRESHOLD_CRITICAL + 'm'
     };
 
     var tsTrace3 = {
@@ -309,13 +389,13 @@ function renderCharts(analytics) {
       shapes: [
         { 
           type: 'rect', xref: 'paper', yref: 'y', 
-          x0: 0, x1: 1, y0: 0, y1: THRESHOLD_FLOOD, 
+          x0: 0, x1: 1, y0: 0, y1: THRESHOLD_CRITICAL, 
           fillcolor: 'rgba(239,68,68,0.08)', 
           line: { width: 0 }, layer: 'below' 
         },
         { 
           type: 'rect', xref: 'paper', yref: 'y', 
-          x0: 0, x1: 1, y0: THRESHOLD_FLOOD, y1: THRESHOLD_WARNING, 
+          x0: 0, x1: 1, y0: THRESHOLD_CRITICAL, y1: THRESHOLD_WARNING, 
           fillcolor: 'rgba(245,158,11,0.06)', 
           line: { width: 0 }, layer: 'below' 
         },
@@ -323,7 +403,7 @@ function renderCharts(analytics) {
       annotations: [
         {
           x: ts[Math.floor(ts.length/2)].timestamp,
-          y: THRESHOLD_FLOOD,
+          y: THRESHOLD_CRITICAL,
           text: 'Critical',
           showarrow: false,
           font: { size: 9, color: COLORS.red },
@@ -347,7 +427,7 @@ function renderCharts(analytics) {
   if (hasAnyStatus) {
     Plotly.newPlot('chart-status', [{
       type: 'pie',
-      labels: ['SAFE', 'WARNING', 'FLOOD WARNING'],
+      labels: ['SAFE', 'WARNING', 'CRITICAL'],
       values: [statusCounts.safe, statusCounts.warning, statusCounts.flood],
       marker: { 
         colors: [COLORS.green, COLORS.amber, COLORS.red],
@@ -378,7 +458,7 @@ function renderCharts(analytics) {
   if (hp.length > 0) {
     var hourlyColors = hp.map(function(h){
       var v = h.avg_water_level_cm / 100;
-      return v <= THRESHOLD_FLOOD ? COLORS.red : 
+      return v <= THRESHOLD_CRITICAL ? COLORS.red : 
              v <= THRESHOLD_WARNING ? COLORS.amber : COLORS.blue;
     });
 
@@ -430,8 +510,8 @@ function renderCharts(analytics) {
           xref: 'paper',
           x0: 0,
           x1: 1,
-          y0: THRESHOLD_FLOOD,
-          y1: THRESHOLD_FLOOD,
+          y0: THRESHOLD_CRITICAL,
+          y1: THRESHOLD_CRITICAL,
           line: { color: COLORS.red, width: 1.5, dash: 'dash' },
           layer: 'above'
         }
@@ -529,44 +609,62 @@ function renderCharts(analytics) {
 
   // Render Float Switch History
   if (hasFS) {
+    var fsShapes = fsEvents.map(function(e) {
+      return {
+        type: 'line',
+        xref: 'x',
+        yref: 'paper',
+        x0: e.timestamp,
+        x1: e.timestamp,
+        y0: 0,
+        y1: 1,
+        line: { color: e.switch === '1m' ? '#6366f1' : '#ef4444', width: 1, dash: 'dot' },
+        layer: 'below'
+      };
+    });
+
     var fsTrace1 = {
       type: 'scatter',
       mode: 'lines+markers',
-      x: fsData.map(function(p){ return p.timestamp; }),
-      y: fsData.map(function(p){ return p.float_switch_1m ? 1 : 0; }),
+      x: todayFSData.map(function(p){ return p.timestamp; }),
+      y: todayFSData.map(function(p){ return p.float_switch_1m ? 1 : 0; }),
       name: '1m Switch',
       line: { shape: 'hv', color: '#6366f1', width: 2 },
       marker: {
         size: 5,
-        color: fsData.map(function(p){
+        color: todayFSData.map(function(p){
           return p.float_switch_1m ? COLORS.red : COLORS.gray;
         }),
         line: { width: 1, color: '#ffffff' },
       },
-      hovertemplate: '<b>1m: %{customdata}</b><br>%{x}<extra></extra>',
-      customdata: fsData.map(function(p){
-        return p.float_switch_1m ? 'Triggered' : 'At Rest';
+      hovertemplate: '<b>1m</b>: %{customdata}<br>%{x}<extra></extra>',
+      customdata: todayFSData.map(function(p, i){
+        var state = p.float_switch_1m ? 'Triggered' : 'At Rest';
+        if (i > 0 && p.float_switch_1m !== todayFSData[i-1].float_switch_1m) return state + ' \u2190 State changed';
+        return state;
       }),
     };
 
     var fsTrace2 = {
       type: 'scatter',
       mode: 'lines+markers',
-      x: fsData.map(function(p){ return p.timestamp; }),
-      y: fsData.map(function(p){ return p.float_switch_2m ? 3 : 2; }),
+      x: todayFSData.map(function(p){ return p.timestamp; }),
+      y: todayFSData.map(function(p){ return p.float_switch_2m ? 3 : 2; }),
       name: '2m Switch',
       line: { shape: 'hv', color: COLORS.red, width: 2 },
       marker: {
         size: 5,
-        color: fsData.map(function(p){
+        color: todayFSData.map(function(p){
           return p.float_switch_2m ? COLORS.red : COLORS.gray;
         }),
         symbol: 'diamond',
         line: { width: 1, color: '#ffffff' },
       },
-      hovertemplate: '<b>2m: %{customdata}</b><br>%{x}<extra></extra>',
-      customdata: fsData.map(function(p){
-        return p.float_switch_2m ? 'Triggered' : 'At Rest';
+      hovertemplate: '<b>2m</b>: %{customdata}<br>%{x}<extra></extra>',
+      customdata: todayFSData.map(function(p, i){
+        var state = p.float_switch_2m ? 'Triggered' : 'At Rest';
+        if (i > 0 && p.float_switch_2m !== todayFSData[i-1].float_switch_2m) return state + ' \u2190 State changed';
+        return state;
       }),
     };
 
@@ -581,10 +679,13 @@ function renderCharts(analytics) {
       xaxis: {
         title: { text: 'Time', font: { size: 12, weight: 'bold' } },
         tickfont: { size: 10 },
+        tickformat: '%H:%M',
+        hoverformat: '%b %e, %Y %H:%M',
         gridcolor: '#e5e7eb',
         tickangle: -30,
       },
       hovermode: 'x unified',
+      shapes: fsShapes,
     }), CONFIG);
   }
 

@@ -1,17 +1,23 @@
 from app.core.supabase import client as supabase
-from app.services.flood_alert_service import check_flood_alert, check_float_switch_2m
+from app.services.flood_alert_service import (
+    check_flood_alert,
+    check_float_switch_2m,
+    check_float_switch_1m,
+)
 
 
 def derive_status(water_level_cm: float) -> str:
-    if water_level_cm < 50:
-        return "FLOOD_WARNING"
-    if water_level_cm <= 70:
+    if water_level_cm < 30:
+        return "CRITICAL"
+    if water_level_cm <= 130:
         return "WARNING"
     return "SAFE"
 
 
 def process_flood_level(data: dict) -> dict:
-    level = data.get("water_level_cm") or data.get("level_cm")
+    level = data.get("water_level_cm")
+    if level is None:
+        level = data.get("level_cm")
     sensor_id = data.get("sensor_id", "unknown")
 
     float_switch_1m = data.get("float_switch_1m")
@@ -48,5 +54,11 @@ def process_flood_level(data: dict) -> dict:
             check_float_switch_2m(sensor_id, float_switch_2m)
         except Exception as e:
             print("Failed to check float switch 2m alert:", e)
+
+    if float_switch_1m is not None:
+        try:
+            check_float_switch_1m(sensor_id, float_switch_1m)
+        except Exception as e:
+            print("Failed to check float switch 1m alert:", e)
 
     return data

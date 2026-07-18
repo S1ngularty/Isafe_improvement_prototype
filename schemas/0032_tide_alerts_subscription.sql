@@ -1,0 +1,2 @@
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS tide_alerts_enabled BOOLEAN NOT NULL DEFAULT true;

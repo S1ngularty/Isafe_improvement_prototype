@@ -33,12 +33,16 @@ async def list_all(
     search: Optional[str] = Query(None),
     order_by: str = Query("created_at"),
     order_dir: str = Query("DESC"),
+    include_deleted: bool = Query(False),
+    deleted_only: bool = Query(False),
     current_user: dict = Depends(require_admin_only),
 ):
     try:
         data = await service.get_all_announcements_paginated(
             page=page, limit=limit, search=search,
             order_by=order_by, order_dir=order_dir,
+            include_deleted=include_deleted,
+            deleted_only=deleted_only,
         )
         return {"data": data, "error": None}
     except Exception as e:
@@ -157,6 +161,18 @@ async def delete(
 ):
     try:
         await service.soft_delete_announcement(announcement_id)
+        return {"data": None, "error": None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{announcement_id}/restore", response_model=dict)
+async def restore(
+    announcement_id: str,
+    current_user: dict = Depends(require_admin_only),
+):
+    try:
+        await service.restore_announcement(announcement_id)
         return {"data": None, "error": None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

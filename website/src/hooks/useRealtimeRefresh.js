@@ -1,23 +1,14 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "../services/supabase.js";
 
-const DEFAULT_FALLBACK_MS = 60000;
 const DEBOUNCE_MS = 700;
+const FALLBACK_INTERVAL_MS = 300000; // 5 min — safety net only
 
-/**
- * Subscribes to Supabase Realtime postgres_changes on a table and triggers a
- * debounced refresh on any matching event. Also runs a low-frequency polling
- * fallback for dropped connections / misconfigured publications.
- *
- * @param {Object|null} config - { table, event, filter, channelName }. Pass null to disable.
- * @param {Function} refresh - callback invoked (debounced) on change and on the fallback interval.
- * @param {Object} [options] - { fallbackMs }
- */
 export default function useRealtimeRefresh(config, refresh, options = {}) {
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
-  const { fallbackMs = DEFAULT_FALLBACK_MS } = options;
+  const { fallbackMs = FALLBACK_INTERVAL_MS } = options;
   const table = config?.table;
   const event = config?.event || "*";
   const filter = config?.filter;
@@ -27,6 +18,8 @@ export default function useRealtimeRefresh(config, refresh, options = {}) {
     if (!table || !channelName) return;
 
     let debounceTimer = null;
+    let fallbackTimer = null;
+
     const runRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
@@ -49,13 +42,11 @@ export default function useRealtimeRefresh(config, refresh, options = {}) {
       .on("postgres_changes", changeConfig, runRefresh)
       .subscribe();
 
-    const fallbackId = setInterval(() => {
-      Promise.resolve(refreshRef.current?.()).catch(() => {});
-    }, fallbackMs);
+    fallbackTimer = setInterval(runRefresh, fallbackMs);
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      clearInterval(fallbackId);
+      clearInterval(fallbackTimer);
       supabase.removeChannel(channel).catch(() => {});
     };
   }, [table, event, filter, channelName, fallbackMs]);

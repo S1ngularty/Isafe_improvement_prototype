@@ -10,11 +10,45 @@ SMS_MESSAGE_TEMPLATE = (
     " - CityShield"
 )
 
-FLOOD_ALERT_SMS_TEMPLATE = (
-    "FLOOD ALERT: Water level has reached {water_level_cm:.2f}m"
-    " at sensor {sensor_id}."
-    " Please take precautionary measures"
-    " and prepare for possible evacuation."
+CRITICAL_ALERT_SMS_TEMPLATE = (
+    "CRITICAL ALERT: Water level is above 2 meters."
+    " Evacuate immediately and follow instructions"
+    " from local authorities."
+    " - CityShield"
+)
+
+RED_ALERT_SMS_TEMPLATE = (
+    "RED ALERT: Water level is now at 2 meters."
+    " Please stay alert and prepare to evacuate"
+    " if advised by local authorities."
+    " - CityShield"
+)
+
+YELLOW_ALERT_SMS_TEMPLATE = (
+    "YELLOW ALERT: Water level is now at 1 meter."
+    " Please stay alert and monitor updates."
+    " - CityShield"
+)
+
+GREEN_ALERT_SMS_TEMPLATE = (
+    "Water level is below 1 meter."
+    " Conditions are normal."
+    " Continue to monitor updates."
+    " - CityShield"
+)
+
+FLOAT_SWITCH_2M_ALL_CLEAR_SMS_TEMPLATE = (
+    "RED ALERT ALL CLEAR: Water level at sensor {sensor_id}"
+    " has dropped below 2 meters."
+    " The immediate danger has passed."
+    " - CityShield"
+)
+
+FLOAT_SWITCH_1M_ALERT_SMS_TEMPLATE = YELLOW_ALERT_SMS_TEMPLATE
+
+FLOAT_SWITCH_1M_ALL_CLEAR_SMS_TEMPLATE = (
+    "YELLOW ALERT ALL CLEAR: Water level at sensor {sensor_id}"
+    " has dropped below 1 meter."
     " - CityShield"
 )
 
@@ -33,28 +67,6 @@ def send_otp_sms(phone: str, code: str) -> dict | None:
 
     message = OTP_SMS_TEMPLATE.format(code=code)
     return _send_textbee_sms([formatted], message)
-
-
-FLOOD_ALL_CLEAR_SMS_TEMPLATE = (
-    "ALL CLEAR: Water level at sensor {sensor_id}"
-    " has receded to {water_level_cm:.2f}m."
-    " The immediate danger has passed."
-    " - CityShield"
-)
-
-FLOAT_SWITCH_2M_ALERT_SMS_TEMPLATE = (
-    "FLOOD ALERT: Water level has reached 2 meters at sensor {sensor_id}."
-    " Please take precautionary measures"
-    " and prepare for possible evacuation."
-    " - CityShield"
-)
-
-FLOAT_SWITCH_2M_ALL_CLEAR_SMS_TEMPLATE = (
-    "ALL CLEAR: Water level at sensor {sensor_id}"
-    " has dropped below 2 meters."
-    " The immediate danger has passed."
-    " - CityShield"
-)
 
 
 def _format_phone(number: str) -> str | None:
@@ -161,7 +173,7 @@ def _send_textbee_sms(recipients: list[str], message: str) -> dict | None:
         return None
 
 
-def send_flood_alert_sms(water_level_cm: float, sensor_id: str) -> dict:
+def send_critical_alert_sms(sensor_id: str) -> dict:
     if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
         print("[sms] TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID not configured — skipping SMS")
         return {"success": False, "message": "textbee not configured"}
@@ -180,25 +192,23 @@ def send_flood_alert_sms(water_level_cm: float, sensor_id: str) -> dict:
             print("[sms] No phone numbers found in profiles")
             return {"success": False, "message": "no phone numbers"}
 
-        message = FLOOD_ALERT_SMS_TEMPLATE.format(
-            water_level_cm=water_level_cm / 100,
-            sensor_id=sensor_id,
-        )
+        message = CRITICAL_ALERT_SMS_TEMPLATE
 
         resp_data = _send_textbee_sms(raw_numbers, message)
         if resp_data is None:
             return {"success": False, "message": "sms send failed"}
 
-        print(f"[sms] Sent flood alert to {len(raw_numbers)} recipient(s)")
+        print(f"[sms] Sent critical alert to {len(raw_numbers)} recipient(s)")
         return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
 
     except Exception as e:
-        print(f"[sms] Failed to send flood alert SMS: {e}")
+        print(f"[sms] Failed to send critical alert SMS: {e}")
         return {"success": False, "error": str(e)}
 
 
-def send_flood_all_clear_sms(water_level_cm: float, sensor_id: str) -> dict:
+def send_green_alert_sms(sensor_id: str) -> dict:
     if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        print("[sms] TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID not configured — skipping SMS")
         return {"success": False, "message": "textbee not configured"}
 
     try:
@@ -212,22 +222,20 @@ def send_flood_all_clear_sms(water_level_cm: float, sensor_id: str) -> dict:
                     raw_numbers.append(formatted)
 
         if not raw_numbers:
+            print("[sms] No phone numbers found in profiles")
             return {"success": False, "message": "no phone numbers"}
 
-        message = FLOOD_ALL_CLEAR_SMS_TEMPLATE.format(
-            water_level_cm=water_level_cm / 100,
-            sensor_id=sensor_id,
-        )
+        message = GREEN_ALERT_SMS_TEMPLATE
 
         resp_data = _send_textbee_sms(raw_numbers, message)
         if resp_data is None:
             return {"success": False, "message": "sms send failed"}
 
-        print(f"[sms] Sent all-clear to {len(raw_numbers)} recipient(s)")
+        print(f"[sms] Sent green alert to {len(raw_numbers)} recipient(s)")
         return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
 
     except Exception as e:
-        print(f"[sms] Failed to send all-clear SMS: {e}")
+        print(f"[sms] Failed to send green alert SMS: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -250,17 +258,17 @@ def send_float_switch_2m_alert_sms(sensor_id: str) -> dict:
             print("[sms] No phone numbers found in profiles")
             return {"success": False, "message": "no phone numbers"}
 
-        message = FLOAT_SWITCH_2M_ALERT_SMS_TEMPLATE.format(sensor_id=sensor_id)
+        message = RED_ALERT_SMS_TEMPLATE
 
         resp_data = _send_textbee_sms(raw_numbers, message)
         if resp_data is None:
             return {"success": False, "message": "sms send failed"}
 
-        print(f"[sms] Sent float switch 2m alert to {len(raw_numbers)} recipient(s)")
+        print(f"[sms] Sent RED alert (float switch 2m) to {len(raw_numbers)} recipient(s)")
         return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
 
     except Exception as e:
-        print(f"[sms] Failed to send float switch 2m alert SMS: {e}")
+        print(f"[sms] Failed to send RED alert SMS: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -287,11 +295,75 @@ def send_float_switch_2m_all_clear_sms(sensor_id: str) -> dict:
         if resp_data is None:
             return {"success": False, "message": "sms send failed"}
 
-        print(f"[sms] Sent float switch 2m all-clear to {len(raw_numbers)} recipient(s)")
+        print(f"[sms] Sent RED all-clear to {len(raw_numbers)} recipient(s)")
         return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
 
     except Exception as e:
-        print(f"[sms] Failed to send float switch 2m all-clear SMS: {e}")
+        print(f"[sms] Failed to send RED all-clear SMS: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_float_switch_1m_alert_sms(sensor_id: str) -> dict:
+    if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        print("[sms] TEXTBEE_API_KEY or TEXTBEE_DEVICE_ID not configured — skipping SMS")
+        return {"success": False, "message": "textbee not configured"}
+
+    try:
+        result = client.table("profiles").select("phone_number").execute()
+        raw_numbers = []
+        for row in result.data or []:
+            phone = row.get("phone_number")
+            if phone:
+                formatted = _format_phone(phone)
+                if formatted and formatted not in raw_numbers:
+                    raw_numbers.append(formatted)
+
+        if not raw_numbers:
+            print("[sms] No phone numbers found in profiles")
+            return {"success": False, "message": "no phone numbers"}
+
+        message = YELLOW_ALERT_SMS_TEMPLATE
+
+        resp_data = _send_textbee_sms(raw_numbers, message)
+        if resp_data is None:
+            return {"success": False, "message": "sms send failed"}
+
+        print(f"[sms] Sent YELLOW alert (float switch 1m) to {len(raw_numbers)} recipient(s)")
+        return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
+
+    except Exception as e:
+        print(f"[sms] Failed to send YELLOW alert SMS: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def send_float_switch_1m_all_clear_sms(sensor_id: str) -> dict:
+    if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        return {"success": False, "message": "textbee not configured"}
+
+    try:
+        result = client.table("profiles").select("phone_number").execute()
+        raw_numbers = []
+        for row in result.data or []:
+            phone = row.get("phone_number")
+            if phone:
+                formatted = _format_phone(phone)
+                if formatted and formatted not in raw_numbers:
+                    raw_numbers.append(formatted)
+
+        if not raw_numbers:
+            return {"success": False, "message": "no phone numbers"}
+
+        message = FLOAT_SWITCH_1M_ALL_CLEAR_SMS_TEMPLATE.format(sensor_id=sensor_id)
+
+        resp_data = _send_textbee_sms(raw_numbers, message)
+        if resp_data is None:
+            return {"success": False, "message": "sms send failed"}
+
+        print(f"[sms] Sent YELLOW all-clear to {len(raw_numbers)} recipient(s)")
+        return {"success": True, "recipients": len(raw_numbers), "response": resp_data}
+
+    except Exception as e:
+        print(f"[sms] Failed to send YELLOW all-clear SMS: {e}")
         return {"success": False, "error": str(e)}
 
 

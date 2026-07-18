@@ -106,6 +106,16 @@ export default async function exportWaterLevelPdf(kpi) {
     y = await addImageToDoc(doc, kpiImg, y + 4);
   }
 
+  // Depth comparison section — same page if room, else new page
+  var depthImg = await captureSection("wl-depth-comparison");
+  if (depthImg) {
+    if (y + 20 > PAGE_H - MARGIN) {
+      doc.addPage();
+      y = 15;
+    }
+    y = await addImageToDoc(doc, depthImg, y + 4);
+  }
+
   // Unsafe conditions screenshot — same page if room, else new page
   var unsafeImg = await captureSection("wl-unsafe-section");
   if (unsafeImg) {
@@ -114,6 +124,16 @@ export default async function exportWaterLevelPdf(kpi) {
       y = 15;
     }
     y = await addImageToDoc(doc, unsafeImg, y + 4);
+  }
+
+  // Float Switch History — same page if room, else new page
+  var floatSwitchImg = await captureSection("wl-float-switch-section");
+  if (floatSwitchImg) {
+    if (y + 20 > PAGE_H - MARGIN) {
+      doc.addPage();
+      y = 15;
+    }
+    y = await addImageToDoc(doc, floatSwitchImg, y + 4);
   }
 
   // Pre-capture all chart images
