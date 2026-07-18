@@ -34,6 +34,7 @@ async def list_all(
     order_by: str = Query("created_at"),
     order_dir: str = Query("DESC"),
     include_deleted: bool = Query(False),
+    deleted_only: bool = Query(False),
     current_user: dict = Depends(require_admin_only),
 ):
     try:
@@ -41,6 +42,7 @@ async def list_all(
             page=page, limit=limit, search=search,
             order_by=order_by, order_dir=order_dir,
             include_deleted=include_deleted,
+            deleted_only=deleted_only,
         )
         return {"data": data, "error": None}
     except Exception as e:

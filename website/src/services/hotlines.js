@@ -8,8 +8,8 @@ export async function fetchHotlines() {
   }
 }
 
-export async function fetchAllHotlines(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false) {
-  const params = { page, limit, include_deleted: includeDeleted };
+export async function fetchAllHotlines(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false, deletedOnly = false) {
+  const params = { page, limit, include_deleted: includeDeleted, deleted_only: deletedOnly };
   if (search) params.search = search;
   if (orderBy) params.order_by = orderBy;
   if (orderDir) params.order_dir = orderDir;

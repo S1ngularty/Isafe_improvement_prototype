@@ -220,7 +220,8 @@ export default function AdminDashboard() {
     setAnnouncePage(page);
     try {
       const includeDeleted = announceFilter !== "active";
-      const data = await fetchAllAnnouncements(page, ANNOUNCE_PAGE_SIZE, announceSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
+      const deletedOnly = announceFilter === "deleted";
+      const data = await fetchAllAnnouncements(page, ANNOUNCE_PAGE_SIZE, announceSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted, deletedOnly);
       if (Array.isArray(data)) {
         setAnnouncements(data);
         setAnnounceTotal(data.length);
@@ -240,7 +241,8 @@ export default function AdminDashboard() {
     setTcwsPage(page);
     try {
       const includeDeleted = tcwsFilter !== "active";
-      const data = await fetchAllAlerts(page, TCWS_PAGE_SIZE, tcwsSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
+      const deletedOnly = tcwsFilter === "deleted";
+      const data = await fetchAllAlerts(page, TCWS_PAGE_SIZE, tcwsSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted, deletedOnly);
       if (Array.isArray(data)) {
         setTcwsAlerts(data);
         setTcwsTotal(data.length);
@@ -260,7 +262,8 @@ export default function AdminDashboard() {
     setEvacPage(page);
     try {
       const includeDeleted = evacFilter !== "active";
-      const data = await fetchAllEvacuationAreas(page, EVAC_PAGE_SIZE, evacSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
+      const deletedOnly = evacFilter === "deleted";
+      const data = await fetchAllEvacuationAreas(page, EVAC_PAGE_SIZE, evacSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted, deletedOnly);
       if (Array.isArray(data)) {
         setEvacAreas(data);
         setEvacTotal(data.length);
@@ -280,7 +283,8 @@ export default function AdminDashboard() {
     setHotlinesPage(page);
     try {
       const includeDeleted = hotlineFilter !== "active";
-      const data = await fetchAllHotlines(page, HOTLINE_PAGE_SIZE, hotlineSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted);
+      const deletedOnly = hotlineFilter === "deleted";
+      const data = await fetchAllHotlines(page, HOTLINE_PAGE_SIZE, hotlineSearch, sortBy, sortDesc ? "DESC" : "ASC", includeDeleted, deletedOnly);
       if (Array.isArray(data)) {
         setHotlines(data);
         setHotlinesTotal(data.length);

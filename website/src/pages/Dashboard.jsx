@@ -29,6 +29,7 @@ import EmergencyContactsPanel from "../components/EmergencyContactsPanel";
 import AlertsView from "../components/AlertsView";
 import AlertPopup from "../components/AlertPopup";
 import MemberInfoModal from "../components/MemberInfoModal";
+import Modal from "../components/Modal";
 import ResourcesHub from "./resources/ResourcesHub.jsx";
 import HotlinesView from "../components/HotlinesView";
 import useAlertNotifications from "../hooks/useAlertNotifications";
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [manualLat, setManualLat] = useState(null);
   const [manualLng, setManualLng] = useState(null);
   const [resetKey, setResetKey] = useState(0);
+  const [showGeoModal, setShowGeoModal] = useState(false);
   const { lat, lng, accuracy, error: geoError, tracking } = useGeolocation(locationEnabled);
 
   const { members: familyMembers, family, refresh: refreshFamily } = useFamilyLocations();
@@ -75,7 +77,7 @@ export default function Dashboard() {
   const { areas: evacAreas, nearest: nearestEvac, nearestDist } = useEvacuationAreas(displayLat, displayLng);
   const { current: weatherCurrent } = useWeather(displayLat, displayLng);
   const { alerts: tcwsAlerts, changed: tcwsChanged, dismissed: tcwsDismissed, dismiss: dismissTcws } = useTcwsAlerts();
-  const isManual = manualLat !== null && manualLng !== null;
+
   const mapCenter = displayLat && displayLng ? [displayLat, displayLng] : [12.8, 121.7];
   const mapZoom = displayLat && displayLng ? 16 : 6;
 
@@ -140,6 +142,41 @@ export default function Dashboard() {
     setManualLng(latlng.lng);
   }
 
+  async function handleShareToggle() {
+    if (locationEnabled) {
+      setLocationEnabled(false);
+      try {
+        await updateLocationSharing(false);
+      } catch { /* silent */ }
+      showToast("Location sharing turned off.", "info", 2000);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      showToast("Geolocation is not supported by your browser.", "error");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async () => {
+        setManualLat(null);
+        setManualLng(null);
+        setLocationEnabled(true);
+        try {
+          await updateLocationSharing(true);
+        } catch { /* silent */ }
+        showToast("Location sharing is on.", "success", 2000);
+      },
+      (err) => {
+        if (err.code === 1) {
+          setShowGeoModal(true);
+        } else {
+          showToast("Could not access location: " + err.message, "error");
+        }
+      },
+      { timeout: 5000, enableHighAccuracy: true }
+    );
+  }
 
   async function handleLogout() {
     await logout();
@@ -238,9 +275,9 @@ export default function Dashboard() {
               <div className="flex-1 min-h-0 rounded-xl overflow-hidden shadow-lg">
                 <MapView center={[12.8, 121.7]} zoom={6} className="h-full w-full">
                   {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={profile?.status || "safe"} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
+                    <UserMarker lat={displayLat} lng={displayLng} status={profile?.status || "safe"} accuracy={tracking ? accuracy : null} isSelf={true} avatarUrl={profile?.avatar_url} />
                   )}
-                  {displayLat && displayLng && family && familyMembers.map((m) => {
+                  {displayLat && displayLng && family && familyMembers.filter((m) => m.id !== session?.user?.id).map((m) => {
                     if (!m.lat || !m.lng) return null;
                     const dist = haversine(displayLat, displayLng, m.lat, m.lng);
                     const dir = bearing(displayLat, displayLng, m.lat, m.lng);
@@ -270,7 +307,7 @@ export default function Dashboard() {
                       onClick={() => handleEvacClick(center)}
                     />
                   ))}
-                  {displayLat && displayLng && familyMembers.map((m) =>
+                  {displayLat && displayLng && familyMembers.filter((m) => m.id !== session?.user?.id).map((m) =>
                     m.lat && m.lng ? (
                       <Polyline
                         key={`prox-${m.id}`}
@@ -309,7 +346,7 @@ export default function Dashboard() {
           {view === "hotlines" && <HotlinesView />}
 
           {view === "contacts" && (
-            <div className="h-[calc(100vh-7rem)]">
+            <div className="flex-1 min-h-0">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden p-5">
                 {profile && (
                   <div className="mb-4">
@@ -317,7 +354,7 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-400">Family members with direct call and SMS access</p>
                   </div>
                 )}
-                <EmergencyContactsPanel family={family} members={familyMembers} profile={profile} />
+                <EmergencyContactsPanel family={family} profile={profile} />
               </div>
             </div>
           )}
@@ -343,9 +380,9 @@ export default function Dashboard() {
               <div className="h-[55vh] min-h-[380px] rounded-xl overflow-hidden shadow-lg relative group">
                 <MapView center={mapCenter} zoom={mapZoom} resetKey={resetKey} className="h-full w-full" onMapClick={handleMapClick}>
                   {displayLat && displayLng && (
-                    <UserMarker lat={displayLat} lng={displayLng} status={profile?.status || "safe"} accuracy={isManual ? null : accuracy} isSelf={true} avatarUrl={profile?.avatar_url} />
+                    <UserMarker lat={displayLat} lng={displayLng} status={profile?.status || "safe"} accuracy={tracking ? accuracy : null} isSelf={true} avatarUrl={profile?.avatar_url} />
                   )}
-                  {displayLat && displayLng && family && familyMembers.map((m) => {
+                  {displayLat && displayLng && family && familyMembers.filter((m) => m.id !== session?.user?.id).map((m) => {
                     if (!m.lat || !m.lng) return null;
                     const dist = showProximity ? haversine(displayLat, displayLng, m.lat, m.lng) : null;
                     const dir = dist ? bearing(displayLat, displayLng, m.lat, m.lng) : null;
@@ -362,7 +399,7 @@ export default function Dashboard() {
                         distanceInfo={dist ? `${dist.toFixed(1)} km ${dir}` : null}
                       />
                     );
-                  }                  )}
+                  })}
                   {evacAreas.map((center) => (
                     <EvacMarker
                       key={`evac-${center.id}`}
@@ -375,7 +412,7 @@ export default function Dashboard() {
                       onClick={() => handleEvacClick(center)}
                     />
                   ))}
-                  {showProximity && displayLat && displayLng && familyMembers.map((m) =>
+                  {showProximity && displayLat && displayLng && familyMembers.filter((m) => m.id !== session?.user?.id).map((m) =>
                     m.lat && m.lng ? (
                       <Polyline
                         key={`prox-${m.id}`}
@@ -418,34 +455,16 @@ export default function Dashboard() {
                       {showProximity ? "Hide" : "Lines"}
                     </button>
                   )}
-                  <div className="bg-white/90 backdrop-blur rounded-lg shadow px-3 py-1.5 flex items-center gap-2 text-xs">
-                    <span className={`w-2 h-2 rounded-full ${tracking || isManual ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
-                    <span className="text-gray-600">{tracking || isManual ? (isManual ? "Manual" : "Live") : "Off"}</span>
-                    {!isManual && accuracy && <span className="text-gray-400 ml-1">~{Math.round(accuracy)}m</span>}
-                  </div>
-                </div>
-
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-1.5">
                   <button
-                    onClick={() => {
-                      if (!locationEnabled && !navigator.geolocation) {
-                        showToast("Geolocation is not supported by your browser.", "error");
-                        return;
-                      }
-                      const next = !locationEnabled;
-                      setLocationEnabled(next);
-                      updateLocationSharing(next).catch(() => {});
-                    }}
-                    className={`bg-white/90 hover:bg-white backdrop-blur rounded-lg shadow-md p-2 flex flex-col items-center gap-0.5 transition-all border-2 ${
+                    onClick={handleShareToggle}
+                    className={`bg-white/90 hover:bg-white backdrop-blur rounded-lg shadow px-3 py-1.5 flex items-center gap-2 text-xs transition-all border-2 ${
                       locationEnabled ? "border-green-500 text-green-700 scale-105" : "border-transparent text-gray-500 hover:text-gray-700"
                     }`}
-                    title="Share Location"
+                    title={locationEnabled ? "Tap to stop sharing your location" : "Tap to share your live location"}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span className="text-[9px] font-bold leading-none">Share</span>
+                    <span className={`w-2 h-2 rounded-full ${tracking ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
+                    <span className="font-semibold">Share: {tracking ? "ON" : "OFF"}</span>
+                    {tracking && accuracy && <span className="text-gray-400">~{Math.round(accuracy)}m</span>}
                   </button>
                 </div>
 
@@ -454,6 +473,10 @@ export default function Dashboard() {
                     <button
                       onClick={() => {
                         if (!displayLat || !displayLng) return;
+                        if (profile?.lat && profile?.lng) {
+                          setManualLat(profile.lat);
+                          setManualLng(profile.lng);
+                        }
                         setResetKey((k) => k + 1);
                       }}
                       className="bg-white text-xs px-4 py-2 rounded-full shadow-lg font-medium text-gray-600 hover:text-gray-900 border"
@@ -465,6 +488,7 @@ export default function Dashboard() {
                         if (!displayLat || !displayLng) return;
                         try {
                           await upsertLocation(displayLat, displayLng);
+                          await refreshProfile();
                           showToast("Location pinned.", "success", 2000);
                         } catch (err) {
                           showToast("Failed to save location: " + err.message, "error");
@@ -550,6 +574,35 @@ export default function Dashboard() {
           currentUserId={session?.user?.id}
           onClose={() => setMemberNotification(null)}
         />
+      )}
+
+      {showGeoModal && (
+        <Modal open={showGeoModal} onClose={() => setShowGeoModal(false)}>
+          <div className="px-6 py-8 text-center">
+            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Location Permission Denied</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Please allow location access in your browser settings to share your live location.
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 text-left text-sm text-gray-600 space-y-2 mb-4">
+              <p>1. Click the lock or info icon in your browser's address bar</p>
+              <p>2. Find the <strong>Location</strong> setting</p>
+              <p>3. Change it from <strong>Block</strong> to <strong>Allow</strong></p>
+              <p>4. Refresh the page and try again</p>
+            </div>
+            <button
+              onClick={() => setShowGeoModal(false)}
+              className="bg-shield-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-shield-700 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

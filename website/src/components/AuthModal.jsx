@@ -6,6 +6,7 @@ import { useToast } from "../context/ToastContext";
 import Modal from "./Modal";
 import { ALL_GROUPS, encodeSpecialNeeds } from "../utils/medicalOptions";
 import { BARANGAY_OPTIONS } from "../utils/barangayOptions";
+import { normalizePhone } from "../utils/phone";
 import { verifyOtp, resendOtp } from "../services/auth.js";
 
 const EMAIL_RE = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -118,7 +119,11 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
     markTouched(field);
     if (field === "fullName") setErrors((p) => ({ ...p, fullName: validate("fullName", fullName) }));
     if (field === "barangay") setErrors((p) => ({ ...p, barangay: validate("barangay", barangay) }));
-    if (field === "phoneNumber") setErrors((p) => ({ ...p, phoneNumber: validate("phoneNumber", phoneNumber) }));
+    if (field === "phoneNumber") {
+      const normalized = normalizePhone(phoneNumber);
+      if (normalized !== phoneNumber) setPhoneNumber(normalized);
+      setErrors((p) => ({ ...p, phoneNumber: validate("phoneNumber", normalized) }));
+    }
     if (field === "email") setErrors((p) => ({ ...p, email: validate("email", email) }));
     if (field === "confirm") setErrors((p) => ({ ...p, confirm: validate("confirm", confirm) }));
   }
@@ -203,10 +208,11 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
 
       setSubmitting(true);
       try {
+        const normPhone = phoneNumber ? normalizePhone(phoneNumber) : "";
         const result = await signup(email, password, {
           full_name: fullName.trim(),
           barangay_id: parseInt(barangay, 10),
-          phone_number: phoneNumber.trim(),
+          phone_number: normPhone,
           date_of_birth: dateOfBirth || null,
           blood_type: bloodType,
           household_size: householdSize || null,
@@ -489,16 +495,19 @@ export default function AuthModal({ open, onClose, initialTab = "login" }) {
               </div>
               <div>
                 <label htmlFor="auth-phone" className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
-                <input
-                  id="auth-phone"
-                  type="tel"
-                  className={inputClass("phoneNumber")}
-                  placeholder="+639123456789"
-                  value={phoneNumber}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  onBlur={() => handleBlur("phoneNumber")}
-                  autoComplete="tel"
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium pointer-events-none select-none">PH +63</span>
+                  <input
+                    id="auth-phone"
+                    type="tel"
+                    className={`${inputClass("phoneNumber")} pl-16`}
+                    placeholder="912 345 6789"
+                    value={phoneNumber}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    onBlur={() => handleBlur("phoneNumber")}
+                    autoComplete="tel"
+                  />
+                </div>
                 {errors.phoneNumber && touched.phoneNumber && <p className="field-error">{errors.phoneNumber}</p>}
               </div>
               <div>

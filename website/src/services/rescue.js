@@ -41,8 +41,8 @@ export async function fetchAdminRescuers(search = "", page = 1, limit = 50, orde
   return apiCall("GET", "/api/admin/rescuers", null, params);
 }
 
-export async function fetchRescueActivity(page = 1, limit = 50, state = null, orderBy = null, orderDir = null) {
-  const params = { page, limit };
+export async function fetchRescueActivity(page = 1, limit = 50, state = null, orderBy = null, orderDir = null, includeDeleted = false, deletedOnly = false) {
+  const params = { page, limit, include_deleted: includeDeleted, deleted_only: deletedOnly };
   if (state) params.state = state;
   if (orderBy) params.order_by = orderBy;
   if (orderDir) params.order_dir = orderDir;
@@ -51,6 +51,14 @@ export async function fetchRescueActivity(page = 1, limit = 50, state = null, or
 
 export async function adminUpdateRescuer(userId, body) {
   return apiCall("PUT", `/api/admin/rescuers/${userId}`, body);
+}
+
+export async function deleteRescueAssignment(assignmentId) {
+  return apiCall("DELETE", `/api/admin/rescue-assignments/${assignmentId}`);
+}
+
+export async function restoreRescueAssignment(assignmentId) {
+  return apiCall("POST", `/api/admin/rescue-assignments/${assignmentId}/restore`);
 }
 
 export async function fetchInNeed() {

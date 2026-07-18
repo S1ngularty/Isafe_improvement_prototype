@@ -91,9 +91,12 @@ async def get_all_areas_paginated(
     order_by: str = "created_at",
     order_dir: str = "DESC",
     include_deleted: bool = False,
+    deleted_only: bool = False,
 ) -> dict:
     query = client.table("evacuation_areas").select("*", count="exact")
-    if not include_deleted:
+    if deleted_only:
+        query = query.not_.is_("deleted_at", "null")
+    elif not include_deleted:
         query = query.is_("deleted_at", "null")
 
     if search and search.strip():

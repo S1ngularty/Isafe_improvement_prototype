@@ -81,9 +81,12 @@ async def get_all_hotlines_paginated(
     order_by: str = "sort_order",
     order_dir: str = "ASC",
     include_deleted: bool = False,
+    deleted_only: bool = False,
 ) -> dict:
     query = client.table("hotlines").select("*", count="exact")
-    if not include_deleted:
+    if deleted_only:
+        query = query.not_.is_("deleted_at", "null")
+    elif not include_deleted:
         query = query.is_("deleted_at", "null")
 
     if search and search.strip():

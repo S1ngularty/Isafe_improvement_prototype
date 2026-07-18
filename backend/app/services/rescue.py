@@ -29,13 +29,7 @@ async def list_in_need(
     limit: int = 50,
 ) -> dict:
     """List users with status 'help' or 'emergency', sorted by priority and distance."""
-    result = (
-        client.from_("profiles")
-        .select(PROFILE_BASE_FIELDS)
-        .in_("status", ["help", "emergency"])
-        .order("last_seen_at", desc=True, nullsfirst=False)
-        .execute()
-    )
+    result = client.rpc("get_available_targets").execute()
     rows = result.data or []
     _flatten_barangay(rows)
 
@@ -89,6 +83,7 @@ async def claim_assignment(rescuer_id: str, target_user_id: str) -> dict:
         .select("id, state")
         .eq("target_user_id", target_user_id)
         .in_("state", ["en_route", "on_scene"])
+        .is_("deleted_at", "null")
         .limit(1)
         .execute()
     )

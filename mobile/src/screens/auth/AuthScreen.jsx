@@ -209,14 +209,25 @@ export default function AuthScreen() {
                   autoCapitalize="none"
                   editable={!loading}
                 />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  editable={!loading}
-                />
+                <View style={styles.passwordInputWrapper}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    editable={!loading}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.passwordToggle}>
+                    <MaterialIcons
+                      name={showPassword ? "visibility" : "visibility-off"}
+                      size={20}
+                      color="#991b1b"
+                    />
+                  </Pressable>
+                </View>
                 <Pressable
                   style={[styles.button, loading && styles.buttonDisabled]}
                   onPress={handleLogin}

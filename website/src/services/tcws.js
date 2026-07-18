@@ -8,9 +8,9 @@ export async function fetchActiveAlerts() {
   }
 }
 
-export async function fetchAllAlerts(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false) {
+export async function fetchAllAlerts(page = 1, limit = 10, search = "", orderBy = null, orderDir = null, includeDeleted = false, deletedOnly = false) {
   try {
-    const params = { page, limit, include_deleted: includeDeleted };
+    const params = { page, limit, include_deleted: includeDeleted, deleted_only: deletedOnly };
     if (search) params.search = search;
     if (orderBy) params.order_by = orderBy;
     if (orderDir) params.order_dir = orderDir;

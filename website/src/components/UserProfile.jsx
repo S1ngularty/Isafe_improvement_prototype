@@ -5,6 +5,7 @@ import { uploadAvatar, removeAvatar, updateProfile, sendPhoneOtp, verifyPhoneOtp
 import { getMyFamily, getFamilyMembers } from "../services/family.js";
 import { ALL_GROUPS, encodeSpecialNeeds, decodeSpecialNeeds } from "../utils/medicalOptions";
 import { BARANGAY_OPTIONS } from "../utils/barangayOptions";
+import { normalizePhone } from "../utils/phone";
 
 const BLOOD_TYPES = ["", "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
@@ -82,18 +83,20 @@ export default function UserProfile() {
   }
 
   async function handleSave() {
-    if (phoneNumber && !/^\+63\d{10}$/.test(phoneNumber)) { showToast("Phone must be +63 followed by 10 digits.", "error"); return; }
-    if (externalPhone && !/^\+63\d{10}$/.test(externalPhone)) { showToast("External phone must be +63 format.", "error"); return; }
+    const normPhone = phoneNumber ? normalizePhone(phoneNumber) : "";
+    const normExtPhone = externalPhone ? normalizePhone(externalPhone) : "";
+    if (normPhone && !/^\+63\d{10}$/.test(normPhone)) { showToast("Phone must be +63 followed by 10 digits.", "error"); return; }
+    if (normExtPhone && !/^\+63\d{10}$/.test(normExtPhone)) { showToast("External phone must be +63 format.", "error"); return; }
     setSaving(true);
     try {
-      const phoneChanged = phoneNumber.trim() !== (profile?.phone_number || "");
+      const phoneChanged = normPhone !== (profile?.phone_number || "");
       await updateProfile({
-        full_name: fullName.trim(), barangay_id: parseInt(barangay, 10), phone_number: phoneNumber.trim(),
+        full_name: fullName.trim(), barangay_id: parseInt(barangay, 10), phone_number: normPhone,
         date_of_birth: dateOfBirth || null,
         blood_type: bloodType, household_size: householdSize || null,
         special_needs: encodeSpecialNeeds(selectedNeeds, needsOther), street_address: streetAddress.trim(),
         medical_notes: medicalNotes.trim(), external_name: externalName.trim(),
-        external_phone: externalPhone.trim(), relationship: relationship.trim(),
+        external_phone: normExtPhone, relationship: relationship.trim(),
         ...(phoneChanged ? { phone_verified: false } : {}),
       });
       await refreshProfile();
@@ -102,13 +105,14 @@ export default function UserProfile() {
   }
 
   async function handleSendPhoneOtp() {
-    if (!phoneNumber || !/^\+63\d{10}$/.test(phoneNumber)) {
+    const normPhone = normalizePhone(phoneNumber);
+    if (!normPhone || !/^\+63\d{10}$/.test(normPhone)) {
       showToast("Please enter a valid phone number (+639...).", "error");
       return;
     }
     setPhoneVerifying(true);
     try {
-      await sendPhoneOtp(phoneNumber.trim());
+      await sendPhoneOtp(normPhone);
       setPhoneVerifyStep("otp-sent");
       setPhoneOtpCode("");
       showToast("Verification code sent to your phone!", "success");
@@ -206,7 +210,8 @@ export default function UserProfile() {
                 ))}
               </select>
               <div className="relative">
-                <input type="tel" value={phoneNumber} onChange={(e) => { setPhoneNumber(e.target.value); if (profile?.phone_verified) setPhoneVerifyStep("idle"); }} className={inputCls} placeholder="Phone (+639...)" />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium pointer-events-none select-none">PH +63</span>
+                <input type="tel" value={phoneNumber} onChange={(e) => { setPhoneNumber(e.target.value); if (profile?.phone_verified) setPhoneVerifyStep("idle"); }} onBlur={(e) => setPhoneNumber(normalizePhone(e.target.value))} className={`${inputCls} pl-16`} placeholder="912 345 6789" />
                 {phoneVerifyStep === "verified" && (
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 text-green-600 text-xs font-semibold">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
@@ -307,7 +312,10 @@ export default function UserProfile() {
           >
             <div className="space-y-2.5">
               <input type="text" value={externalName} onChange={(e) => setExternalName(e.target.value)} className={inputCls} placeholder="Contact name" />
-              <input type="tel" value={externalPhone} onChange={(e) => setExternalPhone(e.target.value)} className={inputCls} placeholder="Phone (+639...)" />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium pointer-events-none select-none">PH +63</span>
+                <input type="tel" value={externalPhone} onChange={(e) => setExternalPhone(e.target.value)} onBlur={(e) => setExternalPhone(normalizePhone(e.target.value))} className={`${inputCls} pl-16`} placeholder="912 345 6789" />
+              </div>
             </div>
           </SectionCard>
 
