@@ -45,7 +45,7 @@ const FALLBACK_ANNOUNCEMENTS = [
   },
 ];
 
-export default function AnnouncementBanner() {
+export default function AnnouncementBanner({ onPress }) {
   const [announcements, setAnnouncements] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -109,7 +109,11 @@ export default function AnnouncementBanner() {
   const current = announcements[currentIndex];
 
   return (
-    <View style={styles.container}>
+    <Pressable
+      style={styles.container}
+      onPress={() => onPress && onPress(current)}
+      android_ripple={{ color: "rgba(255,255,255,0.15)" }}
+    >
       {/* Background Image if available */}
       {current.image_url && (
         <Image 
@@ -133,6 +137,7 @@ export default function AnnouncementBanner() {
             {current.description}
           </Text>
         </View>
+        <MaterialIcons name="chevron-right" size={22} color="rgba(255,255,255,0.7)" />
       </View>
 
       {/* Navigation */}
@@ -143,28 +148,38 @@ export default function AnnouncementBanner() {
             <Pressable
               key={index}
               style={[styles.dot, index === currentIndex && styles.dotActive]}
-              onPress={() => setCurrentIndex(index)}
+              onPress={(e) => {
+                e.stopPropagation && e.stopPropagation();
+                setCurrentIndex(index);
+              }}
             />
           ))}
         </View>
 
-        {/* Arrow navigation */}
-        <View style={styles.arrows}>
-          <Pressable
-            onPress={() =>
-              setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length)
-            }
-          >
-            <MaterialIcons name="chevron-left" size={20} color={COLORS.white} />
-          </Pressable>
-          <Pressable
-            onPress={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
-          >
-            <MaterialIcons name="chevron-right" size={20} color={COLORS.white} />
-          </Pressable>
+        {/* Tap hint + Arrow navigation */}
+        <View style={styles.navRight}>
+          <Text style={styles.tapHint}>Tap for details</Text>
+          <View style={styles.arrows}>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation && e.stopPropagation();
+                setCurrentIndex((prev) => (prev - 1 + announcements.length) % announcements.length);
+              }}
+            >
+              <MaterialIcons name="chevron-left" size={20} color={COLORS.white} />
+            </Pressable>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation && e.stopPropagation();
+                setCurrentIndex((prev) => (prev + 1) % announcements.length);
+              }}
+            >
+              <MaterialIcons name="chevron-right" size={20} color={COLORS.white} />
+            </Pressable>
+          </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -227,6 +242,16 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     opacity: 1,
+  },
+  navRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  tapHint: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.6)",
+    fontWeight: "600",
   },
   arrows: {
     flexDirection: "row",
