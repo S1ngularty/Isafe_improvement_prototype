@@ -18,6 +18,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { BARANGAY_OPTIONS } from "../../utils/barangayOptions";
+import { normalizePhone, COUNTRY_LABEL } from "../../utils/phone";
 import { updateProfile, sendPhoneOtp, verifyPhoneOtp, removePhone } from "../../services/profile.js";
 import * as ImagePicker from "expo-image-picker";
 import { uploadAvatar, getDefaultAvatar } from "../../services/profile.js";
@@ -196,13 +197,15 @@ export default function ProfileScreen({ navigation }) {
           updateData.street_address = tempValue.trim();
           setStreetAddress(tempValue.trim());
           break;
-        case "phoneNumber":
-          updateData.phone_number = tempValue.trim();
-          if (tempValue.trim() !== (profile?.phone_number || "")) {
+        case "phoneNumber": {
+          const normPhone = normalizePhone(tempValue);
+          updateData.phone_number = normPhone;
+          if (normPhone !== (profile?.phone_number || "")) {
             updateData.phone_verified = false;
           }
-          setPhoneNumber(tempValue.trim());
+          setPhoneNumber(normPhone);
           break;
+        }
         case "bloodType":
           updateData.blood_type = tempValue;
           setBloodType(tempValue);
@@ -278,13 +281,14 @@ export default function ProfileScreen({ navigation }) {
   }, [profile?.phone_verified, profile?.phone_number]);
 
   const handleSendPhoneOtp = async () => {
-    if (!phoneNumber || !/^\+63\d{10}$/.test(phoneNumber)) {
+    const normPhone = normalizePhone(phoneNumber);
+    if (!normPhone || !/^\+63\d{10}$/.test(normPhone)) {
       showToast("Please enter a valid phone number (+639...)", "error");
       return;
     }
     setPhoneVerifying(true);
     try {
-      await sendPhoneOtp(phoneNumber.trim());
+      await sendPhoneOtp(normPhone);
       setPhoneVerifyStep("otp-sent");
       setPhoneOtpCode("");
       showToast("Verification code sent to your phone!", "success");
@@ -669,11 +673,28 @@ export default function ProfileScreen({ navigation }) {
                   size={24}
                   color={COLORS.shieldPrimary}
                 />
+                {editingField === "phoneNumber" && (
+                  <View style={styles.countryCodeBadge}>
+                    <Text style={styles.countryCodeText}>PH +63</Text>
+                  </View>
+                )}
                 <TextInput
-                  style={styles.modalInput}
+                  style={[
+                    styles.modalInput,
+                    editingField === "phoneNumber" && { paddingLeft: 4 },
+                  ]}
                   value={tempValue}
                   onChangeText={setTempValue}
-                  placeholder={`Enter ${title.toLowerCase()}`}
+                  onBlur={() => {
+                    if (editingField === "phoneNumber") {
+                      setTempValue(normalizePhone(tempValue));
+                    }
+                  }}
+                  placeholder={
+                    editingField === "phoneNumber"
+                      ? "912 345 6789"
+                      : `Enter ${title.toLowerCase()}`
+                  }
                   editable={!loading}
                   multiline={
                     editingField === "medicalNotes" ||
@@ -1350,6 +1371,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 12,
     marginBottom: 16,
+  },
+  countryCodeBadge: {
+    backgroundColor: COLORS.gray300,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  countryCodeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.gray600,
   },
   modalInput: {
     flex: 1,

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
+import { getFamilyMembersPaginated } from "../services/family";
 
 const CACHE_KEY = "cityshield_emergency_contacts";
 const CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -38,7 +39,18 @@ export default function EmergencyContactsPanel({ family, members, profile, compa
   const [offline, setOffline] = useState(false);
   const [cachedMembers, setCachedMembers] = useState(null);
 
+  const [paginatedMembers, setPaginatedMembers] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
+  const sentinelRef = useRef(null);
+  const pageRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+
+  const usePagination = !compact && !members;
+
   useEffect(() => {
+    if (usePagination) return;
     if (members && members.length > 0) {
       setCache(members);
       setCachedMembers(null);
@@ -49,9 +61,54 @@ export default function EmergencyContactsPanel({ family, members, profile, compa
         if (!members || members.length === 0) setOffline(true);
       }
     }
-  }, [members]);
+  }, [members, usePagination]);
 
-  const displayMembers = (members && members.length > 0) ? members : (cachedMembers || []);
+  useEffect(() => {
+    if (!usePagination || !family) return;
+    setInitialLoading(true);
+    pageRef.current = 0;
+    getFamilyMembersPaginated(10, 0)
+      .then((result) => {
+        setPaginatedMembers(result.members);
+        setTotal(result.total);
+      })
+      .catch(() => {})
+      .finally(() => setInitialLoading(false));
+  }, [family?.id, usePagination]);
+
+  const hasMore = paginatedMembers.length < total;
+
+  const loadMore = useCallback(() => {
+    if (loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const nextOffset = pageRef.current + 10;
+    pageRef.current = nextOffset;
+    getFamilyMembersPaginated(10, nextOffset)
+      .then((result) => {
+        setPaginatedMembers((prev) => [...prev, ...result.members]);
+        setTotal(result.total);
+      })
+      .catch(() => {})
+      .finally(() => {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!usePagination || !sentinelRef.current || !hasMore) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore();
+      },
+      { rootMargin: "300px" }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, usePagination]);
+
+  const displayMembers = usePagination ? paginatedMembers : ((members && members.length > 0) ? members : (cachedMembers || []));
   const phone = profile?.phone_number || "";
   const hasPhone = phone.length >= 12;
 
@@ -114,7 +171,13 @@ export default function EmergencyContactsPanel({ family, members, profile, compa
       )}
 
       {displayMembers.length === 0 && !compact && (
-        <p className="text-xs text-gray-400 text-center py-6">No family members yet. Share your family code!</p>
+        usePagination && initialLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="w-6 h-6 border-2 border-shield-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 text-center py-6">No family members yet. Share your family code!</p>
+        )
       )}
 
       {compact ? (
@@ -134,6 +197,17 @@ export default function EmergencyContactsPanel({ family, members, profile, compa
           {displayMembers.map((m) => (
             <FullContactCard key={m.id} member={m} />
           ))}
+          {usePagination && hasMore && (
+            <div ref={sentinelRef} className="h-4" />
+          )}
+          {loadingMore && (
+            <div className="flex justify-center py-3">
+              <div className="w-5 h-5 border-2 border-shield-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          {usePagination && !hasMore && paginatedMembers.length > 0 && (
+            <p className="text-xs text-gray-400 text-center py-3">All contacts loaded</p>
+          )}
         </div>
       )}
     </div>

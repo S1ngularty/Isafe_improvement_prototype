@@ -1,4 +1,5 @@
 import { leaveFamily, removeFamilyMember, promoteFamilyMember, demoteFamilyMember } from "../services/family.js";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useState } from "react";
 import ConfirmDialog from "./ConfirmDialog";
@@ -31,8 +32,8 @@ export default function FamilyMemberList({ members, family, currentUserId, onRef
   const [acting, setActing] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
-  const myMember = members.find((m) => m.id === currentUserId);
-  const myRole = myMember?.family_role || "member";
+  const { profile } = useAuth();
+  const myRole = profile?.family_role || "member";
   const isHead = myRole === "head";
   const isCoHead = myRole === "co_head";
   const canManage = isHead || isCoHead;

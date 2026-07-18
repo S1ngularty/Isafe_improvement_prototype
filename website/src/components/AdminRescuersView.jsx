@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useToast } from "../context/ToastContext";
 import { fetchAllProfiles, updateUserRole } from "../services/auth";
-import { adminUpdateRescuer, fetchAdminRescuers, fetchRescueActivity } from "../services/rescue";
+import { adminUpdateRescuer, fetchAdminRescuers, fetchRescueActivity, deleteRescueAssignment, restoreRescueAssignment } from "../services/rescue";
 import useRealtimeRefresh from "../hooks/useRealtimeRefresh";
 import DataTable from "./DataTable";
 
@@ -26,7 +26,11 @@ export default function AdminRescuersView() {
   const { showToast } = useToast();
   const [tab, setTab] = useState("roster");
   const [rescuers, setRescuers] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
+  const [promoteUsers, setPromoteUsers] = useState([]);
+  const [promoteTotal, setPromoteTotal] = useState(0);
+  const [promotePage, setPromotePage] = useState(1);
+  const [promoteLoading, setPromoteLoading] = useState(false);
+  const [promoteSearch, setPromoteSearch] = useState("");
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [promoteModal, setPromoteModal] = useState(false);
@@ -38,6 +42,12 @@ export default function AdminRescuersView() {
     contact_number: "",
   });
   const [promoting, setPromoting] = useState(false);
+  const promoteSearchTimer = useRef(null);
+  useEffect(() => {
+    return () => {
+      if (promoteSearchTimer.current) clearTimeout(promoteSearchTimer.current);
+    };
+  }, []);
   const [search, setSearch] = useState("");
   const [detailUser, setDetailUser] = useState(null);
   const [rosterTotal, setRosterTotal] = useState(0);
@@ -49,6 +59,9 @@ export default function AdminRescuersView() {
   const [activitySortColumn, setActivitySortColumn] = useState("created_at");
   const [activitySortDirection, setActivitySortDirection] = useState("DESC");
   const [activityStateFilter, setActivityStateFilter] = useState("");
+  const [activityFilter, setActivityFilter] = useState("active");
+  const [rescueDeleteConfirm, setRescueDeleteConfirm] = useState(null);
+  const [rescueRestoreConfirm, setRescueRestoreConfirm] = useState(null);
   const PAGE_SIZE = 10;
   const ROSTER_PAGE_SIZE = 10;
 
@@ -70,11 +83,13 @@ export default function AdminRescuersView() {
     setActivityPage(p);
     try {
       const filter = stateFilter !== null ? stateFilter : activityStateFilter;
-      const data = await fetchRescueActivity(p, PAGE_SIZE, filter || null, sortBy, sortDir);
+      const includeDeleted = activityFilter !== "active";
+      const deletedOnly = activityFilter === "deleted";
+      const data = await fetchRescueActivity(p, PAGE_SIZE, filter || null, sortBy, sortDir, includeDeleted, deletedOnly);
       setActivity(data?.assignments || []);
       setActivityTotal(data?.total || 0);
     } catch (_) {}
-  }, [activitySortColumn, activitySortDirection, activityStateFilter]);
+  }, [activitySortColumn, activitySortDirection, activityStateFilter, activityFilter]);
 
   const ROSTER_SORT_FIELD_MAP = {
     rescuer: "full_name",
@@ -116,18 +131,24 @@ export default function AdminRescuersView() {
     }
   }
 
-  const loadAllUsers = useCallback(async () => {
+  const loadPromoteUsers = useCallback(async (page = 1) => {
+    setPromoteLoading(true);
+    setPromotePage(page);
     try {
-      const data = await fetchAllProfiles(1, 500, null);
-      setAllUsers(data?.data || []);
-    } catch (_) {}
-  }, []);
+      const data = await fetchAllProfiles(page, 10, promoteSearch || null);
+      setPromoteUsers(data?.data || []);
+      setPromoteTotal(data?.total || 0);
+    } catch (_) {
+    } finally {
+      setPromoteLoading(false);
+    }
+  }, [promoteSearch]);
 
   useEffect(() => {
     if (tab === "roster") loadRescuers(1);
     if (tab === "activity") loadActivity(1);
-    if (tab === "promote") loadAllUsers();
-  }, [tab, loadRescuers, loadActivity, loadAllUsers]);
+    if (tab === "promote") loadPromoteUsers(1);
+  }, [tab, loadRescuers, loadActivity, loadPromoteUsers]);
 
   useRealtimeRefresh(
     tab === "activity"
@@ -184,6 +205,31 @@ export default function AdminRescuersView() {
       showToast(err.message || "Failed to update", "error");
     }
   };
+
+  async function handleRescueDelete(assignmentId) {
+    try {
+      await deleteRescueAssignment(assignmentId);
+      setActivity((prev) => prev.filter((a) => a.id !== assignmentId));
+      showToast("Rescue assignment deleted.", "success");
+    } catch (err) {
+      showToast("Failed to delete: " + err.message, "error");
+    } finally {
+      setRescueDeleteConfirm(null);
+    }
+  }
+
+  async function handleRescueRestore() {
+    if (!rescueRestoreConfirm) return;
+    try {
+      await restoreRescueAssignment(rescueRestoreConfirm);
+      showToast("Rescue assignment restored.", "success");
+      loadActivity();
+    } catch (err) {
+      showToast("Failed to restore: " + err.message, "error");
+    } finally {
+      setRescueRestoreConfirm(null);
+    }
+  }
 
   const tabs = [
     { id: "roster", label: "Rescuer Roster" },
@@ -351,6 +397,30 @@ export default function AdminRescuersView() {
         </span>
       ),
     },
+    {
+      id: "actions",
+      header: "Actions",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const a = row.original;
+        if (a.deleted_at) {
+          return (
+            <button onClick={() => setRescueRestoreConfirm(a.id)}
+              className="text-xs text-emerald-600 hover:text-emerald-800 font-medium"
+            >
+              Restore
+            </button>
+          );
+        }
+        return (
+          <button onClick={() => setRescueDeleteConfirm(a.id)}
+            className="text-xs text-red-500 hover:text-red-700 font-medium"
+          >
+            Delete
+          </button>
+        );
+      },
+    },
   ], []);
 
   const promoteColumns = useMemo(() => [
@@ -477,6 +547,19 @@ export default function AdminRescuersView() {
       {tab === "activity" && (
         <div>
           <div className="flex items-center gap-3 mb-4">
+            <div className="flex gap-1.5">
+              {["active", "deleted", "all"].map((f) => (
+                <button key={f} onClick={() => { setActivityFilter(f); loadActivity(1); }}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                    activityFilter === f
+                      ? "bg-shield-100 text-shield-700"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
             <select
               value={activityStateFilter}
               onChange={function (e) { setActivityStateFilter(e.target.value); loadActivity(1, e.target.value); }}
@@ -514,10 +597,30 @@ export default function AdminRescuersView() {
           <p className="text-sm text-gray-500 mb-4">
             Select a user to promote to rescuer. Rescuers cannot self-register.
           </p>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={promoteSearch}
+              onChange={(e) => {
+                setPromoteSearch(e.target.value);
+                if (promoteSearchTimer.current) clearTimeout(promoteSearchTimer.current);
+                promoteSearchTimer.current = setTimeout(() => {
+                  loadPromoteUsers(1);
+                }, 300);
+              }}
+              className="input max-w-xs"
+            />
+          </div>
           <DataTable
             columns={promoteColumns}
-            data={allUsers.filter((u) => u.role !== "admin")}
+            data={promoteUsers}
+            totalCount={promoteTotal}
+            pageIndex={promotePage - 1}
             pageSize={10}
+            isLoading={promoteLoading}
+            serverSide
+            onPageChange={(p) => loadPromoteUsers(p)}
             emptyMessage="No users available to promote"
           />
         </div>
@@ -579,6 +682,32 @@ export default function AdminRescuersView() {
               <button onClick={handlePromote} disabled={promoting} className="btn-primary flex-1 py-2 text-sm">
                 {promoting ? "Promoting..." : "Promote"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rescueDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setRescueDeleteConfirm(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Rescue Assignment</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this assignment? This can be undone later.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setRescueDeleteConfirm(null)} className="btn-outline flex-1 py-2 text-sm">Cancel</button>
+              <button onClick={() => handleRescueDelete(rescueDeleteConfirm)} className="text-sm bg-red-500 hover:bg-red-600 text-white font-semibold flex-1 py-2 rounded-lg transition-colors">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rescueRestoreConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setRescueRestoreConfirm(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Restore Rescue Assignment</h3>
+            <p className="text-sm text-gray-600 mb-4">Are you sure you want to restore this assignment?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setRescueRestoreConfirm(null)} className="btn-outline flex-1 py-2 text-sm">Cancel</button>
+              <button onClick={handleRescueRestore} className="btn-primary flex-1 py-2 text-sm">Restore</button>
             </div>
           </div>
         </div>

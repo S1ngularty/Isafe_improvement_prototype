@@ -399,7 +399,7 @@ export default function WaterLevelView() {
       </div>
 
       {/* Side-by-side: Freeboard + Actual Depth */}
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div id="wl-depth-comparison" className="grid lg:grid-cols-2 gap-4">
         <div>
           <h2 className="text-lg font-bold text-gray-900 mb-3">Distance from Sensor (Freeboard)</h2>
           {realtimeError && (

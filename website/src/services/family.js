@@ -32,6 +32,17 @@ export async function getFamilyMembers() {
   return data;
 }
 
+export async function getFamilyMembersPaginated(limit = 10, offset = 0) {
+  const { data, error } = await supabase.rpc("get_family_members_paginated", {
+    page_limit: limit,
+    page_offset: offset,
+  });
+  if (error) return { members: [], total: 0 };
+  const total = data.length > 0 ? Number(data[0].total_count) : 0;
+  const members = data.map(({ total_count, ...m }) => m);
+  return { members, total };
+}
+
 export async function leaveFamily() {
   const { error } = await supabase.rpc("leave_family");
   if (error) throw new Error(error.message);

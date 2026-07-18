@@ -5,6 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { updateLocationSharing } from "../../services/location.js";
+import { updateProfile } from "../../services/profile.js";
 
 const COLORS = {
   shieldPrimary: "#991b1b",
@@ -24,12 +25,17 @@ export default function SettingsScreen({ navigation }) {
   
   const [locationEnabled, setLocationEnabled] = useState(profile?.location_sharing ?? false);
   const [loading, setLoading] = useState(false);
+  const [tideEnabled, setTideEnabled] = useState(profile?.tide_alerts_enabled ?? true);
+  const [tideLoading, setTideLoading] = useState(false);
 
   useEffect(() => {
     if (profile?.location_sharing !== undefined) {
       setLocationEnabled(profile.location_sharing);
     }
-  }, [profile?.location_sharing]);
+    if (profile?.tide_alerts_enabled !== undefined) {
+      setTideEnabled(profile.tide_alerts_enabled);
+    }
+  }, [profile?.location_sharing, profile?.tide_alerts_enabled]);
 
   const handleLocationToggle = async (newValue) => {
     setLocationEnabled(newValue);
@@ -46,6 +52,24 @@ export default function SettingsScreen({ navigation }) {
       showToast(error.message || "Failed to update location sharing", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTideToggle = async (newValue) => {
+    setTideEnabled(newValue);
+    setTideLoading(true);
+    try {
+      await updateProfile({ tide_alerts_enabled: newValue });
+      await refreshProfile();
+      showToast(
+        newValue ? "Tide alerts enabled" : "Tide alerts disabled",
+        "success",
+      );
+    } catch (error) {
+      setTideEnabled(!newValue);
+      showToast(error.message || "Failed to update tide alerts", "error");
+    } finally {
+      setTideLoading(false);
     }
   };
 
@@ -81,6 +105,32 @@ export default function SettingsScreen({ navigation }) {
                 onValueChange={handleLocationToggle}
                 trackColor={{ false: COLORS.gray300, true: "#fca5a5" }}
                 thumbColor={locationEnabled ? COLORS.shieldPrimary : COLORS.white}
+              />
+            )}
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>NOTIFICATIONS</Text>
+
+        <View style={styles.settingItem}>
+          <View style={styles.settingInfo}>
+            <View style={styles.settingTitleRow}>
+              <MaterialIcons name="waves" size={22} color={COLORS.shieldPrimary} />
+              <Text style={styles.settingTitle}>Tide Alerts</Text>
+            </View>
+            <Text style={styles.settingDescription}>
+              Receive push notifications about current tide conditions at 8am, 12pm, and 6pm.
+            </Text>
+          </View>
+          <View style={styles.switchContainer}>
+            {tideLoading ? (
+              <ActivityIndicator size="small" color={COLORS.shieldPrimary} />
+            ) : (
+              <Switch
+                value={tideEnabled}
+                onValueChange={handleTideToggle}
+                trackColor={{ false: COLORS.gray300, true: "#fca5a5" }}
+                thumbColor={tideEnabled ? COLORS.shieldPrimary : COLORS.white}
               />
             )}
           </View>

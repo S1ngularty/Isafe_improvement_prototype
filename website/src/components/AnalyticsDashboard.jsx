@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -6,6 +6,8 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet.heat";
+import { Doughnut, Line, Bar } from "react-chartjs-2";
+import "../utils/chartSetup.js";
 import { useAuth } from "../context/AuthContext";
 import {
   fetchKpiData,
@@ -104,20 +106,100 @@ function HeatmapLayer({ points }) {
   return null;
 }
 
-function DynamicPlot({ Plot, data, layout, config, style, onClick }) {
-  if (!Plot) return <div className="h-64 bg-gray-50 rounded-xl animate-pulse" />;
+function MapLegend() {
+  const map = useMap();
+  const ctrlRef = useRef(null);
+
+  useEffect(() => {
+    const legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = () => {
+      const div = L.DomUtil.create("div", "rounded-lg shadow-md bg-white px-3 py-2 text-xs leading-tight");
+      div.style.background = "white";
+      div.style.padding = "8px 12px";
+      div.style.borderRadius = "8px";
+      div.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+      div.innerHTML = `
+        <div style="font-weight:600;color:#374151;margin-bottom:4px;font-size:10px;">Intensity Scale</div>
+        <div style="height:10px;width:120px;border-radius:4px;background:linear-gradient(to right, #22c55e, #eab308, #f97316, #ef4444, #991b1b);"></div>
+        <div style="display:flex;justify-content:space-between;color:#9ca3af;font-size:9px;margin-top:2px;">
+          <span>Low</span>
+          <span>High</span>
+        </div>
+      `;
+      return div;
+    };
+
+    legend.addTo(map);
+    ctrlRef.current = legend;
+
+    return () => {
+      legend.remove();
+    };
+  }, [map]);
+
+  return null;
+}
+
+function ChartContainer({ children, height = 280 }) {
+  return <div style={{ width: "100%", height }}>{children}</div>;
+}
+
+function ActivityMatrix({ data }) {
+  if (!data) return <ChartContainer height={260}><div className="h-64 bg-gray-50 rounded-xl animate-pulse" /></ChartContainer>;
+
+  const maxVal = Math.max(...data.values.flat(), 1);
+  const days = data.days || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const hours = data.hours || Array.from({ length: 24 }, (_, i) => `${i}:00`);
+
+  function getColor(val) {
+    const i = maxVal > 0 ? val / maxVal : 0;
+    if (i === 0) return "#f0fdf4";
+    if (i < 0.25) return "#bbf7d0";
+    if (i < 0.5) return "#fde68a";
+    if (i < 0.75) return "#f97316";
+    return "#dc2626";
+  }
+
   return (
-    <Plot
-      data={data}
-      layout={layout}
-      config={config || { displayModeBar: false, responsive: true }}
-      style={style || { width: "100%", height: 300 }}
-      onClick={onClick}
-    />
+    <div className="overflow-x-auto">
+      <div className="grid min-w-[500px]" style={{ gridTemplateColumns: "55px repeat(24, 1fr)", gap: 1.5 }}>
+        <div />
+        {hours.map((h) => (
+          <div key={h} className="text-[7px] text-gray-400 text-center leading-tight">{h}</div>
+        ))}
+        {days.map((day, di) => (
+          <Fragment key={day}>
+            <div className="text-[9px] text-gray-500 text-right pr-1 leading-loose">{day}</div>
+            {data.values[di].map((val, hi) => (
+              <div
+                key={`${di}-${hi}`}
+                className="rounded-[3px]"
+                style={{ backgroundColor: getColor(val), aspectRatio: "1", minWidth: 10, minHeight: 10 }}
+                title={`${day} ${hours[hi]} — ${val.toFixed(2)}`}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mt-3 justify-center">
+        <span className="text-[10px] text-gray-400 font-medium">Legend:</span>
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#f0fdf4" }} />
+        <span className="text-[10px] text-gray-400">None</span>
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#bbf7d0" }} />
+        <span className="text-[10px] text-gray-400">Low</span>
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#fde68a" }} />
+        <span className="text-[10px] text-gray-400">Moderate</span>
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#f97316" }} />
+        <span className="text-[10px] text-gray-400">High</span>
+        <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: "#dc2626" }} />
+        <span className="text-[10px] text-gray-400">Very High</span>
+      </div>
+    </div>
   );
 }
 
-function usePolling(fetchFn, intervalMs, deps = [], enabled = true) {
+function usePolling(fetchFn, intervalMs, deps = [], enabled = true, initialDelayMs = 0) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -142,13 +224,14 @@ function usePolling(fetchFn, intervalMs, deps = [], enabled = true) {
       }
     }
 
-    load();
+    const initialTimer = setTimeout(load, initialDelayMs);
     if (intervalMs > 0) {
       timer = setInterval(load, intervalMs);
     }
 
     return () => {
       mounted = false;
+      clearTimeout(initialTimer);
       if (timer) clearInterval(timer);
     };
   }, [...deps, enabled]);
@@ -156,37 +239,27 @@ function usePolling(fetchFn, intervalMs, deps = [], enabled = true) {
   return { data, loading, error };
 }
 
-const DEFAULT_LAYOUT = {
-  font: { size: 11, color: "#374151" },
-  margin: { l: 40, r: 10, t: 30, b: 30 },
-  plot_bgcolor: "transparent",
-  paper_bgcolor: "transparent",
-  showlegend: true,
-  legend: { orientation: "h", y: 1.1, x: 0.5, xanchor: "center", font: { size: 10 } },
-  height: 280,
-};
-
 export default function AnalyticsDashboard() {
   const { session } = useAuth();
-  const [Plot, setPlot] = useState(null);
   const [backfilling, setBackfilling] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [analysis, setAnalysis] = useState({ en: null, fil: null });
   const [analysisLang, setAnalysisLang] = useState("en");
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const analysisFetchedRef = useRef({ en: false, fil: false });
-
-  useEffect(() => {
-    import("react-plotly.js").then((mod) => setPlot(() => mod.default));
-  }, []);
 
   async function handleRefresh() {
     setBackfilling(true);
     try {
       await triggerBackfill();
-      window.location.reload();
+      setRefreshKey((k) => k + 1);
+      analysisFetchedRef.current = { en: false, fil: false };
+      setAnalysis({ en: null, fil: null });
     } catch {
+      // ignore
+    } finally {
       setBackfilling(false);
     }
   }
@@ -211,22 +284,22 @@ export default function AnalyticsDashboard() {
     }
   }
 
-  const { data: kpi, loading: kpiLoading } = usePolling(fetchKpiData, 60000, [], !!session);
-  const { data: heatmapData } = usePolling(() => fetchHeatmapData(24), 60000, [], !!session);
-  const { data: trends } = usePolling(() => fetchTrendsData(30), 300000, [], !!session);
-  const { data: temporal } = usePolling(fetchTemporalHeatmap, 300000, [], !!session);
-  const { data: responseTimes } = usePolling(() => fetchResponseTimes(30), 300000, [], !!session);
-  const { data: barangay } = usePolling(fetchBarangayStats, 300000, [], !!session);
-  const { data: rescuerPerf } = usePolling(fetchRescuerPerformance, 300000, [], !!session);
-  const { data: demo } = usePolling(fetchDemographics, 600000, [], !!session);
-  const { data: evacStatus } = usePolling(fetchEvacuationStatus, 300000, [], !!session);
-  const { data: recentAlerts } = usePolling(() => fetchRecentActivity(20), 120000, [], !!session);
+  const { data: kpi, loading: kpiLoading } = usePolling(fetchKpiData, 60000, [refreshKey], !!session, 0);
+  const { data: heatmapData } = usePolling(() => fetchHeatmapData(24), 60000, [refreshKey], !!session, 300);
+  const { data: trends } = usePolling(() => fetchTrendsData(30), 300000, [refreshKey], !!session, 600);
+  const { data: temporal } = usePolling(fetchTemporalHeatmap, 300000, [refreshKey], !!session, 900);
+  const { data: responseTimes } = usePolling(() => fetchResponseTimes(30), 300000, [refreshKey], !!session, 1200);
+  const { data: barangay } = usePolling(fetchBarangayStats, 300000, [refreshKey], !!session, 1500);
+  const { data: rescuerPerf } = usePolling(fetchRescuerPerformance, 300000, [refreshKey], !!session, 1800);
+  const { data: demo } = usePolling(fetchDemographics, 600000, [refreshKey], !!session, 2100);
+  const { data: evacStatus } = usePolling(fetchEvacuationStatus, 300000, [refreshKey], !!session, 2400);
+  const { data: recentAlerts } = usePolling(() => fetchRecentActivity(20), 120000, [refreshKey], !!session, 2700);
 
   useEffect(() => {
     if (!kpi || !trends || !barangay || !responseTimes || !demo || !rescuerPerf || !temporal || !heatmapData) return;
     if (analysisFetchedRef.current[analysisLang]) return;
     runAnalysis(analysisLang);
-  }, [kpi, trends, barangay, responseTimes, demo, rescuerPerf, temporal, heatmapData, analysisLang]);
+  }, [kpi, trends, barangay, responseTimes, demo, rescuerPerf, temporal, heatmapData, analysisLang, refreshKey]);
 
   async function runAnalysis(lang) {
     if (!kpi || !trends || !barangay) return;
@@ -262,9 +335,8 @@ export default function AnalyticsDashboard() {
   const trendChart = useMemo(() => {
     if (!trends?.days) return null;
     const days = trends.days;
-    const dates = days.map((d) => d.date);
     return {
-      dates,
+      dates: days.map((d) => d.date),
       incidents: days.map((d) => d.new_incidents),
       resolved: days.map((d) => d.resolved_incidents),
       rescues: days.map((d) => d.rescue_assignments_completed),
@@ -324,6 +396,206 @@ export default function AnalyticsDashboard() {
     return { bloodTypes, ageGroups };
   }, [demo]);
 
+  const statusDistChartData = useMemo(() => ({
+    labels: ["Safe", "Help", "Emergency"],
+    datasets: [{
+      data: [kpi?.users_safe || 0, kpi?.users_help || 0, kpi?.users_emergency || 0],
+      backgroundColor: [GREEN, AMBER, RED],
+      borderWidth: 0,
+    }],
+  }), [kpi?.users_safe, kpi?.users_help, kpi?.users_emergency]);
+
+  const trendChartData = useMemo(() => {
+    if (!trendChart) return { labels: [], datasets: [] };
+    return {
+      labels: trendChart.dates,
+      datasets: [
+        {
+          label: "Incidents",
+          data: trendChart.incidents,
+          borderColor: RED,
+          backgroundColor: "rgba(239,68,68,0.1)",
+          fill: true,
+          tension: 0,
+          pointRadius: 4,
+          borderWidth: 2,
+        },
+        {
+          label: "Resolved",
+          data: trendChart.resolved,
+          borderColor: GREEN,
+          backgroundColor: "transparent",
+          fill: false,
+          tension: 0,
+          pointRadius: 4,
+          borderWidth: 2,
+        },
+      ],
+    };
+  }, [trendChart]);
+
+  const responseChartData = useMemo(() => {
+    if (!responseChart) return { labels: [], datasets: [] };
+    const nonNull = responseChart.avg.some((v) => v != null) || responseChart.p90.some((v) => v != null);
+    if (!nonNull) return { labels: responseChart.dates, datasets: [] };
+    return {
+      labels: responseChart.dates,
+      datasets: [
+        {
+          label: "Avg Response",
+          data: responseChart.avg,
+          backgroundColor: BLUE,
+        },
+        {
+          label: "P90 Response",
+          data: responseChart.p90,
+          backgroundColor: RED,
+        },
+      ],
+    };
+  }, [responseChart]);
+
+  const barangayChartData = useMemo(() => {
+    if (!barangayChart) return { labels: [], datasets: [] };
+    return {
+      labels: barangayChart.names,
+      datasets: [
+        {
+          label: "Emergency",
+          data: barangayChart.emergency,
+          backgroundColor: RED,
+        },
+        {
+          label: "Help",
+          data: barangayChart.help,
+          backgroundColor: AMBER,
+        },
+      ],
+    };
+  }, [barangayChart]);
+
+  const rescuerChartData = useMemo(() => {
+    if (!rescuerChart) return { labels: [], datasets: [] };
+    return {
+      labels: rescuerChart.names,
+      datasets: [
+        {
+          label: "Helped",
+          data: rescuerChart.helped,
+          backgroundColor: GREEN,
+        },
+        {
+          label: "Cancelled",
+          data: rescuerChart.cancelled,
+          backgroundColor: GRAY,
+        },
+      ],
+    };
+  }, [rescuerChart]);
+
+  const bloodTypeChartData = useMemo(() => {
+    if (!demoChart) return { labels: [], datasets: [] };
+    return {
+      labels: demoChart.bloodTypes.map(([t]) => t),
+      datasets: [{
+        data: demoChart.bloodTypes.map(([, c]) => c),
+        backgroundColor: ["#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"],
+        borderWidth: 0,
+      }],
+    };
+  }, [demoChart]);
+
+  const ageGroupChartData = useMemo(() => {
+    if (!demoChart) return { labels: [], datasets: [] };
+    return {
+      labels: demoChart.ageGroups.map(([a]) => a),
+      datasets: [{
+        data: demoChart.ageGroups.map(([, c]) => c),
+        backgroundColor: ["#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8", "#1e3a8a"],
+      }],
+    };
+  }, [demoChart]);
+
+  const DOUGHNUT_OPTS = {
+    cutout: "55%",
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      datalabels: {
+        color: "#374151",
+        font: { size: 10 },
+        formatter: (v, ctx) => {
+          const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+          const pct = total > 0 ? ((v / total) * 100).toFixed(0) : 0;
+          return `${ctx.chart.data.labels[ctx.dataIndex]}\n${pct}%`;
+        },
+      },
+    },
+  };
+
+  const LINE_OPTS = {
+    maintainAspectRatio: false,
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 } },
+      x: { ticks: { font: { size: 9 } } },
+    },
+    interaction: { mode: "index", axis: "x" },
+    plugins: { legend: { display: false }, datalabels: { display: false } },
+  };
+
+  const RESPONSE_OPTS = {
+    maintainAspectRatio: false,
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true, title: { display: true, text: "Seconds" } },
+      x: { ticks: { font: { size: 8 } } },
+    },
+    interaction: { mode: "index", axis: "x" },
+    plugins: { legend: { display: false }, datalabels: { display: false } },
+  };
+
+  const STACKED_H_OPTS = {
+    indexAxis: "y",
+    maintainAspectRatio: false,
+    responsive: true,
+    scales: {
+      x: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } },
+      y: { stacked: true, ticks: { font: { size: 9 } } },
+    },
+    plugins: {
+      legend: { display: true, position: "top", labels: { font: { size: 10 } } },
+      datalabels: { display: false },
+    },
+  };
+
+  const AGE_OPTS = {
+    maintainAspectRatio: false,
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 } },
+      x: { ticks: { font: { size: 8 } } },
+    },
+    plugins: {
+      legend: { display: false },
+      datalabels: {
+        color: "#374151",
+        anchor: "end",
+        align: "end",
+        font: { size: 9 },
+        formatter: (v) => v,
+      },
+    },
+  };
+
+  const AGE_DATASET = useMemo(() => {
+    if (!demoChart) return [];
+    return [{
+      data: demoChart.ageGroups.map(([, c]) => c),
+      backgroundColor: ["#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8", "#1e3a8a"],
+    }];
+  }, [demoChart]);
+
   return (
     <div className="space-y-6">
       {/* Section: Overview */}
@@ -354,43 +626,23 @@ export default function AnalyticsDashboard() {
 
       {/* KPI Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KpiCard
-          label="Total Users"
-          value={kpi?.total_users}
-          color="blue"
-        />
+        <KpiCard label="Total Users" value={kpi?.total_users} color="blue" />
         <KpiCard
           label="Emergency"
           value={kpi?.users_emergency}
-          sub={
-            kpi?.emergency_rate != null
-              ? `${kpi.emergency_rate}% of users`
-              : null
-          }
+          sub={kpi?.emergency_rate != null ? `${kpi.emergency_rate}% of users` : null}
           color="red"
         />
-        <KpiCard
-          label="Help Needed"
-          value={kpi?.users_help}
-          color="amber"
-        />
+        <KpiCard label="Help Needed" value={kpi?.users_help} color="amber" />
         <KpiCard
           label="Active Rescuers"
           value={kpi?.active_rescuers}
-          sub={
-            kpi?.available_rescuers != null
-              ? `${kpi.available_rescuers} available`
-              : null
-          }
+          sub={kpi?.available_rescuers != null ? `${kpi.available_rescuers} available` : null}
           color="green"
         />
         <KpiCard
           label="Avg Response"
-          value={
-            kpi?.avg_response_seconds != null
-              ? `${Math.round(kpi.avg_response_seconds / 60)}m`
-              : "..."
-          }
+          value={kpi?.avg_response_seconds != null ? `${Math.round(kpi.avg_response_seconds / 60)}m` : "..."}
           sub={kpi?.today_rescues_created != null ? `${kpi.today_rescues_created} rescues today` : null}
           color="shield"
         />
@@ -509,6 +761,7 @@ export default function AnalyticsDashboard() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             <HeatmapLayer points={heatmapPoints} />
+            <MapLegend />
           </MapContainer>
         </div>
         <div className="px-4 pb-3">
@@ -520,73 +773,17 @@ export default function AnalyticsDashboard() {
       <div className="grid lg:grid-cols-2 gap-6">
         <div id="chart-status-distribution" className="card">
           <h3 className="font-bold text-gray-900 mb-4">Status Distribution</h3>
-          <DynamicPlot
-            Plot={Plot}
-            data={[
-              {
-                type: "pie",
-                labels: ["Safe", "Help", "Emergency"],
-                values: [
-                  kpi?.users_safe || 0,
-                  kpi?.users_help || 0,
-                  kpi?.users_emergency || 0,
-                ],
-                marker: {
-                  colors: [GREEN, AMBER, RED],
-                },
-                hole: 0.45,
-                textinfo: "label+percent",
-                textposition: "outside",
-                textfont: { size: 10 },
-              },
-            ]}
-            layout={{
-              ...DEFAULT_LAYOUT,
-              height: 260,
-              showlegend: false,
-              margin: { l: 10, r: 10, t: 10, b: 10 },
-            }}
-          />
+          <ChartContainer height={260}>
+            <Doughnut data={statusDistChartData} options={DOUGHNUT_OPTS} />
+          </ChartContainer>
           <ChartInsight text={analysis[analysisLang]?.chart_insights?.status_distribution} />
         </div>
 
         <div id="chart-trend" className="card">
           <h3 className="font-bold text-gray-900 mb-4">Daily Incident Trend</h3>
-          <DynamicPlot
-            Plot={Plot}
-            data={
-              trendChart
-                ? [
-                    {
-                      type: "scatter",
-                      mode: "lines+markers",
-                      x: trendChart.dates,
-                      y: trendChart.incidents,
-                      name: "Incidents",
-                      line: { color: RED, width: 2 },
-                      marker: { size: 4 },
-                      fill: "tozeroy",
-                      fillcolor: "rgba(239,68,68,0.1)",
-                    },
-                    {
-                      type: "scatter",
-                      mode: "lines+markers",
-                      x: trendChart.dates,
-                      y: trendChart.resolved,
-                      name: "Resolved",
-                      line: { color: GREEN, width: 2 },
-                      marker: { size: 4 },
-                    },
-                  ]
-                : []
-            }
-            layout={{
-              ...DEFAULT_LAYOUT,
-              yaxis: { rangemode: "tozero", dtick: 1 },
-              xaxis: { tickfont: { size: 9 } },
-              hovermode: "x",
-            }}
-          />
+          <ChartContainer height={280}>
+            <Line data={trendChartData} options={LINE_OPTS} />
+          </ChartContainer>
           <ChartInsight text={analysis[analysisLang]?.chart_insights?.incident_trend} />
         </div>
       </div>
@@ -596,37 +793,7 @@ export default function AnalyticsDashboard() {
         <h3 className="font-bold text-gray-900 mb-4">
           Activity Patterns — Hour × Day of Week
         </h3>
-        <DynamicPlot
-          Plot={Plot}
-          data={
-            temporal
-              ? [
-                  {
-                    type: "heatmap",
-                    z: temporal.values,
-                    x: temporal.hours,
-                    y: temporal.days,
-                    colorscale: [
-                      [0, "#f0fdf4"],
-                      [0.25, "#bbf7d0"],
-                      [0.5, "#fde68a"],
-                      [0.75, "#f97316"],
-                      [1, "#dc2626"],
-                    ],
-                    hoverongaps: false,
-                    hovertemplate: "Day: %{y}<br>Hour: %{x}<br>Activity: %{z:.2f}<extra></extra>",
-                  },
-                ]
-              : []
-          }
-          layout={{
-            ...DEFAULT_LAYOUT,
-            height: 260,
-            xaxis: { title: "Hour of Day", dtick: 3, tickfont: { size: 9 } },
-            yaxis: { tickfont: { size: 9 } },
-            margin: { l: 40, r: 10, t: 10, b: 40 },
-          }}
-        />
+        <ActivityMatrix data={temporal} />
         <ChartInsight text={analysis[analysisLang]?.chart_insights?.temporal_heatmap} />
       </div>
 
@@ -636,35 +803,9 @@ export default function AnalyticsDashboard() {
           <h3 className="font-bold text-gray-900 mb-4">
             Response Time Trend (seconds)
           </h3>
-          <DynamicPlot
-            Plot={Plot}
-            data={
-              responseChart
-                ? [
-                    {
-                      type: "bar",
-                      x: responseChart.dates,
-                      y: responseChart.avg,
-                      name: "Avg Response",
-                      marker: { color: BLUE },
-                    },
-                    {
-                      type: "bar",
-                      x: responseChart.dates,
-                      y: responseChart.p90,
-                      name: "P90 Response",
-                      marker: { color: RED },
-                    },
-                  ].filter((t) => t.y.some((v) => v != null))
-                : []
-            }
-            layout={{
-              ...DEFAULT_LAYOUT,
-              yaxis: { rangemode: "tozero", title: "Seconds" },
-              xaxis: { tickfont: { size: 8 }, dtick: 5 },
-              hovermode: "x",
-            }}
-          />
+          <ChartContainer height={280}>
+            <Bar data={responseChartData} options={RESPONSE_OPTS} />
+          </ChartContainer>
           <ChartInsight text={analysis[analysisLang]?.chart_insights?.response_times} />
         </div>
 
@@ -672,44 +813,9 @@ export default function AnalyticsDashboard() {
           <h3 className="font-bold text-gray-900 mb-4">
             Most Affected Barangays
           </h3>
-          <DynamicPlot
-            Plot={Plot}
-            data={
-              barangayChart
-                ? [
-                    {
-                      type: "bar",
-                      orientation: "h",
-                      y: barangayChart.names,
-                      x: barangayChart.emergency,
-                      name: "Emergency",
-                      marker: { color: RED },
-                      customdata: barangayChart.rates,
-                      hovertemplate: "%{y}: %{x} emergency (%{customdata}%)<extra></extra>",
-                    },
-                    {
-                      type: "bar",
-                      orientation: "h",
-                      y: barangayChart.names,
-                      x: barangayChart.help,
-                      name: "Help",
-                      marker: { color: AMBER },
-                      hovertemplate: "%{y}: %{x} help<extra></extra>",
-                    },
-                  ]
-                : []
-            }
-            layout={{
-              ...DEFAULT_LAYOUT,
-              barmode: "stack",
-              height: 320,
-              xaxis: { rangemode: "tozero", dtick: 1 },
-              yaxis: { tickfont: { size: 9 }, automargin: true },
-              margin: { l: 100, r: 10, t: 10, b: 30 },
-              showlegend: true,
-              legend: { orientation: "h", y: 1.05, x: 0.5, xanchor: "center", font: { size: 10 } },
-            }}
-          />
+          <ChartContainer height={320}>
+            <Bar data={barangayChartData} options={STACKED_H_OPTS} />
+          </ChartContainer>
           <ChartInsight text={analysis[analysisLang]?.chart_insights?.barangay} />
         </div>
       </div>
@@ -720,41 +826,9 @@ export default function AnalyticsDashboard() {
           <h3 className="font-bold text-gray-900 mb-4">
             Top Rescuers by Assignments
           </h3>
-          <DynamicPlot
-            Plot={Plot}
-            data={
-              rescuerChart
-                ? [
-                    {
-                      type: "bar",
-                      orientation: "h",
-                      y: rescuerChart.names,
-                      x: rescuerChart.helped,
-                      name: "Helped",
-                      marker: { color: GREEN },
-                    },
-                    {
-                      type: "bar",
-                      orientation: "h",
-                      y: rescuerChart.names,
-                      x: rescuerChart.cancelled,
-                      name: "Cancelled",
-                      marker: { color: GRAY },
-                    },
-                  ]
-                : []
-            }
-            layout={{
-              ...DEFAULT_LAYOUT,
-              barmode: "stack",
-              height: 320,
-              xaxis: { rangemode: "tozero", dtick: 1 },
-              yaxis: { tickfont: { size: 9 }, automargin: true },
-              margin: { l: 100, r: 10, t: 10, b: 30 },
-              showlegend: true,
-              legend: { orientation: "h", y: 1.05, x: 0.5, xanchor: "center", font: { size: 10 } },
-            }}
-          />
+          <ChartContainer height={320}>
+            <Bar data={rescuerChartData} options={STACKED_H_OPTS} />
+          </ChartContainer>
           <ChartInsight text={analysis[analysisLang]?.chart_insights?.rescuer_performance} />
         </div>
 
@@ -766,30 +840,9 @@ export default function AnalyticsDashboard() {
                 Blood Type
               </h4>
               {demoChart ? (
-                <DynamicPlot
-                  Plot={Plot}
-                  data={[
-                    {
-                      type: "pie",
-                      labels: demoChart.bloodTypes.map(([t]) => t),
-                      values: demoChart.bloodTypes.map(([, c]) => c),
-                      marker: {
-                        colors: ["#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"],
-                      },
-                      hole: 0.4,
-                      textinfo: "label+percent",
-                      textfont: { size: 9 },
-                    },
-                  ]}
-                  layout={{
-                    ...DEFAULT_LAYOUT,
-                    height: 200,
-                    showlegend: false,
-                    margin: { l: 5, r: 5, t: 5, b: 5 },
-                  }}
-                  config={{ displayModeBar: false, responsive: true }}
-                  style={{ width: "100%", height: 200 }}
-                />
+                <ChartContainer height={200}>
+                  <Doughnut data={bloodTypeChartData} options={DOUGHNUT_OPTS} />
+                </ChartContainer>
               ) : (
                 <div className="h-48 bg-gray-50 rounded animate-pulse" />
               )}
@@ -804,38 +857,12 @@ export default function AnalyticsDashboard() {
                 Age Groups
               </h4>
               {demoChart ? (
-                <DynamicPlot
-                  Plot={Plot}
-                  data={[
-                    {
-                      type: "bar",
-                      x: demoChart.ageGroups.map(([a]) => a),
-                      y: demoChart.ageGroups.map(([, c]) => c),
-                      marker: {
-                        color: [
-                          "#93c5fd",
-                          "#60a5fa",
-                          "#3b82f6",
-                          "#1d4ed8",
-                          "#1e3a8a",
-                        ],
-                      },
-                      text: demoChart.ageGroups.map(([, c]) => c),
-                      textposition: "outside",
-                      textfont: { size: 9 },
-                    },
-                  ]}
-                  layout={{
-                    ...DEFAULT_LAYOUT,
-                    height: 200,
-                    showlegend: false,
-                    margin: { l: 5, r: 5, t: 5, b: 30 },
-                    xaxis: { tickfont: { size: 8 } },
-                    yaxis: { rangemode: "tozero", dtick: 1 },
-                  }}
-                  config={{ displayModeBar: false, responsive: true }}
-                  style={{ width: "100%", height: 200 }}
-                />
+                <ChartContainer height={200}>
+                  <Bar
+                    data={ageGroupChartData}
+                    options={AGE_OPTS}
+                  />
+                </ChartContainer>
               ) : (
                 <div className="h-48 bg-gray-50 rounded animate-pulse" />
               )}
@@ -872,9 +899,7 @@ export default function AnalyticsDashboard() {
                   key={item.id}
                   className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0"
                 >
-                  <span
-                    className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${color}`}
-                  />
+                  <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${color}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-700 truncate">
                       <span className="font-medium">{item.full_name || "User"}</span>{" "}
@@ -882,9 +907,7 @@ export default function AnalyticsDashboard() {
                       <span className="font-semibold">{label}</span>
                     </p>
                     <p className="text-xs text-gray-400">
-                      {item.created_at
-                        ? new Date(item.created_at).toLocaleString()
-                        : ""}
+                      {item.created_at ? new Date(item.created_at).toLocaleString() : ""}
                     </p>
                   </div>
                 </div>

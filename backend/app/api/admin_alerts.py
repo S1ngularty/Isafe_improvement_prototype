@@ -15,7 +15,7 @@ async def status_overview(current_user: dict = Depends(require_admin_only)):
 @router.get("/profiles")
 async def list_profiles(
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(10, ge=1, le=500),
     search: Optional[str] = None,
     order_by: str = Query("created_at"),
     order_dir: str = Query("DESC"),
@@ -33,7 +33,7 @@ async def status_users(
     status: Optional[str] = None,
     search: Optional[str] = None,
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     order_by: str = Query("last_seen_at"),
     order_dir: str = Query("DESC"),
     current_user: dict = Depends(require_admin_only),
@@ -49,7 +49,7 @@ async def status_users(
 async def status_history(
     user_id: str,
     page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=100),
     current_user: dict = Depends(require_admin_only),
 ):
     data = await service.get_status_history(user_id, page=page, limit=limit)
