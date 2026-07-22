@@ -9,7 +9,12 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ipkrnojfydmjqmawhrev.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_S9FcBgjo1_ZD4OTwLl5B0Q_4PmkCqCT",
+        "EXPO_PUBLIC_BACKEND_URL": "https://isafe-improvement-prototype.onrender.com"
+      }
     },
     "production": {
       "autoIncrement": true

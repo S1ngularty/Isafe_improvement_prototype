@@ -8,8 +8,8 @@
 
 #include "secrets.h"
 
-#define TRIG_PIN 26
-#define ECHO_PIN 27
+#define TRIG_PIN 5
+#define ECHO_PIN 18
 #define MAX_DISTANCE 450
 
 #define FLOAT_SWITCH_1M 33
