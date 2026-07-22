@@ -22,6 +22,7 @@ import {
   updateLocationSharing,
 } from "../../services/location.js";
 import AnnouncementBanner from "../../components/AnnouncementBanner.jsx";
+import AnnouncementDetailModal from "../../components/AnnouncementDetailModal.jsx";
 import WeatherPanel from "../../components/WeatherPanel.jsx";
 import AddressSearch from "../../components/AddressSearch.jsx";
 import TcwsBanner from "../../components/TcwsBanner.jsx";
@@ -29,6 +30,8 @@ import { fetchActiveForTarget } from "../../services/rescue.js";
 import useRealtimeRefresh from "../../hooks/useRealtimeRefresh.js";
 import { fetchActiveAlerts } from "../../services/tcws.js";
 import { getDefaultAvatar } from "../../services/profile.js";
+import { fetchWaterLevelSummary } from "../../services/waterLevel.js";
+import { getTideData } from "../../services/tide.js";
 
 const COLORS = {
   shieldDark: "#5c1010",
@@ -79,17 +82,28 @@ export default function DashboardScreen({
   const [tcwsAlerts, setTcwsAlerts] = useState([]);
   const [tcwsDismissed, setTcwsDismissed] = useState(false);
   const [rescueEnRoute, setRescueEnRoute] = useState(null);
+  const [waterLevelSummary, setWaterLevelSummary] = useState(null);
+  const [tideData, setTideData] = useState(null);
+  const [detailAnnouncement, setDetailAnnouncement] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const alerts = await fetchActiveAlerts();
-        if (!cancelled && Array.isArray(alerts) && alerts.length > 0) {
-          setTcwsAlerts(alerts);
+        const [alerts, waterRes, tideRes] = await Promise.all([
+          fetchActiveAlerts().catch(() => []),
+          fetchWaterLevelSummary().catch(() => null),
+          getTideData().catch(() => null)
+        ]);
+        if (!cancelled) {
+          if (Array.isArray(alerts) && alerts.length > 0) {
+            setTcwsAlerts(alerts);
+          }
+          if (waterRes) setWaterLevelSummary(waterRes);
+          if (tideRes) setTideData(tideRes);
         }
       } catch (e) {
-        console.log("[TCWS] Failed to fetch alerts:", e.message);
+        console.log("Failed to fetch dashboard data:", e);
       }
     })();
     return () => {
@@ -220,6 +234,37 @@ export default function DashboardScreen({
     [showToast],
   );
 
+  // --- Status Overview Logic ---
+  let maxUnsafeLevel = "SAFE";
+  let latestWaterLevelStr = "Offline";
+  if (waterLevelSummary) {
+    if (waterLevelSummary.flood_warning_count > 0) maxUnsafeLevel = "FLOOD WARNING";
+    else if (waterLevelSummary.warning_count > 0) maxUnsafeLevel = "WARNING";
+
+    if (waterLevelSummary.latest_readings && waterLevelSummary.latest_readings.length > 0) {
+      const maxReading = Math.max(...waterLevelSummary.latest_readings.map(r => r.water_level_cm));
+      latestWaterLevelStr = `${Math.round(maxReading)} cm`;
+    } else {
+      latestWaterLevelStr = "-- cm";
+    }
+  }
+
+  let nextHighTideStr = "-- at --";
+  if (tideData && tideData.extremes) {
+    const now = new Date();
+    const upcomingHighs = tideData.extremes.filter(e => e.type.toLowerCase() === "high" && new Date(e.time) > now);
+    if (upcomingHighs.length > 0) {
+      const nextHigh = upcomingHighs[0];
+      const timeStr = new Date(nextHigh.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      nextHighTideStr = `${nextHigh.height.toFixed(2)}m at ${timeStr}`;
+    }
+  }
+
+  const tcwsCount = tcwsAlerts.length;
+  const unsafeWaterCount = waterLevelSummary ? waterLevelSummary.unsafe_count : 0;
+  const totalAlerts = tcwsCount + unsafeWaterCount;
+  // -----------------------------
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#800000" />
@@ -338,16 +383,29 @@ export default function DashboardScreen({
           </View>
         )}
 
-        {/* TCWS Alert Banner */}
-        {!tcwsDismissed && tcwsAlerts.length > 0 && (
+        {/* TCWS Status Section */}
+        {!tcwsDismissed && tcwsAlerts.length > 0 ? (
           <TcwsBanner
             alerts={tcwsAlerts}
             onDismiss={() => setTcwsDismissed(true)}
           />
-        )}
+        ) : tcwsDismissed || tcwsAlerts.length === 0 ? (
+          <View style={styles.tcwsNoSignalCard}>
+            <View style={styles.tcwsNoSignalIconCircle}>
+              <MaterialIcons name="shield" size={20} color="#16a34a" />
+            </View>
+            <View style={styles.tcwsNoSignalContent}>
+              <Text style={styles.tcwsNoSignalTitle}>TCWS Status</Text>
+              <Text style={styles.tcwsNoSignalText}>No active tropical cyclone wind signals</Text>
+            </View>
+            <View style={styles.tcwsNoSignalBadge}>
+              <Text style={styles.tcwsNoSignalBadgeText}>ALL CLEAR</Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Announcement Banner */}
-        <AnnouncementBanner />
+        <AnnouncementBanner onPress={setDetailAnnouncement} />
 
         {/* Emergency Alert Section */}
         <View style={styles.emergencyAlertSection}>
@@ -419,15 +477,83 @@ export default function DashboardScreen({
           </View>
         )}
 
-        {/* Weather Panel */}
-        {!isOffline && locationEnabled && location && (
-          <Pressable onPress={() => navigation.navigate("Forecast")}>
+        {/* Overall Status Overview Section */}
+        <View style={styles.statusOverviewSection}>
+          <View style={styles.statusOverviewHeader}>
+            <Text style={styles.sectionTitle}>Status Overview</Text>
+          </View>
+
+          {/* Weather Panel inside Status Overview */}
+          {!isOffline && locationEnabled && location && (
             <WeatherPanel
               lat={location.coords.latitude}
               lng={location.coords.longitude}
+              onPress={() => navigation.navigate("Forecast")}
             />
-          </Pressable>
-        )}
+          )}
+
+          {/* Flood Warning Section (Conditional) */}
+          {waterLevelSummary && waterLevelSummary.unsafe_count > 0 && (
+            <Pressable 
+              style={styles.floodWarningSection} 
+              onPress={() => navigation.navigate("WaterLevel")}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={styles.floodWarningHeader}>
+                  <MaterialIcons name="warning" size={20} color="#dc2626" />
+                  <Text style={styles.floodWarningTitle}>FLOOD WARNING</Text>
+                </View>
+                <Text style={styles.floodWarningText}>
+                  {waterLevelSummary.flood_warning_count > 0 
+                    ? `Critical: ${waterLevelSummary.flood_warning_count} sensors report flood levels.`
+                    : `Warning: ${waterLevelSummary.warning_count} sensors report high water levels.`}
+                  {" "}Tap for details.
+                </Text>
+              </View>
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color="#dc2626"
+              />
+            </Pressable>
+          )}
+
+          {/* Status Overview Grid */}
+          <View style={styles.statusOverviewGrid}>
+            <Pressable style={styles.statusOverviewItem} onPress={() => navigation.navigate("WaterLevel")}>
+              <Text style={styles.statusOverviewValue}>{latestWaterLevelStr}</Text>
+              <Text style={styles.statusOverviewLabel}>Water Level</Text>
+            </Pressable>
+
+            <Pressable style={styles.statusOverviewItem} onPress={() => navigation.navigate("FloodHazard")}>
+              <View style={[styles.statusBadge, { 
+                backgroundColor: maxUnsafeLevel === "SAFE" ? COLORS.successBg : maxUnsafeLevel === "WARNING" ? COLORS.warningBg : COLORS.errorBg 
+              }]}>
+                <MaterialIcons 
+                  name={maxUnsafeLevel === "SAFE" ? "check-circle" : "warning"} 
+                  size={14} 
+                  color={maxUnsafeLevel === "SAFE" ? COLORS.successText : maxUnsafeLevel === "WARNING" ? COLORS.warningText : COLORS.errorText} 
+                />
+                <Text style={[styles.statusBadgeText, { 
+                  color: maxUnsafeLevel === "SAFE" ? COLORS.successText : maxUnsafeLevel === "WARNING" ? COLORS.warningText : COLORS.errorText 
+                }]}>
+                  {maxUnsafeLevel}
+                </Text>
+              </View>
+              <Text style={styles.statusOverviewLabel}>Flood Status</Text>
+            </Pressable>
+
+            <Pressable style={styles.statusOverviewItem} onPress={() => navigation.navigate("TideInfo")}>
+              <Text style={styles.statusOverviewValue} numberOfLines={1} adjustsFontSizeToFit>{nextHighTideStr}</Text>
+              <Text style={styles.statusOverviewLabel}>Next High Tide</Text>
+            </Pressable>
+
+            <View style={styles.statusOverviewItem}>
+              <Text style={styles.statusOverviewValue}>{totalAlerts}</Text>
+              <Text style={styles.statusOverviewLabel}>Active Alerts</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
@@ -528,6 +654,34 @@ export default function DashboardScreen({
               ]}
               onPress={() => {
                 if (isOffline) {
+                  showToast("Flood risk data is unavailable offline", "info");
+                  return;
+                }
+                navigation.navigate("FloodHazard");
+              }}
+              disabled={isOffline}>
+              <View
+                style={[
+                  styles.quickActionIconContainer,
+                  { backgroundColor: isOffline ? "#64748b" : "#dc2626" },
+                ]}>
+                <MaterialIcons name="flood" size={28} color={COLORS.white} />
+              </View>
+              <Text
+                style={[
+                  styles.quickActionLabel,
+                  isOffline && styles.quickActionLabelDisabled,
+                ]}>
+                {isOffline ? "Flood Risk\nOffline" : "Flood Risk"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.quickActionButton,
+                isOffline && styles.quickActionButtonDisabled,
+              ]}
+              onPress={() => {
+                if (isOffline) {
                   showToast("Water level data is unavailable offline", "info");
                   return;
                 }
@@ -607,104 +761,6 @@ export default function DashboardScreen({
             </Pressable>
           </View>
         </View>
-
-        {/* {!isOffline && (
-          <View style={styles.locationSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Location Tracking</Text>
-              <Switch
-                value={locationEnabled}
-                onValueChange={handleLocationToggle}
-                trackColor={{ false: COLORS.gray300, true: "#800000" }}
-                thumbColor={locationEnabled ? "#800000" : COLORS.gray500}
-              />
-            </View>
-            {locationEnabled && location && (
-              <View style={styles.locationInfo}>
-                <View style={styles.locationRow}>
-                  <MaterialIcons name="location-on" size={16} color="#800000" />
-                  <Text style={styles.locationText}>
-                    {location.coords.latitude.toFixed(4)},{" "}
-                    {location.coords.longitude.toFixed(4)}
-                  </Text>
-                </View>
-                {location.coords.accuracy && (
-                  <Text style={styles.accuracyText}>
-                    Accuracy: {Math.round(location.coords.accuracy)}m
-                  </Text>
-                )}
-                <Pressable
-                  style={styles.searchButton}
-                  onPress={() => setShowAddressSearch(true)}>
-                  <MaterialIcons name="search" size={16} color="#800000" />
-                  <Text style={styles.searchButtonText}>Search Address</Text>
-                </Pressable>
-              </View>
-            )}
-            {locationEnabled && !location && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#800000" />
-                <Text style={styles.loadingText}>Getting location...</Text>
-              </View>
-            )}
-          </View>
-        )} */}
-
-        {/* Flood Warning (Hidden for now until real API is connected)
-        <View style={styles.floodWarningSection}>
-          <View style={styles.floodWarningHeader}>
-            <MaterialIcons name="water" size={20} color="#800000" />
-            <Text style={styles.floodWarningTitle}>FLOOD WARNING</Text>
-            <MaterialIcons
-              name="chevron-right"
-              size={20}
-              color={COLORS.gray300}
-            />
-          </View>
-          <Text style={styles.floodWarningText}>
-            Water level is rising in your area. Stay alert for updates.
-          </Text>
-        </View>
-
-        <View style={styles.statusOverviewSection}>
-          <View style={styles.statusOverviewHeader}>
-            <Text style={styles.sectionTitle}>Status Overview</Text>
-            <Pressable>
-              <Text style={styles.viewAllLink}>View all</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.statusOverviewGrid}>
-            <View style={styles.statusOverviewItem}>
-              <Text style={styles.statusOverviewValue}>2.35 m</Text>
-              <Text style={styles.statusOverviewLabel}>Water Level</Text>
-            </View>
-
-            <View style={styles.statusOverviewItem}>
-              <View style={styles.statusBadge}>
-                <MaterialIcons name="info" size={14} color="#F59E0B" />
-                <Text style={styles.statusBadgeText}>ADVISORY</Text>
-              </View>
-              <Text style={styles.statusOverviewLabel}>Flood Status</Text>
-            </View>
-
-            <View style={styles.statusOverviewItem}>
-              <Text style={styles.statusOverviewValue}>3</Text>
-              <Text style={styles.statusOverviewLabel}>Active Alerts</Text>
-            </View>
-
-            <View style={[styles.statusOverviewItem, styles.sosOverviewItem]}>
-              <View style={styles.sosIconOverview}>
-                <MaterialIcons name="sos" size={20} color={COLORS.white} />
-              </View>
-              <Text
-                style={[styles.statusOverviewLabel, { color: COLORS.white }]}>
-                SOS Status
-              </Text>
-            </View>
-          </View>
-        </View>
-        */}
         {/* {!isOffline && (
           <View style={styles.aiBotSection}>
             <View style={styles.aiBotHeader}>
@@ -725,6 +781,11 @@ export default function DashboardScreen({
           </View>
         )} */}
       </ScrollView>
+
+      <AnnouncementDetailModal
+        announcement={detailAnnouncement}
+        onClose={() => setDetailAnnouncement(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -1087,98 +1148,103 @@ const styles = StyleSheet.create({
     color: COLORS.gray500,
   },
   floodWarningSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
+    backgroundColor: "#fef2f2",
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: "#800000",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderLeftColor: "#dc2626",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#dc2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   floodWarningHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 4,
+    gap: 6,
   },
   floodWarningTitle: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.gray900,
-    letterSpacing: 0.3,
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#991b1b",
+    letterSpacing: 0.5,
   },
   floodWarningText: {
     fontSize: 12,
-    color: COLORS.gray600,
+    color: "#7f1d1d",
     lineHeight: 18,
+    fontWeight: "500",
   },
   statusOverviewSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   statusOverviewHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
+    paddingHorizontal: 4,
   },
   viewAllLink: {
     fontSize: 12,
     color: "#800000",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   statusOverviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    justifyContent: "space-between",
   },
   statusOverviewItem: {
-    flex: 1,
-    minWidth: "47%",
-    backgroundColor: COLORS.gray50,
-    borderRadius: 10,
-    paddingVertical: 14,
+    width: "48%",
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    paddingVertical: 18,
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.gray100,
   },
   statusOverviewValue: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: COLORS.gray900,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   statusOverviewLabel: {
     fontSize: 11,
-    color: COLORS.gray600,
+    color: COLORS.gray500,
     textAlign: "center",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(245, 158, 11, 0.1)",
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 6,
+    borderRadius: 8,
     gap: 4,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   statusBadgeText: {
     fontSize: 10,
-    fontWeight: "700",
-    color: "#F59E0B",
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   sosOverviewItem: {
     backgroundColor: "#800000",
@@ -1257,5 +1323,52 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: COLORS.gray900,
+  },
+  tcwsNoSignalCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    gap: 10,
+  },
+  tcwsNoSignalIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#dcfce7",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tcwsNoSignalContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tcwsNoSignalTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#15803d",
+    marginBottom: 2,
+  },
+  tcwsNoSignalText: {
+    fontSize: 11,
+    color: "#4ade80",
+    fontWeight: "500",
+  },
+  tcwsNoSignalBadge: {
+    backgroundColor: "#dcfce7",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tcwsNoSignalBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#16a34a",
+    letterSpacing: 0.5,
   },
 });

@@ -8,17 +8,18 @@ const FLOOD_HAZARD_CHART_HTML = `
     body { margin: 0; padding: 16px; background-color: #f9fafb; font-family: -apple-system, system-ui, sans-serif; }
     .chart-container { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .chart { width: 100%; height: 300px; }
+    .chart-placeholder { display: flex; align-items: center; justify-content: center; height: 300px; color: #9ca3af; font-size: 13px; }
   </style>
 </head>
 <body>
   <div class="chart-container">
-    <div id="bar-chart" class="chart"></div>
+    <div id="bar-chart" class="chart"><div class="chart-placeholder">Loading chart data...</div></div>
   </div>
   <div class="chart-container">
-    <div id="donut-chart" class="chart"></div>
+    <div id="donut-chart" class="chart"><div class="chart-placeholder">Loading chart data...</div></div>
   </div>
   <div class="chart-container">
-    <div id="count-chart" class="chart"></div>
+    <div id="count-chart" class="chart"><div class="chart-placeholder">Loading chart data...</div></div>
   </div>
 
   <script>
@@ -36,9 +37,12 @@ const FLOOD_HAZARD_CHART_HTML = `
       legend: { orientation: "h", y: -0.2, x: 0.5, xanchor: "center", font: { size: 10 } },
     };
 
-    function renderCharts(summaryStr) {
-      const summary = JSON.parse(summaryStr);
+    function renderCharts(summaryInput) {
+      const summary = typeof summaryInput === "string" ? JSON.parse(summaryInput) : summaryInput;
       if (!summary || summary.length === 0) return;
+
+      // Remove loading placeholders
+      document.querySelectorAll(".chart-placeholder").forEach(el => el.remove());
 
       const top15 = [...summary].sort((a, b) => b.pct_total_hazard - a.pct_total_hazard).slice(0, 15);
       

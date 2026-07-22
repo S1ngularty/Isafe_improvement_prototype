@@ -27,3 +27,23 @@ export async function fetchFamilyAlerts(userId) {
     return [];
   }
 }
+
+export async function fetchFamilyCurrentStatus(userId) {
+  if (!userId) return null;
+  try {
+    return await apiGet("/api/family-alerts/current", { user_id: userId });
+  } catch (error) {
+    console.warn("Failed to fetch family current status:", error);
+    return null;
+  }
+}
+
+export async function fetchStatusHistory(userId, period = 7, page = 1, limit = 20) {
+  if (!userId) return { data: [], total: 0 };
+  try {
+    return await apiGet("/api/family-alerts/history", { user_id: userId, period, page, limit });
+  } catch (error) {
+    console.warn("Failed to fetch status history:", error);
+    return { data: [], total: 0 };
+  }
+}

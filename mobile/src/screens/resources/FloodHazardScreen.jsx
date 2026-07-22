@@ -99,7 +99,7 @@ export default function FloodHazardScreen({ navigation }) {
 
   // Load Chart Data
   useEffect(() => {
-    if (chartReady && summary.length >= 0) {
+    if (chartReady && summary.length > 0) {
       const msg = JSON.stringify({ type: "RENDER_CHARTS", summary });
       chartWebViewRef.current?.injectJavaScript(`
         try { document.dispatchEvent(new MessageEvent("message", { data: '${msg.replace(/'/g, "\\'")}' })); } catch(e){} true;
@@ -150,9 +150,14 @@ export default function FloodHazardScreen({ navigation }) {
       .finally(() => setAnalysisLoading(false));
   }, [selectedBarangay, lang, summary]);
 
-  // Clear analysis when changing barangay
+  // Clear analysis when changing to a different barangay
+  const prevBarangayRef = useRef(selectedBarangay);
   useEffect(() => {
-    setAnalysis({ en: null, fil: null });
+    if (prevBarangayRef.current !== selectedBarangay) {
+      prevBarangayRef.current = selectedBarangay;
+      setAnalysis({ en: null, fil: null });
+      fetchedAnalysisRef.current = {};
+    }
   }, [selectedBarangay]);
 
   const sortedSummary = [...summary].sort((a, b) => (b.pct_total_hazard || 0) - (a.pct_total_hazard || 0));
